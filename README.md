@@ -1,1 +1,1 @@
-﻿Initial version for simulation of complex hydrogel system
+Martini CG based simulation tool for complex hydrogel system
