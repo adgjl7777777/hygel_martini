@@ -1,0 +1,11 @@
+# paths.yaml
+# Path-related settings.
+paths:
+  # Base directory for monomer xyz files in monomers.yaml.
+  base_dir: ${CONFIG_DIR}
+
+  # Output root for generated polymer/system cases.
+  out_root: ${CONFIG_DIR}/constructor_output
+
+  # GMXRC path used by generated run_pipeline.sh.
+  gmxrc_path: /opt/gromacs/2026/bin/GMXRC

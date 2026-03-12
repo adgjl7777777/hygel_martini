@@ -1,0 +1,16 @@
+# runtime.yaml
+# Defaults consumed by generated run_pipeline.sh.
+runtime:
+  # Default run mode if RUN_MODE env is not set.
+  # none: stop after solvation
+  # cpu: run mdrun on CPU
+  # gpu: run mdrun on GPU
+  default_run_mode: none
+
+  # Default OpenMP thread count in each mode.
+  cpu_omp_threads: 12
+  gpu_omp_threads: 4
+  none_omp_threads: 1
+
+  # Fallback if /dev/urandom seed generation fails.
+  random_seed_fallback: 123456789

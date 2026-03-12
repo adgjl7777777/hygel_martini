@@ -1,0 +1,8 @@
+# includes: 파일 병합 순서 (위에서 아래 순서로 로드 후 마지막 이 파일이 덮어씀)
+# en: includes are loaded in order, then this file can override.
+includes:
+  - config/simulation.yaml
+  - config/hydrogel.yaml
+  - config/mdp.yaml
+  - config/add_series.yaml
+  - config/backbone.yaml

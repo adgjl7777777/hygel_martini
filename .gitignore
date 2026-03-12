@@ -1,0 +1,24 @@
+# Local-only playground for reruns of the published examples
+example_myrun/
+
+# Python cache
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Common generated runtime artifacts
+*.log
+*.edr
+*.tpr
+*.trr
+*.xtc
+*.cpt
+*.xvg
+*.gro.bak
+mdout.mdp
+
+# Editor / backup noise
+*~
+\#*\#

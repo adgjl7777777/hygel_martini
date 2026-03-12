@@ -1,0 +1,35 @@
+# mdp.yaml
+# GROMACS MDP template parameters.
+mdp:
+  # Energy minimization
+  em_nsteps: 50000
+  emtol: 1000.0
+  emstep: 0.01
+
+  # Equilibration lengths
+  nvt_nsteps: 250000    # 0.5 ns at dt=0.002 ps
+  npt_nsteps: 500000    # 1.0 ns at dt=0.002 ps
+
+  # Trajectory output
+  nstxout_compressed: 1000
+
+  # Nonbonded setup
+  cutoff_scheme: Verlet
+  coulombtype: PME
+  rcoulomb_nm: 1.1
+  rvdw_nm: 1.1
+
+  # Thermostat/barostat setup
+  tcoupl: V-rescale
+  tc_grps: System
+  tau_t_ps: 0.1
+  tau_p_ps: 2.0
+  ref_p_bar: 1.0
+  compressibility_bar_inv: 4.5e-5
+
+  # Constraints and periodic boundary conditions
+  constraints: h-bonds
+  pbc: xyz
+
+  # NPT pressure coupling type
+  npt_pcoupltype: isotropic

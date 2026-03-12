@@ -1,0 +1,11 @@
+# maker.yaml (integrated entry)
+# Includes are loaded in order. Later files can override earlier values.
+includes:
+  - config/paths.yaml
+  - config/monomers.yaml
+  - config/system.yaml
+  - config/sampling.yaml
+  - config/mdp.yaml
+  - config/water.yaml
+  - config/runtime.yaml
+  - config/topology.yaml

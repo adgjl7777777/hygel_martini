@@ -1,0 +1,40 @@
+# system.yaml
+# Polymer/system composition and box-rule parameters.
+system:
+  # Homopolymer mode: monomer tokens to generate.
+  # Each token must exist as a key in monomers.yaml.
+  # Tokens can be one letter or string (e.g., SBMA, DMAPS).
+  symbols: [S]
+
+  # Repeat counts for homopolymer generation.
+  lengths: [1]
+
+  # Optional explicit sequence mode (overrides symbols/lengths if set).
+  # Each entry can be:
+  # - comma-separated string: "S,D,C"
+  # - space-separated string: "S D C"
+  # - compact one-letter string: "SDC"
+  # - list form: [SBMA, DMAPS, CBA]
+  # sequences:
+  #   - "S,D,C"
+  #   - [SBMA, DMAPS, CBA]
+
+  # Number of replicas per sequence.
+  replicas: 3
+
+  # Target temperature (Celsius) for density estimate and thermostat ref-t.
+  temperature_c: 37.0
+
+  # Nonbonded cutoff in nm used in box-length rule.
+  cutoff_nm: 1.2
+
+  # Safety margin in nm added to box rule.
+  min_box_safety_nm: 0.1
+
+  # Torsion mode passed to builder:
+  # repeat -> n_torsion = n_repeat
+  # bonds  -> n_torsion = max(1, n_repeat - 1)
+  n_torsion_mode: bonds
+
+  # Solvation route: gromacs | packmol
+  solvate_tool: gromacs

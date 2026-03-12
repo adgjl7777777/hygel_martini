@@ -1,0 +1,9 @@
+# sampling.yaml
+# Time-step and production sampling length.
+sampling:
+  # MD time step in ps.
+  dt_ps: 0.002
+
+  # Final NVT sampling length in steps.
+  # 10,000,000 @ 0.002 ps => 20 ns
+  sample_nsteps: 10000000
