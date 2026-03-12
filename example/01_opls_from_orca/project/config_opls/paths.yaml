@@ -1,0 +1,9 @@
+paths:
+  # Base directory for monomer xyz files in monomers.yaml.
+  base_dir: ${CONFIG_DIR}
+
+  # Output root for generated polymer/system cases.
+  out_root: ${CONFIG_DIR}/output
+
+  # ORCA executable path.
+  orca_path: /opt/orca/orca

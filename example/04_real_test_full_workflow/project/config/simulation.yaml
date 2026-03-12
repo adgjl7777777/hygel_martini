@@ -1,0 +1,92 @@
+# simulation.yaml
+# 한글: 실행/환경 기본 설정. 영어: base simulation/runtime settings.
+
+simulation_parameters:
+  # gromacs 실행 파일 (예: gmx_mpi)
+  # gromacs executable (e.g., gmx_mpi)
+  gromacs_executable_path: gmx_mpi
+
+  # packmol 실행 파일 이름/경로
+  # packmol executable path/name
+  packmol_path: packmol
+
+  # 기본 include 경로 (Martini forcefield 등)
+  # Base include path for Martini forcefield, etc.
+  gromacs_include_path: ${REPO_ROOT}/martini_v300
+
+  # base itp 파일 (Martini atomtypes)
+  # Base itp containing atomtypes
+  base_itp_file: ${REPO_ROOT}/martini_v300/martini_v3.0.0.itp
+
+  # 출력 디렉토리
+  output_dir: ${CONFIG_DIR}/output
+
+  # PBC/박스 관련
+  number_of_cells: 1
+  segment_length: 20
+  # gel_weight_fraction 해석 방식
+  # exclude_ions: 최종 water mass가 목표치를 유지하도록 이온 치환분 water site를 미리 확보
+  # include_ions: 최종 water + ion mass 합이 목표치를 유지하도록 water mass를 계산
+  gel_weight_fraction_mode: exclude_ions
+  pbc_true_or_false: true
+  mean_sep: 0.24
+  # default angle parameters (used when angle rules are not specified)
+  default_angle:
+    angle_funct: 1
+    angle_c0: 180
+    angle_c1: 25
+  # anisotropy axis for layout rotation: x, y, or z. set false for isotropy path
+  anisotropy: false
+  isotropy:
+    boundary_fix_fc: 100000.0
+
+  # GROMACS grompp 허용 경고 수
+  grompp_maxwarn: 2
+
+  # 난수 시드
+  random_seed: 2020
+
+  # proto builder 사용 여부
+
+  # 디버그 모드: true이면 output/debug.txt에 상세 로그 기록
+  # debug mode: if true, write verbose logs to output/debug.txt
+  debug_mode: true
+
+  # 무전하 EM 단계에서 사용할 Coulomb 타입 (예: "Cut-off", 설정 안하면 기존 mdp 사용)
+  # Coulomb type override for neutral EM stages (e.g., "Cut-off"; leave null to keep mdp)
+  neutral_em_coulombtype: Cut-off
+  neutral_em_rcoulomb: 1.5
+  neutral_em_rvdw: 1.5
+
+  # 탭 포텐셜 테이블(include 시 사용). 예: table.xvg, table_dih.xvg
+  # Tabulated potential tables to include (optional)
+  additional_tabulated_tables: []
+
+  # rich ITP 섹션(virtual_sites/restraints/cmap/polarization 등)을 combined ITP에 실제로 쓸지 여부
+  # If true, emit rich ITP sections into combined ITP (may require valid parameters)
+  emit_rich_itp_sections: true
+  # strict_rich_itp_validation: false  # 기본은 문제 라인 skip
+
+  # packmol 허용 중첩 거리(Å)
+  packmol_threshold: 3
+  overlap_check_limit: 10
+  # min distance report auto-skip threshold (atom count)
+  min_distance_report_max_atoms: 3000
+  # side-chain placement performance tuning
+  sidechain_num_candidates: 72
+  sidechain_overlap_threshold_factor: 0.8
+  sidechain_search_radius_factor: 10.0
+  sidechain_placement_scale: 0.5
+  sidechain_nearby_atom_limit: 800
+  sidechain_auto_threshold: 20000
+
+  # Fallback bond used only when linker-specific dynamic crosslink parameters are absent.
+  default_dynamic_crosslink_bond:
+    bond_funct: 1
+    bond_c0: 0.47
+    bond_c1: 1250
+
+# 추가 include ITP (예: custom ion types)
+# additional ITPs to include
+additional_itp_files:
+  - ${CONFIG_DIR}/structure/additional_ions.itp

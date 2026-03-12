@@ -1,0 +1,137 @@
+# hydrogel.yaml
+# 한글: 하이드로젤 골격/링커/사이드체인 정의
+# English: Hydrogel backbone/linker/side-chain definitions
+
+monomer_definitions:
+  MONOMERS:
+    - id: PE          # 모노머 ID / monomer id
+      ratio: 1        # 혼합 비율 / mixing ratio
+      backbone_id: BB1 # 연결될 backbone id
+      gro: ${CONFIG_DIR}/structure/pe.gro
+      itp: ${CONFIG_DIR}/structure/pe.itp
+    - id: TOL
+      ratio: 1
+      backbone_id: BB2
+      gro: ${CONFIG_DIR}/structure/tol.gro
+      itp: ${CONFIG_DIR}/structure/tol.itp
+  SEQUENCE_STRATEGY:
+    strategy: random  # random | block | alternating | long_random
+
+hydrogel_components:
+  backbone_definitions:
+    BACKBONES:
+      - id: BB1
+        ratio: 1
+        definition:
+          atom_type: C1
+          residue_name: BCK1
+          atom_name: B1
+          charge_group_number: 1
+          mass: 56
+          charge: 0.0
+      - id: BB2
+        ratio: 1
+        definition:
+          atom_type: C2
+          residue_name: BCK2
+          atom_name: B2
+          charge_group_number: 1
+          mass: 56
+          charge: 0.0
+    BONDS:
+      - between: [BB1, BB1]  # bond 길이/FC는 martini 기반 값
+        bond_funct: 1
+        bond_c0: 0.47
+        bond_c1: 1250
+      - between: [BB1, BB2]
+        bond_funct: 1
+        bond_c0: 0.47
+        bond_c1: 1250
+      - between: [BB2, BB2]
+        bond_funct: 1
+        bond_c0: 0.47
+        bond_c1: 1250
+    angles:
+      default_angle:
+        angle_funct: 1
+        angle_c0: 180
+        angle_c1: 25
+    SEQUENCE_STRATEGY:
+      strategy: random
+
+  linker_definitions:
+    LINKERS:
+      - id: SS_linker
+        ratio: 1
+        gro: ${CONFIG_DIR}/structure/LNK.gro
+        itp: ${CONFIG_DIR}/structure/LNK.itp
+        linker_residue_name: LNK1
+        backbone_residue_name: LB1
+        backbone_1:
+          - between: BB1
+            bond_funct: 1
+            bond_c0: 0.47
+            bond_c1: 1250
+          - between: BB2
+            bond_funct: 1
+            bond_c0: 0.47
+            bond_c1: 1250
+        backbone_2:
+          - between: BB1
+            bond_funct: 1
+            bond_c0: 0.47
+            bond_c1: 1250
+          - between: BB2
+            bond_funct: 1
+            bond_c0: 0.47
+            bond_c1: 1250
+      - id: DD_linker
+        ratio: 1
+        gro: ${CONFIG_DIR}/structure/LNK2.gro
+        itp: ${CONFIG_DIR}/structure/LNK2.itp
+        linker_residue_name: LNK2
+        backbone_residue_name: LB2
+        backbone_1:
+          - between: BB1
+            bond_funct: 1
+            bond_c0: 0.47
+            bond_c1: 1250
+          - between: BB2
+            bond_funct: 1
+            bond_c0: 0.47
+            bond_c1: 1250
+        backbone_2:
+          - between: BB1
+            bond_funct: 1
+            bond_c0: 0.47
+            bond_c1: 1250
+          - between: BB2
+            bond_funct: 1
+            bond_c0: 0.47
+            bond_c1: 1250
+      - id: SD_linker
+        ratio: 1
+        gro: ${CONFIG_DIR}/structure/LNK3.gro
+        itp: ${CONFIG_DIR}/structure/LNK3.itp
+        linker_residue_name: LNK3
+        backbone_residue_name: LB3
+        backbone_1:
+          - between: BB1
+            bond_funct: 1
+            bond_c0: 0.47
+            bond_c1: 1250
+          - between: BB2
+            bond_funct: 1
+            bond_c0: 0.47
+            bond_c1: 1250
+        backbone_2:
+          - between: BB1
+            bond_funct: 1
+            bond_c0: 0.47
+            bond_c1: 1250
+          - between: BB2
+            bond_funct: 1
+            bond_c0: 0.47
+            bond_c1: 1250
+    SEQUENCE_STRATEGY:
+      strategy: random

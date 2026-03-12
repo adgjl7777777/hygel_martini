@@ -1,0 +1,100 @@
+# add_series.yaml
+# 한글: add_polymer / add_molecule / add_water / add_small_ion 설정
+# English: add_polymer / add_molecule / add_water / add_small_ion settings
+
+add_series_parameters:
+  add_polymer:
+    num_polymers: 1
+    length: 100
+    molecule_name: POLY
+    monomer_definitions:
+      MONOMERS:
+        - id: PE2
+          ratio: 1
+          backbone_id: PB1
+          gro: ${CONFIG_DIR}/structure/polpe.gro
+          itp: ${CONFIG_DIR}/structure/polpe.itp
+        - id: TOL2
+          ratio: 1
+          backbone_id: PB2
+          gro: ${CONFIG_DIR}/structure/poltol.gro
+          itp: ${CONFIG_DIR}/structure/poltol.itp
+      TERMINALS:
+        - id: TER
+          ratio: 1
+          backbone_id: PB2
+          gro: ${CONFIG_DIR}/structure/poltol.gro
+          itp: ${CONFIG_DIR}/structure/poltol.itp
+      TERMINAL_STRATEGY:
+        strategy: random
+      SEQUENCE_STRATEGY:
+        strategy: random
+      BACKBONES:
+        - id: PB1
+          ratio: 1
+          definition:
+            atom_type: C1
+            residue_name: PBC1
+            atom_name: PB1
+            charge_group_number: 1
+            mass: 56
+            charge: 0.0
+        - id: PB2
+          ratio: 1
+          definition:
+            atom_type: C2
+            residue_name: PBC2
+            atom_name: PB2
+            charge_group_number: 1
+            mass: 56
+            charge: 0.0
+      BONDS:
+        - between: [PB1, PB1]
+          bond_funct: 1
+          bond_c0: 0.47
+          bond_c1: 1250
+        - between: [PB1, PB2]
+          bond_funct: 1
+          bond_c0: 0.47
+          bond_c1: 1250
+        - between: [PB2, PB2]
+          bond_funct: 1
+          bond_c0: 0.47
+          bond_c1: 1250
+      default_bond_length: 0.47
+      angles:
+        default_angle:
+          angle_funct: 1
+          angle_c0: 180
+          angle_c1: 25
+        specific_angles: []
+
+  add_molecule:
+    molecule_gro: ${CONFIG_DIR}/structure/LAC.gro
+    num_molecules: 10
+    molecule_itp: ${CONFIG_DIR}/structure/LAC.itp
+
+  add_water:
+    mode: full
+    molecule_name: W
+    water_bead_type: W
+    gel_weight_fraction: 0.6
+
+  add_small_ion:
+    ions:
+      - ion_name: NA
+        number: 10
+        charge: 1
+        additional_add: true
+      - ion_name: MG
+        number: 5
+        charge: 2
+        additional_add: false
+      - ion_name: POT
+        number: 5
+        charge: 1
+        additional_add: false
+      - ion_name: CL
+        number: 25
+        charge: -1
+        additional_add: true

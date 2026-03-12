@@ -1,0 +1,51 @@
+# backbone.yaml
+# English-only patch rules for the legacy real_test chemistry.
+# These rules update the generated hydrogel topology after the backbone and
+# side-chain structures have been instantiated.
+
+bonds:
+  - residue_name: [BCK1, BCK1]
+    bead_type: [C1, C1]
+    funct: 1
+    c0: 0.47
+    c1: 1250
+  - residue_name: [BCK1, BCK2]
+    bead_type: [C1, C2]
+    funct: 1
+    c0: 0.47
+    c1: 1250
+  - residue_name: [BCK2, BCK2]
+    bead_type: [C2, C2]
+    funct: 1
+    c0: 0.47
+    c1: 1250
+  - residue_name: [LB1, BCK1]
+    bead_type: ["*", C1]
+    funct: 1
+    c0: 0.47
+    c1: 1250
+  - residue_name: [LB1, BCK2]
+    bead_type: ["*", C2]
+    funct: 1
+    c0: 0.47
+    c1: 1250
+  - residue_name: [LB2, BCK1]
+    bead_type: ["*", C1]
+    funct: 1
+    c0: 0.47
+    c1: 1250
+  - residue_name: [LB2, BCK2]
+    bead_type: ["*", C2]
+    funct: 1
+    c0: 0.47
+    c1: 1250
+  - residue_name: [LB3, BCK1]
+    bead_type: ["*", C1]
+    funct: 1
+    c0: 0.47
+    c1: 1250
+  - residue_name: [LB3, BCK2]
+    bead_type: ["*", C2]
+    funct: 1
+    c0: 0.47
+    c1: 1250

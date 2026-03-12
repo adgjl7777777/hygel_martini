@@ -1,0 +1,61 @@
+title                   = NPT equilibration (1 ns)
+
+; Run parameters
+integrator              = md                ; leap-frog integrator
+dt                      = 0.005              ; 5 fs (Martini CG)
+nsteps                  = 200000             ; 1 ns
+
+; Output control
+nstxout                 = 0                 ; no full-precision .trr
+nstvout                 = 0
+nstfout                 = 0
+nstenergy               = 1000              ; every 20 ps
+nstlog                  = 1000              ; every 20 ps
+nstxout-compressed      = 50                ; every 1 ps
+nstcalcenergy           = 100
+
+; Bond parameters
+constraint_algorithm    = lincs             ; holonomic constraints
+constraints             = none              ; CG: no bonds to constrain
+lincs_iter              = 1
+lincs_order             = 4
+
+; Nonbonded settings
+cutoff-scheme           = Verlet            ; buffered neighbor searching
+nstlist                 = 20                ; 0.4 ps
+rcoulomb                = 1.1               ; short-range electrostatics cutoff (nm)
+rvdw                    = 1.1               ; short-range vdW cutoff (nm)
+vdw_type                = cutoff
+DispCorr                = EnerPres          ; tail correction for energy/pressure
+
+; Electrostatics
+coulombtype             = PME               ; Particle Mesh Ewald
+pme-order               = 4
+fourierspacing          = 0.12
+epsilon_r               = 15
+
+; Temperature coupling
+tcoupl                  = v-rescale         ; modified Berendsen thermostat
+tc-grps                 = System
+tau_t                   = 1.0
+ref_t                   = 300
+
+; Pressure coupling
+pcoupl                  = Berendsen         ; gentle NPT equilibration
+pcoupltype              = isotropic
+tau_p                   = 12.0
+ref_p                   = 1.0
+compressibility         = 3e-4
+
+; Periodic boundary conditions
+pbc                     = xyz
+
+; Velocity generation
+gen_vel                 = yes
+gen_temp                = 300
+gen_seed                = -1
+
+; Center of mass motion removal
+comm-mode               = Linear
+comm-grps               = System
+nstcomm                 = 100

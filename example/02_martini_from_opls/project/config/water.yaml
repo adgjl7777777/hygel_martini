@@ -1,0 +1,13 @@
+# water.yaml
+# Water model and counting constants.
+water:
+  # Used for estimated molecule count from target box volume.
+  molar_mass_g_per_mol: 18.01528
+  avogadro: 6.02214076e23
+
+  # Packmol settings (used when system.solvate_tool=packmol)
+  packmol_tolerance: 2.0
+  packmol_water_structure: water.xyz
+
+  # GROMACS solvent box (used when system.solvate_tool=gromacs)
+  gromacs_water_model: tip4p.gro
