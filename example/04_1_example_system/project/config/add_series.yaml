@@ -1,0 +1,10 @@
+# add_series.yaml
+# 한글: add_polymer / add_molecule / add_water / add_small_ion 설정
+# English: add_polymer / add_molecule / add_water / add_small_ion settings
+
+add_series_parameters:
+  add_water:
+    mode: full
+    molecule_name: W
+    water_bead_type: W
+    gel_weight_fraction: 0.1

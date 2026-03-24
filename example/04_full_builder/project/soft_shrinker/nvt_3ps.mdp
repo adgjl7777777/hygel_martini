@@ -1,0 +1,59 @@
+; NVT short equilibration for safe pressure sampling (3 ps)
+; Derived from your npt_1ns.mdp, but with pcoupl disabled.
+
+title                   = NVT short equilibration (3 ps)
+
+integrator              = md
+dt                      = 0.005
+nsteps                  = 600               ; 3 ps
+
+; Output control (denser than 1 ns run so we can average reliably)
+nstxout                 = 0
+nstvout                 = 0
+nstfout                 = 0
+nstenergy               = 50                ; every 1 ps
+nstlog                  = 50                ; every 1 ps
+nstxout-compressed      = 50                ; every 1 ps
+nstcalcenergy           = 10
+
+; Constraints
+constraint_algorithm    = lincs
+constraints             = none
+lincs_iter              = 1
+lincs_order             = 4
+
+; Nonbonded
+cutoff-scheme           = Verlet
+nstlist                 = 20
+rcoulomb                = 1.1
+rvdw                    = 1.1
+vdw_type                = cutoff
+DispCorr                = EnerPres
+
+; Electrostatics
+coulombtype             = PME
+pme-order               = 4
+fourierspacing          = 0.12
+epsilon_r               = 15
+
+; Temperature coupling
+tcoupl                  = v-rescale
+tc-grps                 = System
+tau_t                   = 1.0
+ref_t                   = 300
+
+; Pressure coupling OFF
+pcoupl                  = no
+
+; PBC
+pbc                     = xyz
+
+; Velocities (we (re)generate each iteration since we rescale coords)
+gen_vel                 = yes
+gen_temp                = 300
+gen_seed                = -1
+
+; COM removal
+comm-mode               = Linear
+comm-grps               = System
+nstcomm                 = 100

@@ -1,0 +1,39 @@
+﻿[moleculetype]
+; molname       nrexcl
+  LSS          2
+
+[atoms]
+; id      type   resnr residue atom    cgnr    charge  mass 
+ 1 SC1 1 BCK  LSS11 1 0 41
+ 2 N4a 1 LSS1  LSS12 2 0 58
+ 3 SQ2 1 LSS1  LSS13 3 1 72
+ 4 TC2 1 LSS1  LSS14 4 0 28
+ 5 SQ4n 1 LSS1  LSS15 5 -1 80
+ 6 SC1 1 BCK  LSS21 6 0 41
+ 7 N4a 1 LSS2  LSS22 7 0 58
+ 8 SQ2 1 LSS2  LSS23 8 1 72
+ 9 TC2 1 LSS2  LSS24 9 0 28
+ 10 SQ4n 1 LSS2  LSS25 10 -1 80
+
+[bonds]
+; i j  funct    length   force.c.
+  2 3   1      0.350     12932.06 ; rmsd:     1.14
+  1 2   1      0.353     53185.82 ; rmsd:     0.49
+  3 4   1      0.342     25794.11 ; rmsd:     1.97
+  4 5   1      0.259     36047.12 ; rmsd:     2.33
+  7 8   1      0.350     12932.06 ; rmsd:     1.14
+  6 7   1      0.353     53185.82 ; rmsd:     0.49
+  8 9   1      0.342     25794.11 ; rmsd:     1.97
+  9 10   1      0.259     36047.12 ; rmsd:     2.33
+
+[angles]
+; i     j       k       funct   angle   force_constant
+; 결정된 parameter
+  1     2       4          2     102.54     43.85 ; Harmonic-Cos (Gromos96) potential rmsd:     1.87 ;*
+  1     2       3          2     117.26    111.37 ; Harmonic-Cos (Gromos96) potential rmsd:     1.50
+  2     3       4          2     91.20     81.22 ; Harmonic-Cos (Gromos96) potential rmsd:     1.53
+  3     4       5          2     103.70     91.61 ; Harmonic-Cos (Gromos96) potential rmsd:     4.95
+  6     7       9          2     102.54     43.85 ; Harmonic-Cos (Gromos96) potential rmsd:     1.87 ;*
+  6     7       8          2     117.26    111.37 ; Harmonic-Cos (Gromos96) potential rmsd:     1.50
+  7     8       9          2     91.20     81.22 ; Harmonic-Cos (Gromos96) potential rmsd:     1.53
+  8     9       10          2     103.70     91.61 ; Harmonic-Cos (Gromos96) potential rmsd:     4.95

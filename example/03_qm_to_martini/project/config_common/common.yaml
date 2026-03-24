@@ -1,0 +1,207 @@
+paths:
+  # Base directory for all relative paths below.
+  # `${CONFIG_DIR}` is the directory that contains this file.
+  base_dir: ${CONFIG_DIR}/..
+
+system:
+  # Explicit polymer sequences to build.
+  # When this is set, the older symbols/lengths expansion is not used.
+  sequences:
+    - SDDS
+
+# Monomer library for sequence tokens.
+# Each token entry supports:
+# - `xyz`: source xyz used to build the polymer geometry
+# - `init_template`: Bartender-style monomer template used to assemble the final inp
+# - `charge`: integer charge contribution of one monomer unit
+# - `multiplicity` or `uhf`: spin state for one monomer unit
+monomers:
+  S:
+    xyz: NEW_SBMA.xyz
+    init_template: NEW_SBMA_init.inp
+    charge: 0
+    multiplicity: 1
+  D:
+    xyz: NEW_DMAPS.xyz
+    init_template: NEW_DMAPS_init.inp
+    charge: 0
+    multiplicity: 1
+  C:
+    xyz: NEW_CBA.xyz
+    init_template: NEW_CBA_init.inp
+    charge: 0
+    multiplicity: 1
+
+bartender_pipeline:
+  # Geometry preparation stage before Bartender.
+  # - `xtb`: xTB geometry optimization
+  # - `orca`: ORCA geometry optimization
+  # - `off`: skip geometry optimization and use the built polymer xyz directly
+  relaxation: xtb
+
+  # Sampling source that Bartender should use.
+  # - `bartender`: Bartender runs its own internal xTB sampling
+  # - `xtb`: this pipeline runs xTB MD first and Bartender consumes that
+  #   trajectory through `-owntraj/-refit`
+  # - `off`: stop after the geometry stage above; do not create MD/Bartender jobs
+  md: bartender
+
+  # Name of the per-case directory that stores the geometry or pre-MD stage.
+  # If `md: off`, this is the final work directory for that case.
+  workdir_name: relax_xtb_geoopt
+
+  electronic_state:
+    # If null, the total case charge is inferred by summing monomer charges.
+    charge: null
+    # If null, the total case spin is inferred by summing monomer spins.
+    # When one of `uhf` / `multiplicity` is set, the other is derived.
+    uhf: null
+    multiplicity: null
+
+  xtb:
+    # Shell snippet sourced before xTB runs. Keep this if xTB needs env vars.
+    env_script: /opt/xtb-dist/share/xtb/config_env.bash
+
+    # xTB executable path.
+    binary: /opt/xtb-dist/bin/xtb
+
+    # Semiempirical model passed as `--gfn`.
+    gfn: 2
+
+    # CPU count passed to `--parallel`.
+    parallel: 1
+
+    # Geometry optimization level used when `relaxation: xtb`.
+    opt_level: normal
+
+    # Maximum xTB geometry optimization cycles.
+    opt_cycles: 10000
+
+    # xTB numerical accuracy (`--acc`).
+    acc: 1.0
+
+    # Electronic temperature (`--etemp`).
+    etemp: 300.0
+
+    # Solvation model for xTB.
+    # Allowed values are `off`, `alpb`, `gbsa`.
+    solvent_model: alpb
+
+    # Solvent name passed to xTB together with the solvent model.
+    solvent: water
+
+    # Optional extra solvent reference argument for xTB. Usually keep empty.
+    solvent_reference: ""
+
+    # If non-empty, this file fully overrides the auto-generated xTB MD input.
+    # In other words, the file contents become `gochem.inp`.
+    md_input_template_path: ""
+
+    md:
+      # Target temperature for xTB MD.
+      temp_k: 310.0
+
+      # MD length in ps for the xTB pre-Bartender trajectory.
+      time_ps: 5000
+
+      # Trajectory dump interval in fs.
+      dump_fs: 50.0
+
+      # Integration step in fs.
+      step_fs: 4.0
+
+      # Whether xTB should generate velocities internally.
+      velo: false
+
+      # Hydrogen mass scaling for xTB MD.
+      hmass: 4
+
+      # SHAKE level for xTB MD.
+      shake: 2
+
+      # SCC convergence setting inside xTB MD.
+      sccacc: 2.0
+
+      # Restart xTB MD from restart information if available.
+      restart: false
+
+  orca:
+    # ORCA executable path.
+    binary: /opt/orca/orca
+
+    # CPU count for ORCA.
+    nprocs: 1
+
+    # Default ORCA method line used only when no template file is supplied.
+    method_line: r2scan-3c CPCM(water) Opt TightSCF
+
+    # Default ORCA geometry iteration cap used only when no template file is supplied.
+    max_iter: 300
+
+    # If non-empty, this file overrides the auto-generated ORCA header/body.
+    # The pipeline still appends the final `* xyzfile charge multiplicity xyz`.
+    input_template_path: orca_loose.inp
+
+  bartender:
+    # Root directory exported as `BTROOT` before Bartender runs.
+    root: /opt/bartender-1.1.0
+
+    # Shell snippet sourced before Bartender runs.
+    env_script: /opt/bartender-1.1.0/bartender_config.sh
+
+    # Bartender executable path.
+    binary: /opt/bartender-1.1.0/bartender
+
+    # CPU count passed to Bartender `-cpus`.
+    cpus: 1
+
+    # If null, Bartender charge defaults to the resolved case charge above.
+    charge: null
+
+    # Internal Bartender-xTB sampling time in ps.
+    # Used only when `md: bartender`.
+    time_ps: 5000
+
+    # Internal Bartender-xTB temperature in K.
+    # Used only when `md: bartender`.
+    temperature_k: 310.0
+
+    # Bartender solvent keyword for the internal path.
+    # Used only when `md: bartender`.
+    solvent: h2o
+
+    # Optional DCD output filename from Bartender internal sampling.
+    # Used only when `md: bartender`.
+    dcd_save: ""
+
+    # Frame skipping factor for Bartender input trajectory handling.
+    skip: 1
+
+    # If true, the xtb-to-martini workflow immediately runs `run_bartender.sh`
+    # after generating the job directory. Keep false when you only want to
+    # generate scripts and launch them manually or through a scheduler.
+    execute: false
+
+    # Name of the per-case Bartender job directory.
+    output_dirname: bartender_job
+
+  postprocess:
+    # If true, scan under `out_root` for generated `gmx_out.itp` files and
+    # write a JSON summary file.
+    collect: true
+
+    # If true, merge multiple Bartender outputs into one merged forcefield.
+    merge: false
+
+    # Optional label mapping used only when `merge: true`.
+    # If null, the default token-based labels are used.
+    label_map_path: null
+
+    # Output JSON name for the collected summary.
+    collect_json: bartender_summary.json
+
+    # Output filename for the merged ITP, used only when `merge: true`.
+    merged_itp: merged_forcefield.itp
+
+    # Output JSON summary for the merged forcefield.
+    merged_json: merged_forcefield.json

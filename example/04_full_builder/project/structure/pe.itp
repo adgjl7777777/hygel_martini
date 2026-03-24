@@ -1,0 +1,31 @@
+[ moleculetype ]
+; name  nrexcl
+  PE     1
+
+[ atoms ]
+; nr  type  resnr  residu  atom  cgnr  charge
+  1   C1    1      BCK      C1    1     0.0
+  2   C1    1      PE      C2    2     0.0
+  3   C1    1      PE      C3    3     0.0
+  4   C1    1      PE      C4    4     0.0
+
+[ bonds ]
+; i   j   funct   length    force_k
+  1   2   1       0.470     1250
+  2   3   1       0.470     1250
+  3   4   1       0.470     1250
+
+[ angles ]
+; i   j   k   funct   angle     force_k
+  1   2   3   1       180.0     25
+  2   3   4   1       180.0     25
+
+; --- Additional sections for compatibility testing ---
+[ polarization ]
+; atom  pol_type   pol_value   alpha
+  2       1         0.1        0.0
+  3       1         0.1       0.0
+
+[ virtual_sitesn ]
+; i    funct    a    atoms...
+  3     1       0.5  1 2 4

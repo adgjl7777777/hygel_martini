@@ -1,0 +1,15 @@
+workflow:
+  mode: soft_md
+
+paths:
+  # Continue from the converged soft_em output.
+  start_gro: ${CONFIG_DIR}/../relax_output/soft_em/final.gro
+  workdir: ${CONFIG_DIR}/../relax_output/soft_md
+
+soft_md:
+  mdp: ${CONFIG_DIR}/../soft_md/npt_1ns.mdp
+  deffnm: soft_md
+  ntomp: 1
+  maxwarn: 1
+  grompp_extra: []
+  mdrun_extra: []

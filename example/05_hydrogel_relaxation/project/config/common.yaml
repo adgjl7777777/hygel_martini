@@ -1,0 +1,13 @@
+tools:
+  # GROMACS executable used by both soft_em and soft_md.
+  gmx: gmx_mpi
+
+runtime:
+  # Keep the default conservative for shared NAS runs.
+  omp_threads: 1
+
+paths:
+  # Default upstream builder output. Change these if you want to use
+  # 04_full_builder or another built system instead of 04_1_example_system.
+  system_top: ${CONFIG_DIR}/../../../04_1_example_system/project/output/system.top
+  bonded_itp: ${CONFIG_DIR}/../../../04_1_example_system/project/output/initial_hydrogel.itp

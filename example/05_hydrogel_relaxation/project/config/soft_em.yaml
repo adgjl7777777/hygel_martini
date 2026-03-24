@@ -1,0 +1,34 @@
+workflow:
+  mode: soft_em
+
+paths:
+  # Start from the built structure before any additional relaxation.
+  start_gro: ${CONFIG_DIR}/../../../04_1_example_system/project/output/final_system.gro
+  workdir: ${CONFIG_DIR}/../relax_output/soft_em
+
+soft_em:
+  minim_mdp: ${CONFIG_DIR}/../soft_em/minim.mdp
+  ntomp: 1
+  maxwarn: 2
+
+  # Pressure control targets for the gradual EM-only box relaxation.
+  stress_terms:
+    - Pres-XX
+    - Pres-YY
+    - Pres-ZZ
+  stress_use: mean
+  p_target: 1.0
+  p_tol: 50.0
+  scale_factor: 1.0e-4
+  max_dlen: 0.001
+
+  # Convergence control.
+  e_threshold: 200.0
+  f_threshold: 300.0
+  min_iter: 3
+  max_iter: 300
+
+  # Gradually restore bonded strength while the box is relaxing.
+  bonded_start: 0.1
+  bonded_end: 1.0
+  bonded_ramp_iters: 150

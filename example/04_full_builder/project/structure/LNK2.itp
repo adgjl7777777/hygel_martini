@@ -1,0 +1,21 @@
+﻿[ moleculetype ]
+; name  nrexcl
+  LNK     1
+
+[ atoms ]
+; nr  type  resnr  residu  atom  cgnr  charge
+  1   C2    1      BCK      C1    1     0.0
+  2   C1    1      LNK      C2    2     0.0
+  3   C1    1      LNK      C3    3     0.0
+  4   C2    1      BCK      C4    4     0.0
+
+[ bonds ]
+; i   j   funct   length    force_k
+  1   2   1       0.470     1250
+  2   3   1       0.470     1250
+  3   4   1       0.470     1250
+
+[ angles ]
+; i   j   k   funct   angle     force_k
+  1   2   3   1       180.0     25
+  2   3   4   1       180.0     25

@@ -1,0 +1,3 @@
+! wB97X-D3 RIJCOSX def2-TZVPPD defgrid3 Opt TightOpt VeryTightSCF SMD(Water)
+%pal nprocs 32 end
+%maxcore 3000

@@ -1,0 +1,3 @@
+includes:
+  - config/common.yaml
+  - config/soft_em.yaml

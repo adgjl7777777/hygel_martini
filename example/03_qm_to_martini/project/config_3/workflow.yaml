@@ -1,0 +1,9 @@
+paths:
+  out_root: ${CONFIG_DIR}/../runs/config_3_orca_geoopt_xtb_reuse
+
+bartender_pipeline:
+  relaxation: orca
+  md: xtb
+  workdir_name: relax_orca_geoopt_xtb_nvt
+  bartender:
+    output_dirname: bartender_reuse_xtb

@@ -1,0 +1,114 @@
+# config/backbone.yaml
+# Special markers:
+# '-' : Skip bead in angle/dihedral definition but use for connectivity.
+# '*' : Wildcard for any residue name (must not be a backbone bead).
+
+# --- Bonds Definition ---
+# These rules will be applied to update bond parameters (c0, c1).
+# Connectivity is determined by the builder logic.
+bonds:
+  # Backbone-Backbone Bonds
+  - residue_name: [BS, BS]
+    bead_type: [SC1, SC1]
+    funct: 1
+    c0: 0.281
+    c1: 15000
+  - residue_name: [BS, BD]
+    bead_type: [SC1, TC1]
+    funct: 1
+    c0: 0.266
+    c1: 16876.12
+  - residue_name: [BD, BD]
+    bead_type: [TC1, TC1]
+    funct: 1
+    c0: 0.252
+    c1: 18752.24
+  
+  # Linker LDD Bonds (LBDDA=LinkerStart, LBDDB=LinkerEnd)
+  # Assuming backbone_residue_name: [LBDDA, LBDDB]
+  # Linker Side 1 (LBDDA)
+  - residue_name: [LBDDA, BD]
+    bead_type: ["*", TC1]
+    funct: 1
+    c0: 0.252
+    c1: 18752.24
+  - residue_name: [LBDDA, BS]
+    bead_type: ["*", SC1]
+    funct: 1
+    c0: 0.266
+    c1: 16876.12
+  # Linker Side 2 (LBDDB)
+  - residue_name: [LBDDB, BD]
+    bead_type: ["*", TC1]
+    funct: 1
+    c0: 0.252
+    c1: 18752.24
+  - residue_name: [LBDDB, BS]
+    bead_type: ["*", SC1]
+    funct: 1
+    c0: 0.266
+    c1: 16876.12
+
+  # Linker LSS Bonds (LBSSA, LBSSB)
+  - residue_name: [LBSSA, BD]
+    bead_type: ["*", TC1]
+    funct: 1
+    c0: 0.266
+    c1: 16876.12
+  - residue_name: [LBSSA, BS]
+    bead_type: ["*", SC1]
+    funct: 1
+    c0: 0.281
+    c1: 15000
+  - residue_name: [LBSSB, BD]
+    bead_type: ["*", TC1]
+    funct: 1
+    c0: 0.266
+    c1: 16876.12
+  - residue_name: [LBSSB, BS]
+    bead_type: ["*", SC1]
+    funct: 1
+    c0: 0.281
+    c1: 15000
+
+  # Linker LDS Bonds (LBDSA, LBDSB)
+  - residue_name: [LBDSA, BD]
+    bead_type: ["*", TC1]
+    funct: 1
+    c0: 0.252
+    c1: 18752.24
+  - residue_name: [LBDSA, BS]
+    bead_type: ["*", SC1]
+    funct: 1
+    c0: 0.266
+    c1: 16876.12
+  - residue_name: [LBDSB, BD]
+    bead_type: ["*", TC1]
+    funct: 1
+    c0: 0.266
+    c1: 16876.12
+  - residue_name: [LBDSB, BS]
+    bead_type: ["*", SC1]
+    funct: 1
+    c0: 0.281
+    c1: 15000
+
+angles:
+  - residue_name: [BD, BD, "*"]
+    bead_type: [TC1, TC1, SP3d]
+    funct: 2
+    c0: 180.0
+    c1: 25.0
+  - residue_name: [BD, BD, "-", "-", "*"]
+    bead_type: [TC1, TC1, "-", "-", SQ2]
+    funct: 2
+    c0: 120.0
+    c1: 50.0
+
+dihedrals:
+  - residue_name: [BD, BD, BD, BD]
+    bead_type: [TC1, TC1, TC1, TC1]
+    funct: 1
+    c0: 180.0
+    c1: 10.0
+    multiplicity: 1

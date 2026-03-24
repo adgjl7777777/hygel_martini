@@ -7,7 +7,6 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List
 
-from .defaults import DEFAULT_CONFIG
 from .utils import parse_csv_list, parse_int_csv, parse_semicolon_list
 
 
@@ -106,8 +105,8 @@ def _normalize_paths(cfg: Dict[str, Any], config_path: Path | None) -> Dict[str,
     return result
 
 
-def load_config(config_path: Path | None) -> Dict[str, Any]:
-    cfg = copy.deepcopy(DEFAULT_CONFIG)
+def load_config(config_path: Path | None, default_config: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    cfg = copy.deepcopy(default_config or {})
     if config_path and config_path.exists():
         user_cfg = _load_with_includes(config_path)
         cfg = deep_update(cfg, user_cfg)
@@ -117,49 +116,72 @@ def load_config(config_path: Path | None) -> Dict[str, Any]:
 def apply_cli_overrides(cfg: Dict[str, Any], args: argparse.Namespace) -> Dict[str, Any]:
     result = copy.deepcopy(cfg)
 
-    if args.symbols is not None:
+    if getattr(args, "symbols", None) is not None:
+        result.setdefault("system", {})
         result["system"]["symbols"] = parse_csv_list(args.symbols)
-    if args.sequences is not None:
+    if getattr(args, "sequences", None) is not None:
+        result.setdefault("system", {})
         result["system"]["sequences"] = parse_semicolon_list(args.sequences)
-    if args.lengths is not None:
+    if getattr(args, "lengths", None) is not None:
+        result.setdefault("system", {})
         result["system"]["lengths"] = parse_int_csv(args.lengths)
-    if args.replicas is not None:
+    if getattr(args, "replicas", None) is not None:
+        result.setdefault("system", {})
         result["system"]["replicas"] = args.replicas
-    if args.cutoff_nm is not None:
+    if getattr(args, "cutoff_nm", None) is not None:
+        result.setdefault("system", {})
         result["system"]["cutoff_nm"] = args.cutoff_nm
-    if args.min_box_safety_nm is not None:
+    if getattr(args, "min_box_safety_nm", None) is not None:
+        result.setdefault("system", {})
         result["system"]["min_box_safety_nm"] = args.min_box_safety_nm
-    if args.temp_c is not None:
+    if getattr(args, "temp_c", None) is not None:
+        result.setdefault("system", {})
         result["system"]["temperature_c"] = args.temp_c
-    if args.out is not None:
+    if getattr(args, "out", None) is not None:
+        result.setdefault("paths", {})
         result["paths"]["out_root"] = args.out
-    if args.solvate_tool is not None:
+    if getattr(args, "solvate_tool", None) is not None:
+        result.setdefault("system", {})
         result["system"]["solvate_tool"] = args.solvate_tool
-    if args.n_torsion_mode is not None:
+    if getattr(args, "n_torsion_mode", None) is not None:
+        result.setdefault("system", {})
         result["system"]["n_torsion_mode"] = args.n_torsion_mode
-    if args.sample_nsteps is not None:
+    if getattr(args, "sample_nsteps", None) is not None:
+        result.setdefault("sampling", {})
         result["sampling"]["sample_nsteps"] = args.sample_nsteps
-    if args.gmxrc_path is not None:
+    if getattr(args, "gmxrc_path", None) is not None:
+        result.setdefault("paths", {})
         result["paths"]["gmxrc_path"] = args.gmxrc_path
-    if args.gromacs_water_model is not None:
+    if getattr(args, "gromacs_water_model", None) is not None:
+        result.setdefault("water", {})
         result["water"]["gromacs_water_model"] = args.gromacs_water_model
-    if args.cpu_omp_threads is not None:
+    if getattr(args, "cpu_omp_threads", None) is not None:
+        result.setdefault("runtime", {})
         result["runtime"]["cpu_omp_threads"] = args.cpu_omp_threads
-    if args.gpu_omp_threads is not None:
+    if getattr(args, "gpu_omp_threads", None) is not None:
+        result.setdefault("runtime", {})
         result["runtime"]["gpu_omp_threads"] = args.gpu_omp_threads
-    if args.default_run_mode is not None:
+    if getattr(args, "default_run_mode", None) is not None:
+        result.setdefault("runtime", {})
         result["runtime"]["default_run_mode"] = args.default_run_mode
 
     return result
 
 
-def add_cli_args(parser: argparse.ArgumentParser) -> None:
+def add_config_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--config",
         default="maker.yaml",
         help="Config path (.yaml/.yml/.json). Supports includes for YAML/JSON.",
     )
+    parser.add_argument(
+        "--dump-default-config",
+        action="store_true",
+        help="Write workflow defaults to --config path and exit (JSON format)",
+    )
 
+
+def add_sequence_override_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--symbols", default=None, help="Override: comma-separated symbols")
     parser.add_argument(
         "--sequences",
@@ -167,23 +189,28 @@ def add_cli_args(parser: argparse.ArgumentParser) -> None:
         help="Override explicit sequences separated by ';' (each sequence: token1,token2 or token1 token2 or compact one-letter form)",
     )
     parser.add_argument("--lengths", default=None, help="Override: comma-separated lengths")
+    parser.add_argument("--n-torsion-mode", choices=["repeat", "bonds"], default=None)
+
+
+def add_opls_to_martini_cli_args(parser: argparse.ArgumentParser) -> None:
+    add_config_args(parser)
+    add_sequence_override_args(parser)
+
     parser.add_argument("--replicas", type=int, default=None)
     parser.add_argument("--cutoff-nm", type=float, default=None)
     parser.add_argument("--min-box-safety-nm", type=float, default=None)
     parser.add_argument("--temp-c", type=float, default=None)
     parser.add_argument("--out", default=None)
     parser.add_argument("--solvate-tool", choices=["gromacs", "packmol"], default=None)
-    parser.add_argument("--n-torsion-mode", choices=["repeat", "bonds"], default=None)
     parser.add_argument("--sample-nsteps", type=int, default=None)
-
     parser.add_argument("--gmxrc-path", default=None)
     parser.add_argument("--gromacs-water-model", default=None)
     parser.add_argument("--cpu-omp-threads", type=int, default=None)
     parser.add_argument("--gpu-omp-threads", type=int, default=None)
     parser.add_argument("--default-run-mode", choices=["none", "cpu", "gpu"], default=None)
 
-    parser.add_argument(
-        "--dump-default-config",
-        action="store_true",
-        help="Write default config to --config path and exit (JSON format)",
-    )
+
+def add_qm_to_martini_cli_args(parser: argparse.ArgumentParser) -> None:
+    add_config_args(parser)
+    add_sequence_override_args(parser)
+    parser.add_argument("--out", default=None)
