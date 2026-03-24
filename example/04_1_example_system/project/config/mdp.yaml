@@ -1,0 +1,17 @@
+# mdp.yaml
+# 한글: geo-opt 및 EM 기본 MDP 값
+# English: Base MDP parameters for geo optimization/minimization
+
+simulation_parameters:
+  geo_opt:
+    output_dir_suffix: _geo_opt
+    deffnm_prefix: em
+    mdp:
+      integrator: steep
+      nsteps: 5000
+      emtol: 1000.0
+      emstep: 0.01
+      coulombtype: PME
+      rcoulomb: 1.1
+      vdw_type: cutoff
+      rvdw: 1.1

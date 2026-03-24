@@ -1,0 +1,66 @@
+# hydrogel.yaml
+# 한글: 하이드로젤 골격/링커/사이드체인 정의
+# English: Hydrogel backbone/linker/side-chain definitions
+
+monomer_definitions:
+  MONOMERS:
+    - id: SB          # 모노머 ID / monomer id
+      ratio: 1        # 혼합 비율 / mixing ratio
+      backbone_id: BS # 연결될 backbone id
+      gro: ${CONFIG_DIR}/structure/SBMA.gro
+      itp: ${CONFIG_DIR}/structure/SBMA.itp
+    - id: DM
+      ratio: 1
+      backbone_id: BD
+      gro: ${CONFIG_DIR}/structure/DMAAPS.gro
+      itp: ${CONFIG_DIR}/structure/DMAAPS.itp
+  SEQUENCE_STRATEGY:
+    strategy: random  # random | block | alternating | long_random
+
+hydrogel_components:
+  backbone_definitions:
+    BACKBONES:
+      - id: BS
+        ratio: 1
+        definition:
+          atom_type: SC1
+          residue_name: BS
+          atom_name: BS
+          charge_group_number: 1
+          mass: 41
+          charge: 0.0
+      - id: BD
+        ratio: 1
+        definition:
+          atom_type: TC1
+          residue_name: BD
+          atom_name: BD
+          charge_group_number: 1
+          mass: 27
+          charge: 0.0
+    BONDS: []
+    SEQUENCE_STRATEGY:
+      strategy: random
+
+  linker_definitions:
+    LINKERS:
+      - id: LDD
+        ratio: 1
+        gro: ${CONFIG_DIR}/structure/LDD.gro
+        itp: ${CONFIG_DIR}/structure/LDD.itp
+        linker_residue_name: LDD
+        backbone_residue_name: [LBDDA, LBDDB]
+      - id: LSS
+        ratio: 1
+        gro: ${CONFIG_DIR}/structure/LSS.gro
+        itp: ${CONFIG_DIR}/structure/LSS.itp
+        linker_residue_name: LSS
+        backbone_residue_name: [LBSSA, LBSSB]
+      - id: LDS
+        ratio: 2
+        gro: ${CONFIG_DIR}/structure/LDS.gro
+        itp: ${CONFIG_DIR}/structure/LDS.itp
+        linker_residue_name: LDS
+        backbone_residue_name: [LBDSA, LBDSB]
+    SEQUENCE_STRATEGY:
+      strategy: random

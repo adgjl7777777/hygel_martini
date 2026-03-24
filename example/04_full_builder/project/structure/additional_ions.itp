@@ -1,0 +1,15 @@
+[moleculetype]
+; molname 	nrexcl
+   POT 		1
+
+[atoms]
+;id 	type 	resnr 	residu 	atom 	cgnr 	charge   mass
+ 1 	TQ5 	1 	ION 	POT	1 	1.0    39.0983
+
+[moleculetype]
+; molname       nrexcl
+   MG           1  
+
+[atoms]
+;id     type    resnr   residu  atom    cgnr    charge
+ 1      TD      1       ION      MG     1       2.0      24.305 ; TD may be a good option as well.

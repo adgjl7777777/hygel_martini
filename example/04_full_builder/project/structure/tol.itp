@@ -1,0 +1,12 @@
+[ moleculetype ]
+; name  nrexcl
+  TOL    1
+
+[ atoms ]
+; nr  type  resnr  residu  atom  cgnr  charge
+  1   TC5   1      TOL     RING  1     0.0
+  2   C2    1      BCK     MET   2     0.0
+
+[ bonds ]
+; i   j   funct   length    force_k
+  1   2   1       0.320     1250

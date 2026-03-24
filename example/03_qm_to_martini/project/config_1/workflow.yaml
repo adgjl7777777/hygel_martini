@@ -1,0 +1,9 @@
+paths:
+  out_root: ${CONFIG_DIR}/../runs/config_1_xtb_geoopt_bartender_internal
+
+bartender_pipeline:
+  relaxation: xtb
+  md: bartender
+  workdir_name: relax_xtb_geoopt
+  bartender:
+    output_dirname: bartender_internal

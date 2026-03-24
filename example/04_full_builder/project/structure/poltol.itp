@@ -1,0 +1,29 @@
+[ moleculetype ]
+; name  nrexcl
+  TOL    1
+
+[ atoms ]
+; nr  type  resnr  residu  atom  cgnr  charge
+  1   TC5   1      TOL     RING  1     0.0
+  2   C2    1      BCK     MET   2     0.0
+
+[ bonds ]
+; i   j   funct   length    force_k
+  1   2   1       0.320     1250
+
+; --- Extra test sections ---
+[ constraints ]
+; i   j   funct   length
+  1   2    1      0.320
+
+[ pairs ]
+; i   j   funct
+  1   2    1
+
+[ exclusions ]
+; atom   excls...
+  1      2
+
+[ position_restraints ]
+; atom  funct   fc_x   fc_y   fc_z
+  1      1     500    500    500

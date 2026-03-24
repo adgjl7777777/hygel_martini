@@ -1,4 +1,4 @@
-"""param_opt package for polymer constructor parameter optimization workflows."""
+"""Explicit workflow packages for 01/02/03 polymer parameter generation."""
 
 
 def main() -> None:
