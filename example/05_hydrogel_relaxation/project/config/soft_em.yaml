@@ -7,7 +7,7 @@ paths:
   workdir: ${CONFIG_DIR}/../relax_output/soft_em
 
 soft_em:
-  minim_mdp: ${CONFIG_DIR}/../soft_em/minim.mdp
+  minim_mdp: ${CONFIG_DIR}/minim.mdp
   ntomp: 1
   maxwarn: 2
 

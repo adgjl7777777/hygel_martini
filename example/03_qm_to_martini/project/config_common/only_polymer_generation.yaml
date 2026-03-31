@@ -1,0 +1,13 @@
+includes:
+  - common.yaml
+
+paths:
+  out_root: ${CONFIG_DIR}/../polymer_only
+
+bartender_pipeline:
+  relaxation: off
+  md: off
+  workdir_name: polymer_geometry_only
+  execution:
+    run_relaxation: false
+    run_bartender: false

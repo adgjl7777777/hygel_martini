@@ -32,7 +32,19 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "allow_invalid": False,
         "relaxation": "xtb",
         "md": "bartender",
+        "md_traj": "",
         "workdir_name": "relax_xtb_geoopt",
+        "execution": {
+            "run_relaxation": False,
+            "run_bartender": False,
+            "shell": "bash",
+        },
+        "logs": {
+            "enabled": True,
+            "dirname": "logs",
+            "write_validation": True,
+            "capture_runtime": True,
+        },
         "electronic_state": {
             "charge": None,
             "uhf": None,
@@ -82,16 +94,16 @@ DEFAULT_CONFIG: Dict[str, Any] = {
             "solvent": "h2o",
             "dcd_save": "",
             "skip": 1,
-            "execute": False,
             "output_dirname": "bartender_job",
         },
         "postprocess": {
-            "collect": True,
+            "collect": False,
             "merge": False,
             "label_map_path": None,
             "collect_json": "bartender_summary.json",
             "merged_itp": "merged_forcefield.itp",
             "merged_json": "merged_forcefield.json",
+            "summary_json": "postprocess_summary.json",
         },
     },
 }

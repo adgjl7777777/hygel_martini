@@ -27,7 +27,7 @@ pip install -e .
 
 ```bash
 cd /path/to/hygel_martini/example_myrun/03_qm_to_martini/project
-bash hygel_run.sh config_1/maker.yaml
+bash hygel_run.sh
 ```
 
 `md: off`로 두면 geometry optimization까지만 진행하고 Bartender/MD 단계는 생략합니다.
@@ -156,10 +156,14 @@ simulation_parameters:
 
 ## 자주 쓰는 환경 변수
 
-- `CONDA_PROFILE`
-  conda 초기화 스크립트 경로
-- `CONDA_ENV_NAME`
-  사용할 conda 환경 이름
+- `ADDITIONAL_BASH_PROFILE`
+  필요할 때만 추가로 source할 bash profile 경로
+- `ENV_NAME`
+  필요할 때만 activate할 conda 환경 이름
+- `ENVIRONMENT_FILE`
+  각 `hygel_run.sh`가 먼저 source하는 project-local shell 설정 파일
+- `HYGEL_REPO_ROOT`
+  예제 폴더를 다른 곳으로 옮겼을 때 직접 지정할 저장소 루트
 - `GMXRC_PATH`
   GROMACS 환경을 source할 GMXRC 경로
 - `GMX_CMD`
@@ -168,10 +172,9 @@ simulation_parameters:
   GROMACS/OpenMP thread 수
 - `OPENMPI_HOME`, `ORCA_HOME`
   ORCA 쪽 실행 경로
-- `XTB_CMD`
-  xTB 실행 파일
-- `BTROOT`
-  Bartender 설치 루트
+
+`03_qm_to_martini`의 xTB / ORCA / Bartender 경로는 shell 환경 변수보다
+`config_common/common.yaml` 쪽을 수정하는 것을 기준으로 합니다.
 
 가능하면 스크립트를 직접 수정하지 말고 먼저 환경 변수로 맞추는 편이 낫습니다.
 

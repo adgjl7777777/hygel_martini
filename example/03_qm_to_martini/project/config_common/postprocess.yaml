@@ -1,0 +1,20 @@
+paths:
+  # Point this at an existing qm_to_martini output root.
+  out_root: ${CONFIG_DIR}/../geo_opt_SDDS
+
+bartender_pipeline:
+  postprocess:
+    # Collect every gmx_out.itp under out_root into one JSON summary.
+    collect: true
+
+    # Merge multiple gmx_out.itp results into one merged forcefield.
+    # This is not a statistical replica average. It is a record-merging step.
+    merge: false
+
+    # Optional type-label remapping used only when merge=true.
+    label_map_path: null
+
+    collect_json: bartender_summary.json
+    merged_itp: merged_forcefield.itp
+    merged_json: merged_forcefield.json
+    summary_json: postprocess_summary.json

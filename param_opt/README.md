@@ -36,7 +36,7 @@ python -m param_opt.qm_to_martini --config ...
 
 ```bash
 cd /nas_0/software_backup/hygel_martini/example_myrun/03_qm_to_martini/project
-bash hygel_run.sh config_1/maker.yaml
+bash hygel_run.sh
 ```
 
 ## 기본 원칙

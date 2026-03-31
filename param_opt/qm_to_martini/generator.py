@@ -8,7 +8,7 @@ from typing import Any, Dict
 
 from ..core.config import apply_cli_overrides, load_config
 from .defaults import DEFAULT_CONFIG
-from .pipeline import run_pipeline
+from .pipeline import check_configured_tools, run_pipeline, run_postprocess_only
 
 
 def run_qm_to_martini(
@@ -19,5 +19,10 @@ def run_qm_to_martini(
     cfg = load_config(Path(config_path), DEFAULT_CONFIG)
     if overrides is not None:
         cfg = apply_cli_overrides(cfg, overrides)
-    result = run_pipeline(cfg)
+    if overrides is not None and getattr(overrides, "check_tools", None):
+        result = check_configured_tools(cfg, overrides.check_tools)
+    elif overrides is not None and getattr(overrides, "postprocess_only", False):
+        result = run_postprocess_only(cfg)
+    else:
+        result = run_pipeline(cfg)
     return cfg, result
