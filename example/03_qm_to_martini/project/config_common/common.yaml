@@ -53,7 +53,7 @@ bartender_pipeline:
   #   an already existing trajectory from `md_traj`
   # - `xtb_nobartender`: run xTB MD here but stop before Bartender
   # - `off`: stop after the geometry stage above; do not create MD/Bartender jobs
-  md: off
+  md: xtb_nobartender
 
   # External trajectory path used only when `md: existing`.
   # Relative paths are resolved under `paths.base_dir`.
