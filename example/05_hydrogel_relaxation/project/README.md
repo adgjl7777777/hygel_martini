@@ -6,8 +6,8 @@
 순서는 아래처럼 잡으면 됩니다.
 
 ```bash
-bash run_hydrogel_relaxation.sh soft_em
-bash run_hydrogel_relaxation.sh soft_md
+bash run_hydrogel_relaxation.sh maker_soft_em.yaml
+bash run_hydrogel_relaxation.sh maker_soft_md.yaml
 ```
 
 도움말과 GROMACS 확인:
@@ -34,8 +34,7 @@ python3 -m hydrogel_builder.relax maker_soft_md.yaml
 
 - `run_hydrogel_relaxation.sh`
   primary launcher입니다.
-  `soft_em` / `soft_md` stage alias 또는 maker yaml을 받아
-  `python -m hydrogel_builder.relax`를 호출합니다.
+  maker yaml을 받아 `python -m hydrogel_builder.relax`를 호출합니다.
 - `maker_soft_em.yaml`
   gradual EM / box relaxation 진입점
 - `maker_soft_md.yaml`

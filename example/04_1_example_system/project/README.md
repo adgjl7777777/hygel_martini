@@ -5,7 +5,7 @@
 ## 가장 쉬운 실행
 
 ```bash
-bash run_example_system.sh
+bash run_example_system.sh maker.yaml
 ```
 
 도움말과 GROMACS 확인:

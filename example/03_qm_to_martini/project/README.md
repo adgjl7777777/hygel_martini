@@ -6,27 +6,27 @@ xTB trajectory 생성, Bartender 후처리를 이어서 수행합니다.
 
 ## 실행
 
-지금은 `config_common/common.yaml` 하나를 기본 entrypoint로 씁니다.
+대표 진입점은 `config_common/common.yaml`입니다.
 
 ```bash
-bash run_qm_to_martini.sh
+bash run_qm_to_martini.sh config_common/common.yaml
 ```
 
 도움말과 환경 확인:
 
 ```bash
 bash run_qm_to_martini.sh --help
-bash run_qm_to_martini.sh --check-xtb --check-bartender
-bash run_qm_to_martini.sh --postprocess-only
+bash run_qm_to_martini.sh --check-xtb --check-bartender config_common/common.yaml
+bash run_qm_to_martini.sh config_common/postprocess.yaml --postprocess-only
 ```
 
 오버라이드 예시:
 
 ```bash
-bash run_qm_to_martini.sh --set bartender_pipeline.relaxation=orca
-bash run_qm_to_martini.sh --set bartender_pipeline.md=off
-bash run_qm_to_martini.sh --set 'system.sequences=[S,D,D,S]'
-bash run_qm_to_martini.sh --set paths.out_root=/tmp/qm_to_martini_test
+bash run_qm_to_martini.sh config_common/common.yaml --set bartender_pipeline.relaxation=orca
+bash run_qm_to_martini.sh config_common/common.yaml --set bartender_pipeline.md=off
+bash run_qm_to_martini.sh config_common/common.yaml --set 'system.sequences=[S,D,D,S]'
+bash run_qm_to_martini.sh config_common/common.yaml --set paths.out_root=/tmp/qm_to_martini_test
 bash run_qm_to_martini.sh config_common/postprocess.yaml --postprocess-only
 ```
 
@@ -74,4 +74,3 @@ xTB/ORCA/Bartender 경로는 `config_common/common.yaml`만 수정하면 됩니�
 ## 디렉터리 의미
 
 - `config_common/`: generation/postprocess config
-- `reference/`: 비교용 reference bank

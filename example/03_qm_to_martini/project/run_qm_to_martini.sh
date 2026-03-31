@@ -86,24 +86,11 @@ fi
 usage() {
   cat <<EOF
 Usage:
-  bash run_qm_to_martini.sh [config_common/common.yaml] [qm_to_martini options...]
-  bash run_qm_to_martini.sh --help
-  bash run_qm_to_martini.sh --workflow-help
-  bash run_qm_to_martini.sh --check-xtb
-  bash run_qm_to_martini.sh --check-bartender
-  bash run_qm_to_martini.sh --postprocess-only [config_common/postprocess.yaml]
-
-Default config:
-  $SCRIPT_DIR/config_common/common.yaml
-
-Examples:
-  bash run_qm_to_martini.sh
-  bash run_qm_to_martini.sh config_common/common.yaml
-  bash run_qm_to_martini.sh --postprocess-only
+  bash run_qm_to_martini.sh config_common/common.yaml [qm_to_martini options...]
   bash run_qm_to_martini.sh config_common/postprocess.yaml --postprocess-only
-  bash run_qm_to_martini.sh --check-xtb --check-bartender
-  bash run_qm_to_martini.sh --set bartender_pipeline.relaxation=orca
-  bash run_qm_to_martini.sh --set 'system.sequences=[S,D,D,S]' --set paths.out_root=/tmp/qm_to_martini_test
+  bash run_qm_to_martini.sh --check-xtb --check-bartender config_common/common.yaml
+  bash run_qm_to_martini.sh --workflow-help
+  bash run_qm_to_martini.sh --help
 
 Shell environment:
   run_qm_to_martini.sh sources $SCRIPT_DIR/environment.sh if it exists.
@@ -112,6 +99,7 @@ Shell environment:
 EOF
 }
 
+ORIGINAL_ARGC=$#
 WORKFLOW_HELP=0
 CHECK_XTB=0
 CHECK_BARTENDER=0
@@ -150,19 +138,29 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-CONFIG_ARG="config_common/common.yaml"
-if [ "$POSTPROCESS_ONLY" -eq 1 ]; then
-  CONFIG_ARG="config_common/postprocess.yaml"
-fi
+CONFIG_ARG=""
 if [ $# -gt 0 ] && [[ "$1" != -* ]]; then
   CONFIG_ARG="$1"
   shift
 fi
 
-if [[ "$CONFIG_ARG" = /* ]]; then
-  CONFIG_PATH="$CONFIG_ARG"
-else
-  CONFIG_PATH="$SCRIPT_DIR/$CONFIG_ARG"
+CONFIG_PATH=""
+if [ "$WORKFLOW_HELP" -eq 0 ] && [ -z "$CONFIG_ARG" ]; then
+  if [ "$ORIGINAL_ARGC" -eq 0 ]; then
+    usage
+    exit 0
+  fi
+  echo "[ERROR] Config path is required." >&2
+  usage >&2
+  exit 1
+fi
+
+if [ -n "$CONFIG_ARG" ]; then
+  if [[ "$CONFIG_ARG" = /* ]]; then
+    CONFIG_PATH="$CONFIG_ARG"
+  else
+    CONFIG_PATH="$SCRIPT_DIR/$CONFIG_ARG"
+  fi
 fi
 
 if [ "$WORKFLOW_HELP" -eq 0 ] && [ ! -f "$CONFIG_PATH" ]; then

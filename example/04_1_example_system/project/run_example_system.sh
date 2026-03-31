@@ -96,15 +96,9 @@ export GMX_OPENMP_MAX_THREADS
 usage() {
   cat <<EOF
 Usage:
-  bash run_example_system.sh [--check-gmx] [maker.yaml]
-  bash run_example_system.sh --help
-
-Default config:
-  $SCRIPT_DIR/maker.yaml
-
-Examples:
-  bash run_example_system.sh
+  bash run_example_system.sh maker.yaml
   bash run_example_system.sh --check-gmx
+  bash run_example_system.sh --help
 
 Shell environment:
   run_example_system.sh sources $SCRIPT_DIR/environment.sh if it exists.
@@ -130,6 +124,16 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+if [ "$CHECK_GMX" -eq 0 ] && [ $# -eq 0 ]; then
+  usage
+  exit 0
+fi
+if [ "$CHECK_GMX" -eq 0 ] && [[ "$1" = -* ]]; then
+  echo "[ERROR] Config path is required." >&2
+  usage >&2
+  exit 1
+fi
+
 source_optional_script "ADDITIONAL_BASH_PROFILE" "$ADDITIONAL_BASH_PROFILE"
 activate_optional_env
 if [ -f "$GMXRC_PATH" ]; then
@@ -143,7 +147,7 @@ if [ "$CHECK_GMX" -eq 1 ]; then
   exit 0
 fi
 
-CONFIG_ARG="${1:-maker.yaml}"
+CONFIG_ARG="$1"
 if [[ "$CONFIG_ARG" = /* ]]; then
   CONFIG_PATH="$CONFIG_ARG"
 else

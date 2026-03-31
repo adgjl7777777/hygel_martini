@@ -96,18 +96,11 @@ export GMX_OPENMP_MAX_THREADS
 usage() {
   cat <<EOF
 Usage:
-  bash run_hydrogel_relaxation.sh [--check-gmx] [soft_em|soft_md|maker_soft_em.yaml|maker_soft_md.yaml]
-  bash run_hydrogel_relaxation.sh --workflow-help
-  bash run_hydrogel_relaxation.sh --help
-
-Default config:
-  soft_em -> $SCRIPT_DIR/maker_soft_em.yaml
-
-Examples:
-  bash run_hydrogel_relaxation.sh
-  bash run_hydrogel_relaxation.sh soft_md
+  bash run_hydrogel_relaxation.sh maker_soft_em.yaml
   bash run_hydrogel_relaxation.sh maker_soft_md.yaml
   bash run_hydrogel_relaxation.sh --check-gmx
+  bash run_hydrogel_relaxation.sh --workflow-help
+  bash run_hydrogel_relaxation.sh --help
 
 Shell environment:
   run_hydrogel_relaxation.sh sources $SCRIPT_DIR/environment.sh if it exists.
@@ -138,6 +131,16 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+if [ "$CHECK_GMX" -eq 0 ] && [ "$WORKFLOW_HELP" -eq 0 ] && [ $# -eq 0 ]; then
+  usage
+  exit 0
+fi
+if [ "$CHECK_GMX" -eq 0 ] && [ "$WORKFLOW_HELP" -eq 0 ] && [[ "$1" = -* ]]; then
+  echo "[ERROR] Config path is required." >&2
+  usage >&2
+  exit 1
+fi
+
 source_optional_script "ADDITIONAL_BASH_PROFILE" "$ADDITIONAL_BASH_PROFILE"
 activate_optional_env
 if [ -f "$GMXRC_PATH" ]; then
@@ -162,7 +165,7 @@ if [ "$WORKFLOW_HELP" -eq 1 ]; then
   exit 0
 fi
 
-CONFIG_ARG_RAW="${1:-soft_em}"
+CONFIG_ARG_RAW="$1"
 case "$CONFIG_ARG_RAW" in
   soft_em)
     CONFIG_ARG="maker_soft_em.yaml"

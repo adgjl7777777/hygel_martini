@@ -5,7 +5,7 @@
 ## 가장 쉬운 실행
 
 ```bash
-bash run_full_builder.sh
+bash run_full_builder.sh maker.yaml
 ```
 
 축소 anisotropy 테스트:
@@ -41,10 +41,6 @@ python3 -m hydrogel_builder --config maker.yaml
   simulation, hydrogel, mdp, backbone, add-series 설정입니다.
 - `structure/`
   backbone, linker, molecule template입니다.
-- `soft_shrinker/`
-  legacy 성격의 선택적 box relaxation helper입니다.
-  개념적으로는 `05_hydrogel_relaxation`의 `soft_em` 이전 버전에 가깝습니다.
-
 ## 출력 위치
 
 - 기본 출력은 `config/simulation.yaml`의 `simulation_parameters.output_dir`를 따릅니다.
