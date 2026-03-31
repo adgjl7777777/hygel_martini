@@ -6,16 +6,16 @@
 순서는 아래처럼 잡으면 됩니다.
 
 ```bash
-bash hygel_run.sh maker_soft_em.yaml
-bash hygel_run.sh maker_soft_md.yaml
+bash run_hydrogel_relaxation.sh soft_em
+bash run_hydrogel_relaxation.sh soft_md
 ```
 
 도움말과 GROMACS 확인:
 
 ```bash
-bash hygel_run.sh --help
-bash hygel_run.sh --check-gmx
-bash hygel_run.sh --workflow-help
+bash run_hydrogel_relaxation.sh --help
+bash run_hydrogel_relaxation.sh --check-gmx
+bash run_hydrogel_relaxation.sh --workflow-help
 ```
 
 직접 Python으로 실행할 때:
@@ -32,19 +32,17 @@ python3 -m hydrogel_builder.relax maker_soft_md.yaml
 
 ## active 파일
 
-- `hygel_run.sh`
-  conda + GMXRC 환경을 잡고 `python -m hydrogel_builder.relax`를 호출합니다.
+- `run_hydrogel_relaxation.sh`
+  primary launcher입니다.
+  `soft_em` / `soft_md` stage alias 또는 maker yaml을 받아
+  `python -m hydrogel_builder.relax`를 호출합니다.
 - `maker_soft_em.yaml`
   gradual EM / box relaxation 진입점
 - `maker_soft_md.yaml`
   `grompp + mdrun` 추가 완화 진입점
 - `config/`
   공통 path/runtime와 mode별 설정
-- `soft_em/minim.mdp`
+- `config/minim.mdp`
   soft EM에서 쓰는 minimization mdp
-- `soft_em/run_soft_em.sh`
-  soft EM helper launcher
-- `soft_md/npt_1ns.mdp`
+- `config/npt_1ns.mdp`
   soft MD에서 쓰는 mdp
-- `soft_md/run_soft_md.sh`
-  soft MD helper launcher

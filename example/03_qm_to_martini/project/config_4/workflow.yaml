@@ -1,9 +1,0 @@
-paths:
-  out_root: ${CONFIG_DIR}/../runs/config_4_no_geoopt_xtb_reuse
-
-bartender_pipeline:
-  relaxation: off
-  md: xtb
-  workdir_name: relax_xtb_nvt
-  bartender:
-    output_dirname: bartender_reuse_xtb

@@ -1,3 +1,0 @@
-includes:
-  - ../config_common/common.yaml
-  - workflow.yaml

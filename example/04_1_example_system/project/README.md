@@ -5,14 +5,14 @@
 ## 가장 쉬운 실행
 
 ```bash
-bash hygel_run.sh
+bash run_example_system.sh
 ```
 
 도움말과 GROMACS 확인:
 
 ```bash
-bash hygel_run.sh --help
-bash hygel_run.sh --check-gmx
+bash run_example_system.sh --help
+bash run_example_system.sh --check-gmx
 ```
 
 직접 Python으로 실행할 때:
@@ -24,7 +24,8 @@ python3 -m hydrogel_builder --config maker.yaml
 
 ## active 파일
 
-- `hygel_run.sh`
+- `run_example_system.sh`
+  primary launcher입니다.
   conda + GMXRC 환경을 잡고 `python -m hydrogel_builder`를 호출합니다.
 - `maker.yaml`
   이 프로젝트의 기본 진입점입니다.

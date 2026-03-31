@@ -5,20 +5,20 @@
 ## 가장 쉬운 실행
 
 ```bash
-bash hygel_run.sh
+bash run_full_builder.sh
 ```
 
 축소 anisotropy 테스트:
 
 ```bash
-bash hygel_run.sh maker_anisotropy_x.yaml
+bash run_full_builder.sh maker_anisotropy_x.yaml
 ```
 
 도움말과 GROMACS 확인:
 
 ```bash
-bash hygel_run.sh --help
-bash hygel_run.sh --check-gmx
+bash run_full_builder.sh --help
+bash run_full_builder.sh --check-gmx
 ```
 
 직접 Python으로 실행할 때:
@@ -30,7 +30,8 @@ python3 -m hydrogel_builder --config maker.yaml
 
 ## active 파일
 
-- `hygel_run.sh`
+- `run_full_builder.sh`
+  primary launcher입니다.
   conda + GMXRC 환경을 잡고 `python -m hydrogel_builder`를 호출합니다.
 - `maker.yaml`
   기본 smoke 진입점입니다.
@@ -41,7 +42,8 @@ python3 -m hydrogel_builder --config maker.yaml
 - `structure/`
   backbone, linker, molecule template입니다.
 - `soft_shrinker/`
-  선택적 box relaxation helper입니다.
+  legacy 성격의 선택적 box relaxation helper입니다.
+  개념적으로는 `05_hydrogel_relaxation`의 `soft_em` 이전 버전에 가깝습니다.
 
 ## 출력 위치
 

@@ -38,7 +38,7 @@ bash hygel_run.sh maker_soft_md.yaml
 
 ```bash
 cd /nas_0/software_backup/hygel_martini/example_myrun/03_qm_to_martini/project
-bash hygel_run.sh config_1/maker.yaml
+bash hygel_run.sh
 ```
 
 환경만 먼저 확인하고 싶으면:

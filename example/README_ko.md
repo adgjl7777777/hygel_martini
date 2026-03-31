@@ -4,10 +4,10 @@
 
 ## 포함한 것
 
-- launcher 스크립트
+- `run_*.sh` launcher 스크립트
 - `maker.yaml`, `maker_soft_*.yaml`, `config/`, `config_*`
 - monomer xyz / init input
-- `structure/`, `soft_em/`, `soft_md/`, `soft_shrinker/` 같은 실행 필수 helper
+- `structure/`, `config/`, `soft_shrinker/` 같은 실행 helper와 입력 파일
 
 ## 제외한 것
 

@@ -4,6 +4,7 @@ import argparse
 import copy
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -11,6 +12,8 @@ from .utils import parse_csv_list, parse_int_csv, parse_semicolon_list
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+_INT_RE = re.compile(r"^[+-]?\d+$")
+_FLOAT_RE = re.compile(r"^[+-]?(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?$")
 
 
 def deep_update(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
@@ -105,6 +108,67 @@ def _normalize_paths(cfg: Dict[str, Any], config_path: Path | None) -> Dict[str,
     return result
 
 
+def _parse_override_value(raw: str) -> Any:
+    value = raw.strip()
+    if value == "":
+        return ""
+
+    lowered = value.lower()
+    if lowered == "true":
+        return True
+    if lowered == "false":
+        return False
+    if lowered in {"null", "none"}:
+        return None
+    if _INT_RE.match(value):
+        try:
+            return int(value)
+        except ValueError:
+            pass
+    if _FLOAT_RE.match(value):
+        try:
+            return float(value)
+        except ValueError:
+            pass
+
+    if value[0] in "[{\"'":
+        try:
+            import yaml  # type: ignore
+
+            return yaml.safe_load(value)
+        except Exception:
+            try:
+                return json.loads(value)
+            except Exception:
+                return value
+
+    return value
+
+
+def _apply_set_override(cfg: Dict[str, Any], expr: str) -> None:
+    if "=" not in expr:
+        raise ValueError(f"Invalid --set override: {expr!r}. Expected key.path=value")
+
+    path_text, raw_value = expr.split("=", 1)
+    keys = [part.strip() for part in path_text.split(".") if part.strip()]
+    if not keys:
+        raise ValueError(f"Invalid --set override path: {expr!r}")
+
+    value = _parse_override_value(raw_value)
+    current: Dict[str, Any] = cfg
+    for key in keys[:-1]:
+        next_value = current.get(key)
+        if next_value is None:
+            current[key] = {}
+            next_value = current[key]
+        if not isinstance(next_value, dict):
+            raise TypeError(
+                f"Cannot apply --set {expr!r}: {'.'.join(keys[:-1])!r} is not a mapping"
+            )
+        current = next_value
+    current[keys[-1]] = value
+
+
 def load_config(config_path: Path | None, default_config: Dict[str, Any] | None = None) -> Dict[str, Any]:
     cfg = copy.deepcopy(default_config or {})
     if config_path and config_path.exists():
@@ -164,6 +228,9 @@ def apply_cli_overrides(cfg: Dict[str, Any], args: argparse.Namespace) -> Dict[s
     if getattr(args, "default_run_mode", None) is not None:
         result.setdefault("runtime", {})
         result["runtime"]["default_run_mode"] = args.default_run_mode
+    if getattr(args, "set_values", None):
+        for expr in args.set_values:
+            _apply_set_override(result, expr)
 
     return result
 
@@ -214,3 +281,14 @@ def add_qm_to_martini_cli_args(parser: argparse.ArgumentParser) -> None:
     add_config_args(parser)
     add_sequence_override_args(parser)
     parser.add_argument("--out", default=None)
+    parser.add_argument(
+        "--set",
+        dest="set_values",
+        action="append",
+        default=None,
+        help=(
+            "Override a nested config value with key.path=value. "
+            "Repeatable. Example: --set bartender_pipeline.md=off "
+            "--set system.sequences='[S,D,D,S]'"
+        ),
+    )

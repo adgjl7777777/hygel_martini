@@ -10,8 +10,9 @@ import subprocess
 from collections import OrderedDict, defaultdict, deque
 from dataclasses import dataclass, field
 from fractions import Fraction
+from itertools import combinations, permutations
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from ..core.utils import parse_csv_list
 from ..polymer_maker.maker import build_polymer as build_polymer_structure
@@ -96,6 +97,19 @@ class ConnectionMetadata:
     tail_br: int
     left_connection_bead: int
     right_connection_bead: int
+    backbone_beads: Tuple[int, ...] = ()
+
+
+@dataclass(frozen=True)
+class ConnectionDetectionConfig:
+    indicator: str
+    cutoff: float
+
+
+@dataclass(frozen=True)
+class TermGenerationConfig:
+    mode: str
+    n: int
 
 
 @dataclass
@@ -108,6 +122,7 @@ class PolymerInputBundle:
     augmented_report: ValidationReport
     connection_bonds: List[Tuple[int, int]]
     connection_beads: List[int]
+    backbone_beads: List[int]
 
 
 @dataclass(frozen=True)
@@ -178,6 +193,49 @@ def parse_bool(value: Any, default: bool = False) -> bool:
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
+def resolve_connection_detection_config(pipeline_cfg: Dict[str, Any]) -> ConnectionDetectionConfig:
+    indicator = str(pipeline_cfg.get("connection_indicator", "Br")).strip() or "Br"
+    cutoff = float(pipeline_cfg.get("connection_cutoff", CONNECTION_CUTOFF))
+    if cutoff <= 0:
+        raise ValueError("bartender_pipeline.connection_cutoff must be > 0")
+    return ConnectionDetectionConfig(
+        indicator=indicator,
+        cutoff=cutoff,
+    )
+
+
+def resolve_term_generation_config(pipeline_cfg: Dict[str, Any]) -> TermGenerationConfig:
+    raw_cfg = pipeline_cfg.get("term_generation", {})
+    if raw_cfg is None:
+        raw_cfg = {}
+    if isinstance(raw_cfg, str):
+        mode = raw_cfg
+        n = 0
+    elif isinstance(raw_cfg, dict):
+        mode = raw_cfg.get("mode", "all_unique")
+        n = raw_cfg.get("n", 0)
+    else:
+        raise TypeError("bartender_pipeline.term_generation must be a mapping or string when provided")
+
+    aliases = {
+        "exhaustive": "all_unique",
+        "original": "init_only",
+        "all": "all_unique",
+    }
+    normalized_mode = aliases.get(str(mode).strip().lower(), str(mode).strip().lower())
+    supported = {"init_only", "all_unique", "polymer_backbone", "topology_n", "topology_swap_n"}
+    if normalized_mode not in supported:
+        raise ValueError(
+            "bartender_pipeline.term_generation.mode must be one of "
+            f"{sorted(supported)} (or alias exhaustive/original), got {mode!r}"
+        )
+
+    budget = int(n)
+    if budget < 0:
+        raise ValueError("bartender_pipeline.term_generation.n must be >= 0")
+    return TermGenerationConfig(mode=normalized_mode, n=budget)
+
+
 def default_workdir_name(relaxation: str, md: str) -> str:
     if md == "bartender":
         if relaxation == "xtb":
@@ -185,12 +243,24 @@ def default_workdir_name(relaxation: str, md: str) -> str:
         if relaxation == "orca":
             return "relax_orca_geoopt"
         return "relax_input_geometry"
+    if md == "existing":
+        if relaxation == "xtb":
+            return "relax_xtb_geoopt_existing_traj"
+        if relaxation == "orca":
+            return "relax_orca_geoopt_existing_traj"
+        return "existing_traj_refit"
     if md == "off":
         if relaxation == "xtb":
             return "relax_xtb_geoopt_only"
         if relaxation == "orca":
             return "relax_orca_geoopt_only"
         return "polymer_geometry_only"
+    if md == "xtb_nobartender":
+        if relaxation == "xtb":
+            return "relax_xtb_geoopt_xtb_nvt_only"
+        if relaxation == "orca":
+            return "relax_orca_geoopt_xtb_nvt_only"
+        return "relax_xtb_nvt_only"
     if md == "xtb":
         if relaxation == "xtb":
             return "relax_xtb_geoopt_xtb_nvt"
@@ -276,8 +346,10 @@ def resolve_pipeline_modes(pipeline_cfg: Dict[str, Any]) -> Dict[str, str]:
 
     if relaxation not in {"xtb", "orca", "off"}:
         raise ValueError("bartender_pipeline.relaxation must be one of: xtb, orca, off")
-    if md not in {"bartender", "xtb", "off"}:
-        raise ValueError("bartender_pipeline.md must be one of: bartender, xtb, off")
+    if md not in {"bartender", "xtb", "existing", "xtb_nobartender", "off"}:
+        raise ValueError(
+            "bartender_pipeline.md must be one of: bartender, xtb, existing, xtb_nobartender, off"
+        )
 
     return {
         "relaxation": relaxation,
@@ -313,6 +385,50 @@ def resolve_spin_state(
     return uhf, multiplicity
 
 
+def _normalize_index_list(raw: Any, *, label: str) -> List[int]:
+    if raw is None:
+        return []
+    if isinstance(raw, (int, str)):
+        values = [raw]
+    elif isinstance(raw, Sequence) and not isinstance(raw, (bytes, bytearray, str)):
+        values = list(raw)
+    else:
+        raise TypeError(f"{label} must be an integer or a list of integers")
+
+    normalized: List[int] = []
+    seen: set[int] = set()
+    for value in values:
+        index = int(value)
+        if index < 0:
+            raise ValueError(f"{label} must contain 0-based atom indices")
+        converted = index + 1
+        if converted not in seen:
+            normalized.append(converted)
+            seen.add(converted)
+    return normalized
+
+
+def resolve_backbone_atom_config(raw: Any, *, label: str) -> Dict[str, List[int]]:
+    if raw is None:
+        return {"head": [1], "tail": [2], "body": []}
+    if not isinstance(raw, dict):
+        raise TypeError(f"{label} must be a mapping with optional head/body/tail atom lists")
+
+    head = _normalize_index_list(raw.get("head"), label=f"{label}.head")
+    tail = _normalize_index_list(raw.get("tail"), label=f"{label}.tail")
+    body = _normalize_index_list(raw.get("body"), label=f"{label}.body")
+    if not head and not tail:
+        raise ValueError(f"{label} must define at least one of head or tail")
+    return {"head": head, "tail": tail, "body": body}
+
+
+def export_backbone_atom_config(cfg: Dict[str, List[int]]) -> Dict[str, List[int]]:
+    return {
+        key: [int(value) - 1 for value in cfg.get(key, [])]
+        for key in ("head", "tail", "body")
+    }
+
+
 def normalize_monomer_configs(
     raw_monomers: Dict[str, Any],
     legacy_init_templates: Dict[str, Any],
@@ -340,6 +456,10 @@ def normalize_monomer_configs(
             "charge": int(entry.get("charge", 0)),
             "uhf": uhf,
             "multiplicity": multiplicity,
+            "backbone_atoms": resolve_backbone_atom_config(
+                entry.get("backbone_atoms"),
+                label=f"monomers.{token}.backbone_atoms",
+            ),
         }
     return normalized
 
@@ -454,6 +574,180 @@ def resolve_orca_settings(pipeline_cfg: Dict[str, Any]) -> Dict[str, Any]:
         ).strip(),
         "max_iter": int(orca_cfg.get("max_iter", 300)),
         "input_template_path": str(orca_cfg.get("input_template_path", "")).strip(),
+    }
+
+
+def _inspect_configured_executable(base_dir: Path, raw_value: Any) -> Dict[str, Any]:
+    configured = str(raw_value or "").strip()
+    if not configured:
+        return {
+            "configured": configured,
+            "resolved": None,
+            "exists": False,
+            "lookup": "missing",
+        }
+    if "/" in configured or configured.startswith("."):
+        path = resolve_under_base(base_dir, configured)
+        return {
+            "configured": configured,
+            "resolved": str(path),
+            "exists": path.exists(),
+            "lookup": "path",
+        }
+    found = shutil.which(configured)
+    return {
+        "configured": configured,
+        "resolved": found,
+        "exists": found is not None,
+        "lookup": "PATH",
+    }
+
+
+def _inspect_optional_file(base_dir: Path, raw_value: Any) -> Dict[str, Any]:
+    configured = str(raw_value or "").strip()
+    if not configured:
+        return {
+            "configured": configured,
+            "resolved": None,
+            "exists": True,
+            "lookup": "optional-empty",
+        }
+    path = resolve_under_base(base_dir, configured)
+    return {
+        "configured": configured,
+        "resolved": str(path),
+        "exists": path.exists(),
+        "lookup": "path",
+    }
+
+
+def check_configured_tools(cfg: Dict[str, Any], requested: Optional[Sequence[str]] = None) -> Dict[str, Any]:
+    requested_tools = [str(value).strip().lower() for value in (requested or ("xtb", "orca", "bartender"))]
+    base_dir = Path(str(cfg["paths"]["base_dir"])).resolve()
+    pipeline_cfg = cfg.get("bartender_pipeline", {})
+    if not isinstance(pipeline_cfg, dict):
+        raise TypeError("bartender_pipeline must be a mapping")
+
+    xtb_cfg = resolve_xtb_settings(pipeline_cfg)
+    orca_cfg = resolve_orca_settings(pipeline_cfg)
+    bartender_cfg = pipeline_cfg.get("bartender", {})
+    if not isinstance(bartender_cfg, dict):
+        raise TypeError("bartender_pipeline.bartender must be a mapping")
+
+    tools: List[Dict[str, Any]] = []
+    if "xtb" in requested_tools:
+        tools.append(
+            {
+                "name": "xtb",
+                "binary": _inspect_configured_executable(base_dir, xtb_cfg.get("binary")),
+                "env_script": _inspect_optional_file(base_dir, xtb_cfg.get("env_script")),
+            }
+        )
+    if "orca" in requested_tools:
+        tools.append(
+            {
+                "name": "orca",
+                "binary": _inspect_configured_executable(base_dir, orca_cfg.get("binary")),
+            }
+        )
+    if "bartender" in requested_tools:
+        tools.append(
+            {
+                "name": "bartender",
+                "binary": _inspect_configured_executable(base_dir, bartender_cfg.get("binary")),
+                "env_script": _inspect_optional_file(base_dir, bartender_cfg.get("env_script")),
+                "root": _inspect_optional_file(base_dir, bartender_cfg.get("root")),
+            }
+        )
+
+    ok = True
+    for tool in tools:
+        ok = ok and bool(tool["binary"]["exists"])
+        for key, payload in tool.items():
+            if key in {"name", "binary"}:
+                continue
+            ok = ok and bool(payload["exists"])
+    return {
+        "ok": ok,
+        "base_dir": str(base_dir),
+        "tools": tools,
+    }
+
+
+def resolve_execution_settings(pipeline_cfg: Dict[str, Any]) -> Dict[str, Any]:
+    exec_cfg = pipeline_cfg.get("execution", {})
+    if exec_cfg is None:
+        exec_cfg = {}
+    if not isinstance(exec_cfg, dict):
+        raise TypeError("bartender_pipeline.execution must be a mapping")
+
+    bartender_cfg = pipeline_cfg.get("bartender", {})
+    if not isinstance(bartender_cfg, dict):
+        bartender_cfg = {}
+
+    return {
+        "run_relaxation": parse_bool(exec_cfg.get("run_relaxation", False)),
+        "run_bartender": parse_bool(exec_cfg.get("run_bartender", bartender_cfg.get("execute", False))),
+        "shell": str(exec_cfg.get("shell", "bash")).strip() or "bash",
+    }
+
+
+def resolve_log_settings(pipeline_cfg: Dict[str, Any]) -> Dict[str, Any]:
+    log_cfg = pipeline_cfg.get("logs", {})
+    if log_cfg is None:
+        log_cfg = {}
+    if not isinstance(log_cfg, dict):
+        raise TypeError("bartender_pipeline.logs must be a mapping")
+
+    return {
+        "enabled": parse_bool(log_cfg.get("enabled", True), True),
+        "dirname": str(log_cfg.get("dirname", "logs")).strip() or "logs",
+        "write_validation": parse_bool(log_cfg.get("write_validation", True), True),
+        "capture_runtime": parse_bool(log_cfg.get("capture_runtime", True), True),
+    }
+
+
+def ensure_case_logs_dir(case_dir: Path, log_cfg: Dict[str, Any]) -> Optional[Path]:
+    if not log_cfg.get("enabled", True):
+        return None
+    logs_dir = case_dir / str(log_cfg["dirname"])
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    return logs_dir
+
+
+def execute_case_script(
+    label: str,
+    script_path: Path,
+    cwd: Path,
+    exec_cfg: Dict[str, Any],
+    logs_dir: Optional[Path],
+) -> Dict[str, Any]:
+    capture_runtime = bool(logs_dir) and bool(exec_cfg.get("capture_runtime", True))
+    result = subprocess.run(
+        [str(exec_cfg.get("shell", "bash")), script_path.name],
+        cwd=cwd,
+        text=True,
+        capture_output=capture_runtime,
+    )
+
+    stdout_name = None
+    stderr_name = None
+    if capture_runtime and logs_dir is not None:
+        stdout_name = f"{label}.stdout"
+        stderr_name = f"{label}.stderr"
+        write_text(logs_dir / stdout_name, result.stdout)
+        write_text(logs_dir / stderr_name, result.stderr)
+
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() if capture_runtime else f"{label} failed with exit code {result.returncode}")
+
+    return {
+        "script": script_path.name,
+        "cwd": str(cwd),
+        "shell": str(exec_cfg.get("shell", "bash")),
+        "returncode": result.returncode,
+        "stdout": stdout_name,
+        "stderr": stderr_name,
     }
 
 
@@ -737,7 +1031,51 @@ def _weighted_atom_owners(template: MonomerTemplate) -> Dict[int, List[WeightedA
     return owners
 
 
-def validate_template(template: MonomerTemplate, xyz_path: Path) -> ValidationReport:
+def _connector_indices(symbols: Sequence[str], indicator: str) -> List[int]:
+    marker = indicator.strip().upper()
+    return [index for index, symbol in enumerate(symbols, start=1) if str(symbol).strip().upper() == marker]
+
+
+def infer_backbone_beads(
+    template: MonomerTemplate,
+    xyz_path: Path,
+    backbone_atom_cfg: Dict[str, List[int]],
+) -> Tuple[int, ...]:
+    head_atoms = list(backbone_atom_cfg.get("head", []))
+    tail_atoms = list(backbone_atom_cfg.get("tail", []))
+    body_atoms = list(backbone_atom_cfg.get("body", []))
+    if not head_atoms and not tail_atoms and not body_atoms:
+        return ()
+
+    tracked_atoms = set(head_atoms) | set(tail_atoms) | set(body_atoms)
+    if template.atom_count and any(atom_index > template.atom_count for atom_index in tracked_atoms):
+        raise ValueError(
+            f"{xyz_path.name}: backbone atom indices {sorted(tracked_atoms)} exceed template atom count {template.atom_count}."
+        )
+
+    owners = _weighted_atom_owners(template)
+    missing = sorted(atom_index for atom_index in tracked_atoms if atom_index not in owners)
+    if missing:
+        raise ValueError(f"{xyz_path.name}: backbone atoms {missing} are not assigned to any bead in the init template.")
+
+    backbone_beads: List[int] = []
+    seen_beads: set[int] = set()
+    for bead_id, refs in template.beads.items():
+        if any(ref.atom_index in tracked_atoms for ref in refs) and bead_id not in seen_beads:
+            backbone_beads.append(int(bead_id))
+            seen_beads.add(int(bead_id))
+
+    if not backbone_beads:
+        raise ValueError(f"{xyz_path.name}: no beads contain the configured backbone atoms {sorted(tracked_atoms)}.")
+
+    return tuple(backbone_beads)
+
+
+def validate_template(
+    template: MonomerTemplate,
+    xyz_path: Path,
+    connection_cfg: ConnectionDetectionConfig,
+) -> ValidationReport:
     symbols, _ = parse_xyz(xyz_path)
     natoms = len(symbols)
     report = ValidationReport(target=str(template.path))
@@ -771,12 +1109,17 @@ def validate_template(template: MonomerTemplate, xyz_path: Path) -> ValidationRe
             f"Template misses atom indices: {missing_atoms[:20]}{'...' if len(missing_atoms) > 20 else ''}"
         )
 
-    br_indices = [index for index, symbol in enumerate(symbols, start=1) if symbol == "Br"]
-    if len(br_indices) < 2:
-        report.problems.append(f"{xyz_path.name} must contain Br connectors, found {len(br_indices)}.")
-    for br_index in br_indices:
-        if br_index not in owners:
-            report.problems.append(f"Br atom {br_index} is not assigned to any bead.")
+    connector_indices = _connector_indices(symbols, connection_cfg.indicator)
+    if len(connector_indices) < 2:
+        report.problems.append(
+            f"{xyz_path.name} must contain at least two '{connection_cfg.indicator}' connector atoms, "
+            f"found {len(connector_indices)}."
+        )
+    for connector_index in connector_indices:
+        if connector_index not in owners:
+            report.problems.append(
+                f"Connector atom {connector_index} ('{connection_cfg.indicator}') is not assigned to any bead."
+            )
 
     bead_ids = set(template.beads.keys())
     adjacency: Dict[int, set[int]] = {bead_id: set() for bead_id in bead_ids}
@@ -810,30 +1153,97 @@ def validate_template(template: MonomerTemplate, xyz_path: Path) -> ValidationRe
     return report
 
 
-def infer_connection_metadata(template: MonomerTemplate, xyz_path: Path) -> ConnectionMetadata:
+def infer_connection_metadata(
+    template: MonomerTemplate,
+    xyz_path: Path,
+    connection_cfg: ConnectionDetectionConfig,
+    backbone_atom_cfg: Dict[str, List[int]],
+) -> ConnectionMetadata:
     symbols, coords = parse_xyz(xyz_path)
-    if len(symbols) < 2:
-        raise ValueError(f"{xyz_path.name} must contain at least two atoms.")
+    head_refs = list(backbone_atom_cfg.get("head", []))
+    tail_refs = list(backbone_atom_cfg.get("tail", []))
+    user_head_refs = [ref - 1 for ref in head_refs]
+    user_tail_refs = [ref - 1 for ref in tail_refs]
+    required_atoms = max(head_refs + tail_refs, default=0)
+    if len(symbols) < required_atoms:
+        raise ValueError(f"{xyz_path.name} must contain at least {required_atoms} atoms.")
 
-    head_carbon = 1
-    tail_carbon = 2
+    head_carbon = head_refs[0] if head_refs else 0
+    tail_carbon = tail_refs[0] if tail_refs else 0
     head_br: Optional[int] = None
     tail_br: Optional[int] = None
 
-    for atom_index, symbol in enumerate(symbols, start=1):
-        if symbol != "Br":
-            continue
-        d_head = _distance(coords[head_carbon - 1], coords[atom_index - 1])
-        d_tail = _distance(coords[tail_carbon - 1], coords[atom_index - 1])
-        if d_head <= CONNECTION_CUTOFF:
-            head_br = atom_index
-        elif d_tail <= CONNECTION_CUTOFF:
-            tail_br = atom_index
-
-    if head_br is None or tail_br is None:
+    connector_indices = _connector_indices(symbols, connection_cfg.indicator)
+    if len(connector_indices) < 2:
         raise ValueError(
-            f"{xyz_path.name}: could not infer head/tail Br atoms near atoms 1 and 2 with cutoff {CONNECTION_CUTOFF} A."
+            f"{xyz_path.name}: expected at least two '{connection_cfg.indicator}' connector atoms, found {len(connector_indices)}."
         )
+
+    def distance_to_refs(connector_atom: int, refs: Sequence[int]) -> float:
+        return min(_distance(coords[ref - 1], coords[connector_atom - 1]) for ref in refs)
+
+    if head_refs and tail_refs:
+        best_pair: Optional[Tuple[float, int, int]] = None
+        for head_candidate in connector_indices:
+            d_head = distance_to_refs(head_candidate, head_refs)
+            if d_head > connection_cfg.cutoff:
+                continue
+            for tail_candidate in connector_indices:
+                if tail_candidate == head_candidate:
+                    continue
+                d_tail = distance_to_refs(tail_candidate, tail_refs)
+                if d_tail > connection_cfg.cutoff:
+                    continue
+                payload = (d_head + d_tail, head_candidate, tail_candidate)
+                if best_pair is None or payload < best_pair:
+                    best_pair = payload
+        if best_pair is None:
+            raise ValueError(
+                f"{xyz_path.name}: could not infer distinct head/tail '{connection_cfg.indicator}' atoms "
+                f"near backbone_atoms.head={user_head_refs} and backbone_atoms.tail={user_tail_refs} "
+                f"with cutoff {connection_cfg.cutoff} A."
+            )
+        _, head_br, tail_br = best_pair
+    elif head_refs:
+        candidates = [
+            (distance_to_refs(connector_atom, head_refs), connector_atom)
+            for connector_atom in connector_indices
+            if distance_to_refs(connector_atom, head_refs) <= connection_cfg.cutoff
+        ]
+        if not candidates:
+            raise ValueError(
+                f"{xyz_path.name}: could not infer head '{connection_cfg.indicator}' near backbone_atoms.head={user_head_refs} "
+                f"with cutoff {connection_cfg.cutoff} A."
+            )
+        candidates.sort()
+        head_br = candidates[0][1]
+        remaining = [connector_atom for connector_atom in connector_indices if connector_atom != head_br]
+        if len(remaining) != 1:
+            raise ValueError(
+                f"{xyz_path.name}: backbone_atoms defines only head, so exactly two connector atoms are required."
+            )
+        tail_br = remaining[0]
+    elif tail_refs:
+        candidates = [
+            (distance_to_refs(connector_atom, tail_refs), connector_atom)
+            for connector_atom in connector_indices
+            if distance_to_refs(connector_atom, tail_refs) <= connection_cfg.cutoff
+        ]
+        if not candidates:
+            raise ValueError(
+                f"{xyz_path.name}: could not infer tail '{connection_cfg.indicator}' near backbone_atoms.tail={user_tail_refs} "
+                f"with cutoff {connection_cfg.cutoff} A."
+            )
+        candidates.sort()
+        tail_br = candidates[0][1]
+        remaining = [connector_atom for connector_atom in connector_indices if connector_atom != tail_br]
+        if len(remaining) != 1:
+            raise ValueError(
+                f"{xyz_path.name}: backbone_atoms defines only tail, so exactly two connector atoms are required."
+            )
+        head_br = remaining[0]
+    else:
+        raise ValueError(f"{xyz_path.name}: backbone_atoms must define at least one of head or tail.")
 
     def owner(atom_index: int, label: str) -> int:
         owners = [
@@ -852,8 +1262,9 @@ def infer_connection_metadata(template: MonomerTemplate, xyz_path: Path) -> Conn
         tail_carbon=tail_carbon,
         head_br=head_br,
         tail_br=tail_br,
-        left_connection_bead=owner(head_br, "head Br"),
-        right_connection_bead=owner(tail_br, "tail Br"),
+        left_connection_bead=owner(head_br, "head connector"),
+        right_connection_bead=owner(tail_br, "tail connector"),
+        backbone_beads=infer_backbone_beads(template, xyz_path, backbone_atom_cfg),
     )
 
 
@@ -873,183 +1284,231 @@ def _build_graph(edges: Iterable[Tuple[int, int]]) -> Dict[int, set[int]]:
     return graph
 
 
-def _compute_within3(bead_ids: Sequence[int], graph: Dict[int, set[int]]) -> Dict[int, set[int]]:
-    within3: Dict[int, set[int]] = {}
-    for center in bead_ids:
-        one = graph.get(center, set())
-        two: set[int] = set()
-        for node in one:
-            two.update(graph.get(node, set()))
-        three: set[int] = set()
-        for node in two:
-            three.update(graph.get(node, set()))
-        values = set(one) | two | three
-        values.discard(center)
-        within3[center] = values
-    return within3
+def _canon_reversible(values: Sequence[int]) -> Tuple[int, ...]:
+    forward = tuple(int(value) for value in values)
+    reverse = tuple(reversed(forward))
+    return forward if forward <= reverse else reverse
 
 
-def _bfs_dists(graph: Dict[int, set[int]], start: int, max_depth: int = 6) -> Dict[int, int]:
-    dist = {start: 0}
-    queue = deque([start])
-    while queue:
-        current = queue.popleft()
-        if dist[current] >= max_depth:
+def _reversal_unique_permutations(values: Sequence[int]) -> List[Tuple[int, ...]]:
+    unique: List[Tuple[int, ...]] = []
+    seen: set[Tuple[int, ...]] = set()
+    for perm in permutations(values):
+        key = _canon_reversible(perm)
+        if key in seen:
             continue
-        for neighbor in graph.get(current, set()):
-            if neighbor not in dist:
-                dist[neighbor] = dist[current] + 1
-                queue.append(neighbor)
-    return dist
+        seen.add(key)
+        unique.append(key)
+    unique.sort()
+    return unique
 
 
-def _compute_dist_map(bead_ids: Sequence[int], graph: Dict[int, set[int]]) -> Dict[int, Dict[int, int]]:
-    return {bead_id: _bfs_dists(graph, bead_id, max_depth=6) for bead_id in bead_ids}
-
-
-def _angle_core_filters(
-    i: int,
-    j: int,
-    k: int,
-    adjacency: set[Tuple[int, int]],
-    constraints: set[Tuple[int, int]],
-    within3: Dict[int, set[int]],
-    dist_map: Dict[int, Dict[int, int]],
-) -> bool:
-    if i == j or j == k or i == k:
-        return False
-
-    ij = _sorted_pair(i, j)
-    jk = _sorted_pair(j, k)
-    ij_bonded = ij in adjacency
-    jk_bonded = jk in adjacency
-
-    if ij in constraints and jk in constraints:
-        return False
-    if not (ij_bonded or jk_bonded):
-        return False
-    if i not in within3.get(j, set()) or k not in within3.get(j, set()):
-        return False
-
-    dik = dist_map.get(i, {}).get(k)
-    dij = dist_map.get(i, {}).get(j)
-    djk = dist_map.get(j, {}).get(k)
-    if dik is None or dij is None or djk is None:
-        return False
-    return dik == dij + djk
-
-
-def _remove_angles_in_dihedrals_new_only(
-    new_angles: List[Tuple[int, int, int]],
-    dihedrals: Iterable[Tuple[int, int, int, int]],
-    bead_count: int,
-) -> List[Tuple[int, int, int]]:
-    if bead_count < 5:
-        return new_angles
-    drop: set[Tuple[int, int, int]] = set()
-    for a, b, c, d in dihedrals:
-        drop.add(_canon_angle(a, b, c))
-        drop.add(_canon_angle(b, c, d))
-    return [angle for angle in new_angles if angle not in drop]
-
-
-def _generate_new_angles(
-    inp_data: MonomerTemplate,
-    priority_bonds: Iterable[Tuple[int, int]],
-) -> List[Tuple[int, int, int]]:
-    bead_ids = sorted(inp_data.beads.keys())
-    if len(bead_ids) <= 2:
-        return []
-
-    bonds = {_sorted_pair(a, b) for a, b in inp_data.bonds}
-    constraints = {_sorted_pair(a, b) for a, b in inp_data.constraints}
-    adjacency = bonds | constraints
-    graph = _build_graph(adjacency)
-    within3 = _compute_within3(bead_ids, graph)
-    dist_map = _compute_dist_map(bead_ids, graph)
-    atom_count = sum(len(refs) for refs in inp_data.beads.values())
-    priority_set = {_sorted_pair(a, b) for a, b in priority_bonds}
-
-    angle_list = list(inp_data.angles)
-
-    def duplicate_membership(i: int, j: int, k: int) -> bool:
-        for ai, aj, ak in angle_list:
-            if i in (ai, aj, ak) and j in (ai, aj, ak) and k in (ai, aj, ak):
-                return True
-        return False
-
-    def fan_suppressed(i: int, j: int, k: int) -> bool:
-        if atom_count <= 15:
-            return False
-        for ai, aj, ak in angle_list:
-            if aj != j or i not in (ai, ak):
+def _generate_all_reversible_combinations(
+    bead_ids: Sequence[int],
+    body_size: int,
+    existing: set[Tuple[int, ...]],
+) -> List[Tuple[int, ...]]:
+    generated: List[Tuple[int, ...]] = []
+    seen: set[Tuple[int, ...]] = set()
+    for combo in combinations(sorted(bead_ids), body_size):
+        for candidate in _reversal_unique_permutations(combo):
+            if candidate in existing or candidate in seen:
                 continue
-            for bi, bj, bk in angle_list:
-                if bj == j and k in (bi, bk):
-                    return True
-        return False
+            generated.append(candidate)
+            seen.add(candidate)
+    return generated
 
-    def prio_edge(a: int, b: int) -> int:
-        return 0 if _sorted_pair(a, b) in priority_set else 1
 
-    candidates0: List[Tuple[int, int, int, int, int]] = []
-    for i in bead_ids:
-        for j in bead_ids:
-            for k in bead_ids:
-                ij = _sorted_pair(i, j)
-                jk = _sorted_pair(j, k)
-                if not _angle_core_filters(i, j, k, adjacency, constraints, within3, dist_map):
-                    continue
-                if ij in adjacency and jk in adjacency:
-                    candidates0.append((prio_edge(i, j), prio_edge(j, k), i, j, k))
+def _generate_all_linkage_bonds(inp_data: MonomerTemplate) -> List[Tuple[int, int]]:
+    bead_ids = sorted(inp_data.beads.keys())
+    existing = {_sorted_pair(a, b) for a, b in inp_data.bonds} | {_sorted_pair(a, b) for a, b in inp_data.constraints}
+    return [tuple(int(value) for value in candidate) for candidate in _generate_all_reversible_combinations(bead_ids, 2, existing)]
 
-    candidates0.sort(key=lambda item: (item[0], item[1], item[3], item[2], item[4]))
-    for _, _, i, j, k in candidates0:
-        if duplicate_membership(i, j, k) or fan_suppressed(i, j, k):
+
+def _generate_all_linkage_angles(inp_data: MonomerTemplate) -> List[Tuple[int, int, int]]:
+    bead_ids = sorted(inp_data.beads.keys())
+    existing = {_canon_angle(a, b, c) for a, b, c in inp_data.angles}
+    return [
+        tuple(int(value) for value in candidate)
+        for candidate in _generate_all_reversible_combinations(bead_ids, 3, existing)
+    ]
+
+
+def _generate_all_linkage_dihedrals(inp_data: MonomerTemplate) -> List[Tuple[int, int, int, int]]:
+    bead_ids = sorted(inp_data.beads.keys())
+    existing = {_canon_reversible((a, b, c, d)) for a, b, c, d in inp_data.dihedrals}
+    return [
+        tuple(int(value) for value in candidate)
+        for candidate in _generate_all_reversible_combinations(bead_ids, 4, existing)
+    ]
+
+
+def _generate_all_linkage_impropers(inp_data: MonomerTemplate) -> List[Tuple[int, int, int, int]]:
+    bead_ids = sorted(inp_data.beads.keys())
+    existing = {_canon_reversible((a, b, c, d)) for a, b, c, d in inp_data.impropers}
+    return [
+        tuple(int(value) for value in candidate)
+        for candidate in _generate_all_reversible_combinations(bead_ids, 4, existing)
+    ]
+
+
+def _connection_proxy_count(indices: Sequence[int], backbone_beads: set[int]) -> int:
+    return len({int(index) for index in indices if int(index) in backbone_beads})
+
+
+def _filter_connection_proxy_terms(
+    terms: Sequence[Tuple[int, ...]],
+    backbone_beads: set[int],
+    minimum_distinct: int = 2,
+) -> List[Tuple[int, ...]]:
+    return [
+        tuple(int(value) for value in term)
+        for term in terms
+        if _connection_proxy_count(term, backbone_beads) >= minimum_distinct
+    ]
+
+
+def _distance_cache(graph: Dict[int, set[int]]) -> Callable[[int, int], Optional[int]]:
+    cache: Dict[Tuple[int, int], Optional[int]] = {}
+
+    def lookup(a: int, b: int) -> Optional[int]:
+        key = _sorted_pair(int(a), int(b))
+        if key not in cache:
+            cache[key] = shortest_path_len(graph, key[0], key[1])
+        return cache[key]
+
+    return lookup
+
+
+def _topology_reference_cost(
+    section: str,
+    indices: Sequence[int],
+    distance_lookup: Callable[[int, int], Optional[int]],
+) -> Optional[int]:
+    edges: List[Tuple[int, int]]
+    if section == "bond":
+        edges = [(indices[0], indices[1])]
+    elif section == "angle":
+        edges = [(indices[0], indices[1]), (indices[1], indices[2])]
+    elif section == "dihedral":
+        edges = [(indices[0], indices[1]), (indices[1], indices[2]), (indices[2], indices[3])]
+    elif section == "improper":
+        center = indices[0]
+        edges = [(center, indices[1]), (center, indices[2]), (center, indices[3])]
+    else:
+        raise ValueError(f"Unsupported topology section: {section}")
+
+    total = 0
+    for left, right in edges:
+        distance = distance_lookup(left, right)
+        if distance is None:
+            return None
+        total += max(distance - 1, 0)
+    return total
+
+
+def _changed_index_count(term: Sequence[int], reference: Sequence[int]) -> int:
+    changed = sum(1 for left, right in zip(term, reference) if int(left) != int(right))
+    return max(0, changed - 1)
+
+
+def _topology_term_cost(
+    section: str,
+    term: Sequence[int],
+    distance_lookup: Callable[[int, int], Optional[int]],
+    *,
+    allow_swaps: bool,
+) -> Optional[int]:
+    direct_cost = _topology_reference_cost(section, term, distance_lookup)
+    if not allow_swaps or len(term) <= 2:
+        return direct_cost
+
+    best = direct_cost
+    for reference in permutations(term):
+        ref_cost = _topology_reference_cost(section, reference, distance_lookup)
+        if ref_cost is None:
             continue
-        angle_list.append((i, j, k))
+        candidate_cost = ref_cost + _changed_index_count(term, reference)
+        if best is None or candidate_cost < best:
+            best = candidate_cost
+    return best
 
-    candidates1: List[Tuple[int, int, Tuple[int, int], int, int, int]] = []
-    for i in bead_ids:
-        for j in bead_ids:
-            for k in bead_ids:
-                ij = _sorted_pair(i, j)
-                jk = _sorted_pair(j, k)
-                if not _angle_core_filters(i, j, k, adjacency, constraints, within3, dist_map):
-                    continue
-                if ij in adjacency and jk in adjacency:
-                    continue
-                if ij in adjacency:
-                    stretched = dist_map.get(j, {}).get(k)
-                    if stretched is None:
-                        continue
-                    anchor_key = (j, i)
-                    priority = 0 if ij in priority_set else 2
-                elif jk in adjacency:
-                    stretched = dist_map.get(j, {}).get(i)
-                    if stretched is None:
-                        continue
-                    anchor_key = (j, k)
-                    priority = 1 if jk in priority_set else 2
-                else:
-                    continue
-                candidates1.append((priority, stretched, anchor_key, i, j, k))
 
-    candidates1.sort(key=lambda item: (item[0], item[1], item[4], item[3], item[5]))
-    used_anchor: set[Tuple[int, int]] = set()
-    for _, _, anchor_key, i, j, k in candidates1:
-        if anchor_key in used_anchor:
-            continue
-        if duplicate_membership(i, j, k) or fan_suppressed(i, j, k):
-            continue
-        angle_list.append((i, j, k))
-        used_anchor.add(anchor_key)
+def _filter_topology_terms(
+    section: str,
+    terms: Sequence[Tuple[int, ...]],
+    graph: Dict[int, set[int]],
+    budget: int,
+    *,
+    allow_swaps: bool,
+) -> List[Tuple[int, ...]]:
+    distance_lookup = _distance_cache(graph)
+    filtered: List[Tuple[int, ...]] = []
+    for term in terms:
+        cost = _topology_term_cost(section, term, distance_lookup, allow_swaps=allow_swaps)
+        if cost is not None and cost <= budget:
+            filtered.append(tuple(int(value) for value in term))
+    return filtered
 
-    existing_canon = {_canon_angle(i, j, k) for i, j, k in inp_data.angles}
-    all_canon = {_canon_angle(i, j, k) for i, j, k in angle_list}
-    new_canon = [angle for angle in all_canon if angle not in existing_canon]
-    new_canon.sort(key=lambda angle: (angle[1], angle[0], angle[2]))
-    return _remove_angles_in_dihedrals_new_only(new_canon, inp_data.dihedrals, len(inp_data.beads))
+
+def _generate_augmented_terms(
+    base: MonomerTemplate,
+    term_cfg: TermGenerationConfig,
+    backbone_beads: Sequence[int],
+) -> tuple[
+    List[Tuple[int, int]],
+    List[Tuple[int, int, int]],
+    List[Tuple[int, int, int, int]],
+    List[Tuple[int, int, int, int]],
+]:
+    if term_cfg.mode == "init_only":
+        return [], [], [], []
+
+    new_bonds = _generate_all_linkage_bonds(base)
+    new_angles = _generate_all_linkage_angles(base)
+    new_dihedrals = _generate_all_linkage_dihedrals(base)
+    new_impropers = _generate_all_linkage_impropers(base)
+
+    if term_cfg.mode in {"topology_n", "topology_swap_n"}:
+        graph = _build_graph(list(base.bonds) + list(base.constraints))
+        allow_swaps = term_cfg.mode == "topology_swap_n"
+        new_bonds = _filter_topology_terms("bond", new_bonds, graph, term_cfg.n, allow_swaps=allow_swaps)
+        new_angles = _filter_topology_terms("angle", new_angles, graph, term_cfg.n, allow_swaps=allow_swaps)
+        new_dihedrals = _filter_topology_terms(
+            "dihedral",
+            new_dihedrals,
+            graph,
+            term_cfg.n,
+            allow_swaps=allow_swaps,
+        )
+        new_impropers = _filter_topology_terms(
+            "improper",
+            new_impropers,
+            graph,
+            term_cfg.n,
+            allow_swaps=allow_swaps,
+        )
+
+    if term_cfg.mode == "polymer_backbone":
+        backbone_set = {int(value) for value in backbone_beads}
+        new_bonds = [
+            tuple(term)
+            for term in _filter_connection_proxy_terms(new_bonds, backbone_set, minimum_distinct=2)
+        ]
+        new_angles = [
+            tuple(term)
+            for term in _filter_connection_proxy_terms(new_angles, backbone_set, minimum_distinct=2)
+        ]
+        new_dihedrals = [
+            tuple(term)
+            for term in _filter_connection_proxy_terms(new_dihedrals, backbone_set, minimum_distinct=2)
+        ]
+        new_impropers = [
+            tuple(term)
+            for term in _filter_connection_proxy_terms(new_impropers, backbone_set, minimum_distinct=2)
+        ]
+
+    return new_bonds, new_angles, new_dihedrals, new_impropers
 
 
 def format_inp(template: MonomerTemplate) -> str:
@@ -1121,6 +1580,7 @@ def build_polymer_input(
     polymer_xyz_path: Path,
     templates: Dict[str, MonomerTemplate],
     metadata: Dict[str, ConnectionMetadata],
+    term_cfg: TermGenerationConfig,
 ) -> PolymerInputBundle:
     tokens = normalize_sequence(sequence)
     symbols, _ = parse_xyz(polymer_xyz_path)
@@ -1139,6 +1599,7 @@ def build_polymer_input(
     bead_offset = 0
     connection_bonds: List[Tuple[int, int]] = []
     connection_beads: List[int] = []
+    backbone_beads: List[int] = []
     terminal_cap_indices: List[int] = []
     previous_right_bead: Optional[int] = None
     expected_atoms = 0
@@ -1193,6 +1654,8 @@ def build_polymer_input(
         left_bead = bead_offset + meta.left_connection_bead
         right_bead = bead_offset + meta.right_connection_bead
         connection_beads.extend([left_bead, right_bead])
+        local_backbone_beads = meta.backbone_beads or tuple(sorted({meta.left_connection_bead, meta.right_connection_bead}))
+        backbone_beads.extend(bead_offset + int(bead_id) for bead_id in local_backbone_beads)
         if previous_right_bead is not None:
             bond = _sorted_pair(previous_right_bead, left_bead)
             bonds.append(bond)
@@ -1222,16 +1685,20 @@ def build_polymer_input(
     report.problems.extend(base_check.problems)
     report.warnings.extend(base_check.warnings)
 
-    new_angles = _generate_new_angles(base, connection_bonds)
+    new_bonds, new_angles, new_dihedrals, new_impropers = _generate_augmented_terms(
+        base,
+        term_cfg,
+        backbone_beads,
+    )
     augmented = MonomerTemplate(
         path=polymer_xyz_path.with_suffix(".inp"),
         preamble=list(base.preamble),
         beads=base.beads,
-        bonds=list(base.bonds),
+        bonds=list(base.bonds) + new_bonds,
         constraints=list(base.constraints),
         angles=list(base.angles) + new_angles,
-        dihedrals=list(base.dihedrals),
-        impropers=list(base.impropers),
+        dihedrals=list(base.dihedrals) + new_dihedrals,
+        impropers=list(base.impropers) + new_impropers,
     )
     augmented_report = validate_generated_input(augmented, polymer_xyz_path, terminal_cap_indices)
 
@@ -1244,6 +1711,7 @@ def build_polymer_input(
         augmented_report=augmented_report,
         connection_bonds=connection_bonds,
         connection_beads=sorted(set(connection_beads)),
+        backbone_beads=sorted(set(backbone_beads)),
     )
 
 
@@ -1299,13 +1767,27 @@ def parse_param_line(raw: str, section: str, n_idx: int) -> Optional[ParamLine]:
 
 
 def parse_gmx_out_itp(path: Path) -> Dict[str, List[ParamLine]]:
-    parsed: Dict[str, List[ParamLine]] = {section: [] for section in ("bonds", "constraints", "angles", "dihedrals")}
+    header_map = {
+        "bonds": "bonds",
+        "bondtypes": "bonds",
+        "constraints": "constraints",
+        "constrainttypes": "constraints",
+        "angles": "angles",
+        "angletypes": "angles",
+        "dihedrals": "dihedrals",
+        "dihedraltypes": "dihedrals",
+        "impropers": "impropers",
+        "impropertypes": "impropers",
+    }
+    parsed: Dict[str, List[ParamLine]] = {
+        section: [] for section in ("bonds", "constraints", "angles", "dihedrals", "impropers")
+    }
     current: Optional[str] = None
     for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
         stripped = raw.strip()
         if stripped.startswith("[") and stripped.endswith("]"):
             header = stripped.strip("[]").strip().lower()
-            current = header if header in parsed else None
+            current = header_map.get(header)
             continue
         if current is None:
             continue
@@ -1318,23 +1800,26 @@ def parse_gmx_out_itp(path: Path) -> Dict[str, List[ParamLine]]:
 
 def summarize_itp(path: Path) -> Dict[str, object]:
     parsed = parse_gmx_out_itp(path)
+
+    def _payload(line: ParamLine) -> Dict[str, object]:
+        payload: Dict[str, object] = {
+            "indices": list(line.indices),
+            "params": list(line.tokens),
+            "commented": line.commented,
+            "comment": line.inline_comment,
+        }
+        if line.rmsd is not None:
+            payload["rmsd"] = line.rmsd
+        return payload
+
     return {
         "path": str(path),
         "counts": {section: len(lines) for section, lines in parsed.items()},
-        "bonds": [
-            {"indices": line.indices, "params": list(line.tokens), "commented": line.commented, "comment": line.inline_comment}
-            for line in parsed["bonds"]
-        ],
-        "angles": [
-            {
-                "indices": line.indices,
-                "params": list(line.tokens),
-                "commented": line.commented,
-                "comment": line.inline_comment,
-                "rmsd": line.rmsd,
-            }
-            for line in parsed["angles"]
-        ],
+        "bonds": [_payload(line) for line in parsed["bonds"]],
+        "constraints": [_payload(line) for line in parsed["constraints"]],
+        "angles": [_payload(line) for line in parsed["angles"]],
+        "dihedrals": [_payload(line) for line in parsed["dihedrals"]],
+        "impropers": [_payload(line) for line in parsed["impropers"]],
     }
 
 
@@ -1431,7 +1916,11 @@ def build_bead_maps(
 
     label_map: Dict[int, str] = {}
     type_map: Dict[int, str] = {}
-    connection_beads = set(int(value) for value in case.get("connection_beads", []))
+    backbone_beads = set(int(value) for value in case.get("backbone_beads", []))
+    use_case_backbone = bool(backbone_beads)
+    if not backbone_beads:
+        backbone_beads = set(int(value) for value in case.get("connection_beads", []))
+        use_case_backbone = bool(backbone_beads)
     offset = 0
     for token in tokens:
         if token not in monomers:
@@ -1442,10 +1931,15 @@ def build_bead_maps(
             global_index = offset + local_index
             label_map[global_index] = spec["labels"][local_index - 1]
             type_map[global_index] = spec["types"][local_index - 1]
-        if not connection_beads:
-            connection_beads.add(offset + int(monomers[token].get("left_connection_bead", 1)))
+        if not use_case_backbone:
+            local_backbone = monomers[token].get("backbone_beads", [])
+            if isinstance(local_backbone, list) and local_backbone:
+                for bead_id in local_backbone:
+                    backbone_beads.add(offset + int(bead_id))
+            else:
+                backbone_beads.add(offset + int(monomers[token].get("left_connection_bead", 1)))
         offset += bead_count
-    return label_map, type_map, connection_beads
+    return label_map, type_map, backbone_beads
 
 
 def shortest_path_len(graph: Dict[int, set[int]], start: int, goal: int) -> Optional[int]:
@@ -1501,14 +1995,17 @@ def typed_records_for_result(
 ) -> List[TypedRecord]:
     case = json.loads(case_path.read_text(encoding="utf-8"))
     parsed = parse_gmx_out_itp(itp_path)
-    label_map, type_map, connection_beads = build_bead_maps(case, label_overrides)
+    label_map, type_map, backbone_beads = build_bead_maps(case, label_overrides)
 
-    graph = build_graph({_sorted_pair(*line.indices) for line in parsed["bonds"]} | {_sorted_pair(*line.indices) for line in parsed["constraints"]})
+    graph = _build_graph(
+        {_sorted_pair(*line.indices) for line in parsed["bonds"]}
+        | {_sorted_pair(*line.indices) for line in parsed["constraints"]}
+    )
     angle_lines = choose_best_rmsd_uncomment(parsed["angles"])
     source_tag = f"{case.get('sequence_stem', case_path.parent.name)}:{itp_path.parent.name}"
 
     def category(indices: Tuple[int, ...]) -> str:
-        return "WITH_BACKBONE" if any(index in connection_beads for index in indices) else "WITHOUT_BACKBONE"
+        return "WITH_BACKBONE" if any(index in backbone_beads for index in indices) else "WITHOUT_BACKBONE"
 
     def map_labels(indices: Tuple[int, ...]) -> tuple[Tuple[str, ...], Tuple[str, ...]]:
         try:
@@ -1518,7 +2015,13 @@ def typed_records_for_result(
             raise KeyError(f"{itp_path}: bead index {exc.args[0]} is not present in the case bead map.") from exc
         return display, types
 
-    section_map = {"bonds": "bondtypes", "constraints": "constrainttypes", "angles": "angletypes", "dihedrals": "dihedraltypes"}
+    section_map = {
+        "bonds": "bondtypes",
+        "constraints": "constrainttypes",
+        "angles": "angletypes",
+        "dihedrals": "dihedraltypes",
+        "impropers": "impropertypes",
+    }
     records: List[TypedRecord] = []
 
     for section_name in ("bonds", "constraints"):
@@ -1566,6 +2069,24 @@ def typed_records_for_result(
         records.append(
             TypedRecord(
                 section="dihedraltypes",
+                category=category(line.indices),
+                angle_dist="",
+                type_names=types,
+                display_labels=display,
+                indices=line.indices,
+                tokens=line.tokens,
+                commented=line.commented,
+                inline_comment=line.inline_comment,
+                rmsd=line.rmsd,
+                source_tag=source_tag,
+                source_path=str(itp_path),
+            )
+        )
+    for line in parsed["impropers"]:
+        display, types = map_labels(line.indices)
+        records.append(
+            TypedRecord(
+                section="impropertypes",
                 category=category(line.indices),
                 angle_dist="",
                 type_names=types,
@@ -1676,7 +2197,7 @@ def write_merged_forcefield(
         "",
     ]
 
-    section_order = ("bondtypes", "constrainttypes", "angletypes", "dihedraltypes")
+    section_order = ("bondtypes", "constrainttypes", "angletypes", "dihedraltypes", "impropertypes")
     category_order = ("WITH_BACKBONE", "WITHOUT_BACKBONE")
 
     for section in section_order:
@@ -1747,7 +2268,7 @@ def prepare_relaxation_job(
     pipeline_cfg: Dict[str, Any],
     base_dir: Path,
 ) -> Optional[Path]:
-    if flow["relaxation"] == "off" and flow["md"] != "xtb":
+    if flow["relaxation"] == "off" and flow["md"] not in {"xtb", "xtb_nobartender"}:
         case["relaxation"] = {
             "mode": flow["relaxation"],
             "md": flow["md"],
@@ -1777,7 +2298,7 @@ def prepare_relaxation_job(
     orca_cfg = resolve_orca_settings(pipeline_cfg)
     xtb_env_script = xtb_cfg["env_script"]
     xtb_parallel = int(xtb_cfg["parallel"])
-    xtb_parallel_expr = f"${{SLURM_NTASKS:-{xtb_parallel}}}"
+    xtb_parallel_expr = f"${{XTB_PARALLEL:-{xtb_parallel}}}"
     xtb_solvent_flags = ""
     if xtb_cfg["solvent_model"] != "off":
         xtb_solvent_flags = f" --{xtb_cfg['solvent_model']} {shlex.quote(xtb_cfg['solvent'])}"
@@ -1793,7 +2314,7 @@ def prepare_relaxation_job(
         f"--parallel {xtb_parallel_expr}"
     )
 
-    needs_xtb = flow["relaxation"] == "xtb" or flow["md"] == "xtb"
+    needs_xtb = flow["relaxation"] == "xtb" or flow["md"] in {"xtb", "xtb_nobartender"}
     needs_orca = flow["relaxation"] == "orca"
     geometry_hint = local_xyz.name
     trajectory_hint: Optional[str] = None
@@ -1801,18 +2322,14 @@ def prepare_relaxation_job(
 
     lines = [
         "#!/bin/bash",
-        f"#SBATCH -J relax_{polymer_xyz.stem}",
-        "#SBATCH -p gpupart",
-        "#SBATCH -N 1",
-        f"#SBATCH -n {xtb_parallel if needs_xtb else max(1, int(orca_cfg['nprocs']))}",
-        "#SBATCH -t 100:00:00",
-        "",
         "set -euo pipefail",
         "cd \"$(dirname \"$0\")\"",
-        "export OMP_NUM_THREADS=${SLURM_NTASKS:-1}",
-        "export MKL_NUM_THREADS=${SLURM_NTASKS:-1}",
+        f"export OMP_NUM_THREADS=${{OMP_NUM_THREADS:-{xtb_parallel if needs_xtb else max(1, int(orca_cfg['nprocs']))}}}",
+        "export MKL_NUM_THREADS=${MKL_NUM_THREADS:-$OMP_NUM_THREADS}",
         "export OMP_STACKSIZE=1G",
     ]
+    if needs_xtb:
+        lines.append(f"export XTB_PARALLEL=${{XTB_PARALLEL:-{xtb_parallel}}}")
     if xtb_env_script and needs_xtb:
         lines.extend(
             [
@@ -1846,7 +2363,7 @@ def prepare_relaxation_job(
     elif flow["relaxation"] != "off":
         raise ValueError(f"Unsupported relaxation mode: {flow['relaxation']}")
 
-    if flow["md"] == "xtb":
+    if flow["md"] in {"xtb", "xtb_nobartender"}:
         md_template_path = resolve_optional_path(base_dir, xtb_cfg["md_input_template_path"])
         md_template_text = (
             md_template_path.read_text(encoding="utf-8", errors="replace")
@@ -1871,7 +2388,7 @@ def prepare_relaxation_job(
         "run_script": script_path.name,
         "geometry_hint": geometry_hint,
         "trajectory_hint": trajectory_hint,
-        "raw_trajectory_hint": "xtb.trj" if flow["md"] == "xtb" else None,
+        "raw_trajectory_hint": "xtb.trj" if flow["md"] in {"xtb", "xtb_nobartender"} else None,
         "geometry_opt": geometry_opt,
     }
     return workdir
@@ -1881,15 +2398,30 @@ def prepare_bartender_job(
     case_dir: Path,
     case: Dict[str, Any],
     flow: Dict[str, str],
-    bartender_cfg: Dict[str, Any],
+    pipeline_cfg: Dict[str, Any],
+    base_dir: Path,
 ) -> Optional[Path]:
-    if flow["md"] == "off":
+    bartender_cfg = pipeline_cfg.get("bartender", {})
+    if not isinstance(bartender_cfg, dict):
+        raise TypeError("bartender_pipeline.bartender must be a mapping")
+
+    if flow["md"] in {"off", "xtb_nobartender"}:
+        relax = case.get("relaxation", {})
+        if not isinstance(relax, dict):
+            relax = {}
+        trajectory_path = None
+        if flow["md"] == "xtb_nobartender":
+            relax_workdir = relax.get("workdir")
+            relax_trajectory = relax.get("trajectory_hint")
+            if relax_workdir and relax_trajectory:
+                trajectory_path = str(case_dir / str(relax_workdir) / str(relax_trajectory))
         case["bartender"] = {
-            "mode": "off",
+            "mode": flow["md"],
             "workdir": None,
             "run_script": None,
             "geometry_source": None,
-            "trajectory_source": None,
+            "trajectory_source": "relaxation_output" if flow["md"] == "xtb_nobartender" else None,
+            "trajectory_path": trajectory_path,
         }
         return None
 
@@ -1918,6 +2450,15 @@ def prepare_bartender_job(
         if not relax_workdir or not relax_trajectory:
             raise ValueError("xTB reuse mode requires relaxation.trajectory_hint metadata.")
         trajectory = case_dir / str(relax_workdir) / str(relax_trajectory)
+        trajectory_source = "relaxation_output"
+    elif flow["md"] == "existing":
+        md_traj = resolve_optional_path(base_dir, pipeline_cfg.get("md_traj"))
+        if md_traj is None:
+            raise ValueError("bartender_pipeline.md=existing requires bartender_pipeline.md_traj")
+        trajectory = md_traj
+        trajectory_source = "existing_md_traj"
+    else:
+        trajectory_source = None
 
     inp = case_dir / str(case["artifacts"]["bartender_inp"])
     if not inp.exists():
@@ -1959,9 +2500,9 @@ def prepare_bartender_job(
             command.extend(["-dcdSave", dcd_save])
         if skip > 1:
             command.extend(["-skip", str(skip)])
-    elif flow["md"] == "xtb":
+    elif flow["md"] in {"xtb", "existing"}:
         if trajectory is None:
-            raise ValueError("xTB reuse mode requires a trajectory path.")
+            raise ValueError("Trajectory reuse mode requires a trajectory path.")
         trajectory_arg = os.path.relpath(str(trajectory), start=str(outdir))
         command.extend(["-owntraj", trajectory_arg, "-refit"])
         if skip > 1:
@@ -1999,12 +2540,6 @@ def prepare_bartender_job(
 
     geometry_exists = geometry.exists()
     trajectory_exists = trajectory.exists() if trajectory is not None else None
-    if bartender_cfg.get("execute", False):
-        if not geometry_exists:
-            raise FileNotFoundError(f"Bartender geometry source does not exist yet: {geometry}")
-        if trajectory is not None and not trajectory_exists:
-            raise FileNotFoundError(f"Bartender owntraj source does not exist yet: {trajectory}")
-
     manifest = {
         "mode": flow["md"],
         "geometry": geometry_arg,
@@ -2024,17 +2559,8 @@ def prepare_bartender_job(
     case["bartender"]["mode"] = flow["md"]
     case["bartender"]["geometry_source"] = geometry_source
     case["bartender"]["geometry_path"] = str(geometry)
+    case["bartender"]["trajectory_source"] = trajectory_source
     case["bartender"]["trajectory_path"] = str(trajectory) if trajectory is not None else None
-
-    if bartender_cfg.get("execute", False):
-        result = subprocess.run(["bash", script_path.name], cwd=outdir, text=True, capture_output=True)
-        write_text(outdir / "bartender.stdout", result.stdout)
-        write_text(outdir / "bartender.stderr", result.stderr)
-        if result.returncode != 0:
-            raise RuntimeError(result.stderr.strip() or f"Bartender failed with exit code {result.returncode}")
-        gmx_out = outdir / "gmx_out.itp"
-        if gmx_out.exists():
-            write_text(outdir / "gmx_out_summary.json", json.dumps(summarize_itp(gmx_out), indent=2))
 
     return outdir
 
@@ -2078,6 +2604,31 @@ def merge_results(root: Path, output_itp: Path, output_json: Path, label_map_pat
     return payload
 
 
+def run_postprocess_only(cfg: Dict[str, Any]) -> Dict[str, Any]:
+    base_dir = Path(cfg["paths"]["base_dir"]).resolve()
+    out_root = Path(cfg["paths"]["out_root"]).resolve()
+    if not out_root.exists():
+        raise FileNotFoundError(f"Postprocess root does not exist: {out_root}")
+
+    pipeline_cfg = cfg["bartender_pipeline"]
+    post_cfg = pipeline_cfg["postprocess"]
+    summary: Dict[str, Any] = {"settings": cfg, "postprocess_only": True, "out_root": str(out_root)}
+
+    if post_cfg.get("collect", True):
+        collect_path = resolve_under_base(out_root, str(post_cfg.get("collect_json", "bartender_summary.json")))
+        summary["collect"] = collect_results(out_root, collect_path)
+    if post_cfg.get("merge", False):
+        label_map_value = post_cfg.get("label_map_path")
+        label_map_path = resolve_under_base(base_dir, str(label_map_value)) if label_map_value else None
+        output_itp = resolve_under_base(out_root, str(post_cfg.get("merged_itp", "merged_forcefield.itp")))
+        output_json = resolve_under_base(out_root, str(post_cfg.get("merged_json", "merged_forcefield.json")))
+        summary["merge"] = merge_results(out_root, output_itp, output_json, label_map_path)
+
+    summary_name = str(post_cfg.get("summary_json", "postprocess_summary.json"))
+    write_text(resolve_under_base(out_root, summary_name), json.dumps(summary, indent=2, ensure_ascii=False))
+    return summary
+
+
 def run_pipeline(cfg: Dict[str, Any]) -> Dict[str, Any]:
     base_dir = Path(cfg["paths"]["base_dir"]).resolve()
     out_root = Path(cfg["paths"]["out_root"]).resolve()
@@ -2085,6 +2636,10 @@ def run_pipeline(cfg: Dict[str, Any]) -> Dict[str, Any]:
 
     pipeline_cfg = cfg["bartender_pipeline"]
     flow = resolve_pipeline_modes(pipeline_cfg)
+    exec_cfg = resolve_execution_settings(pipeline_cfg)
+    log_cfg = resolve_log_settings(pipeline_cfg)
+    connection_cfg = resolve_connection_detection_config(pipeline_cfg)
+    term_cfg = resolve_term_generation_config(pipeline_cfg)
     legacy_init_templates = pipeline_cfg.get("init_templates", {})
     if legacy_init_templates is None:
         legacy_init_templates = {}
@@ -2120,8 +2675,13 @@ def run_pipeline(cfg: Dict[str, Any]) -> Dict[str, Any]:
             if token not in template_cache:
                 template = parse_bartender_inp(init_templates[token])
                 template_cache[token] = template
-                validation_cache[token] = validate_template(template, Path(monomer_paths[token]))
-                metadata_cache[token] = infer_connection_metadata(template, Path(monomer_paths[token]))
+                validation_cache[token] = validate_template(template, Path(monomer_paths[token]), connection_cfg)
+                metadata_cache[token] = infer_connection_metadata(
+                    template,
+                    Path(monomer_paths[token]),
+                    connection_cfg,
+                    monomer_cfg[token]["backbone_atoms"],
+                )
 
         stem = sequence_stem(tokens)
         case_dir = out_root / stem
@@ -2149,11 +2709,12 @@ def run_pipeline(cfg: Dict[str, Any]) -> Dict[str, Any]:
         if builder_tmp.exists():
             shutil.rmtree(builder_tmp, ignore_errors=True)
 
-        bundle = build_polymer_input(tokens, final_xyz, template_cache, metadata_cache)
+        bundle = build_polymer_input(tokens, final_xyz, template_cache, metadata_cache, term_cfg)
         base_inp = case_dir / f"{stem}_base.inp"
         final_inp = case_dir / f"{stem}_bartender.inp"
         write_text(base_inp, bundle.base_text)
         write_text(final_inp, bundle.augmented_text)
+        logs_dir = ensure_case_logs_dir(case_dir, log_cfg)
 
         monomer_validation_text = []
         has_failure = False
@@ -2165,9 +2726,10 @@ def run_pipeline(cfg: Dict[str, Any]) -> Dict[str, Any]:
             if not report.ok:
                 has_failure = True
 
-        write_text(case_dir / "monomer_validation.txt", "\n".join(monomer_validation_text).rstrip() + "\n")
-        write_text(case_dir / "polymer_base_validation.txt", bundle.base_report.render())
-        write_text(case_dir / "polymer_augmented_validation.txt", bundle.augmented_report.render())
+        if logs_dir is not None and log_cfg.get("write_validation", True):
+            write_text(logs_dir / "monomer_validation.txt", "\n".join(monomer_validation_text).rstrip() + "\n")
+            write_text(logs_dir / "polymer_base_validation.txt", bundle.base_report.render())
+            write_text(logs_dir / "polymer_augmented_validation.txt", bundle.augmented_report.render())
         if not bundle.base_report.ok or not bundle.augmented_report.ok:
             has_failure = True
 
@@ -2187,6 +2749,14 @@ def run_pipeline(cfg: Dict[str, Any]) -> Dict[str, Any]:
             "base_inp": str(base_inp),
             "bartender_inp": str(final_inp),
             "electronic_state": electronic_state,
+            "term_generation": {
+                "mode": term_cfg.mode,
+                "n": term_cfg.n,
+            },
+            "connection_detection": {
+                "indicator": connection_cfg.indicator,
+                "cutoff": connection_cfg.cutoff,
+            },
             "bead_specs": {
                 token: default_bead_spec(token, template_cache[token].bead_count)
                 for token in sorted(set(tokens))
@@ -2199,6 +2769,8 @@ def run_pipeline(cfg: Dict[str, Any]) -> Dict[str, Any]:
                     "tail_br": metadata_cache[token].tail_br,
                     "left_connection_bead": metadata_cache[token].left_connection_bead,
                     "right_connection_bead": metadata_cache[token].right_connection_bead,
+                    "backbone_atoms": export_backbone_atom_config(monomer_cfg[token]["backbone_atoms"]),
+                    "backbone_beads": list(metadata_cache[token].backbone_beads),
                     "bead_count": template_cache[token].bead_count,
                     "charge": monomer_cfg[token]["charge"],
                     "uhf": monomer_cfg[token]["uhf"],
@@ -2208,10 +2780,22 @@ def run_pipeline(cfg: Dict[str, Any]) -> Dict[str, Any]:
             },
             "connection_bonds": bundle.connection_bonds,
             "connection_beads": bundle.connection_beads,
+            "backbone_beads": bundle.backbone_beads,
             "reports": {
                 "monomer_validation_ok": all(validation_cache[token].ok for token in sorted(set(tokens))),
                 "base_validation_ok": bundle.base_report.ok,
                 "augmented_validation_ok": bundle.augmented_report.ok,
+            },
+            "execution": {
+                "run_relaxation": exec_cfg["run_relaxation"],
+                "run_bartender": exec_cfg["run_bartender"],
+                "shell": exec_cfg["shell"],
+            },
+            "logs": {
+                "enabled": log_cfg["enabled"],
+                "dir": str(logs_dir) if logs_dir is not None else None,
+                "write_validation": log_cfg["write_validation"],
+                "capture_runtime": log_cfg["capture_runtime"],
             },
         }
 
@@ -2220,8 +2804,43 @@ def run_pipeline(cfg: Dict[str, Any]) -> Dict[str, Any]:
             raise ValueError(f"Validation failed for case {stem}. See {case_dir}.")
 
         relax_dir = prepare_relaxation_job(case_dir, case, flow, pipeline_cfg, base_dir)
-        bartender_dir = prepare_bartender_job(case_dir, case, flow, pipeline_cfg["bartender"])
+        bartender_dir = prepare_bartender_job(case_dir, case, flow, pipeline_cfg, base_dir)
         write_text(case_dir / "case.json", json.dumps(case, indent=2, ensure_ascii=False))
+
+        if exec_cfg["run_relaxation"] and relax_dir is not None:
+            relax_script = relax_dir / str(case["relaxation"]["run_script"])
+            case["execution"]["relaxation"] = execute_case_script(
+                "relaxation",
+                relax_script,
+                relax_dir,
+                {**exec_cfg, "capture_runtime": log_cfg["capture_runtime"]},
+                logs_dir,
+            )
+            write_text(case_dir / "case.json", json.dumps(case, indent=2, ensure_ascii=False))
+
+        if exec_cfg["run_bartender"] and bartender_dir is not None:
+            bartender_meta = case.get("bartender", {})
+            if not isinstance(bartender_meta, dict):
+                bartender_meta = {}
+            geometry_path = bartender_meta.get("geometry_path")
+            trajectory_path = bartender_meta.get("trajectory_path")
+            if geometry_path and not Path(str(geometry_path)).exists():
+                raise FileNotFoundError(f"Bartender geometry source does not exist yet: {geometry_path}")
+            if trajectory_path and not Path(str(trajectory_path)).exists():
+                raise FileNotFoundError(f"Bartender owntraj source does not exist yet: {trajectory_path}")
+
+            bartender_script = bartender_dir / str(case["bartender"]["run_script"])
+            case["execution"]["bartender"] = execute_case_script(
+                "bartender",
+                bartender_script,
+                bartender_dir,
+                {**exec_cfg, "capture_runtime": log_cfg["capture_runtime"]},
+                logs_dir,
+            )
+            gmx_out = bartender_dir / "gmx_out.itp"
+            if gmx_out.exists() and logs_dir is not None:
+                write_text(logs_dir / "gmx_out_summary.json", json.dumps(summarize_itp(gmx_out), indent=2))
+            write_text(case_dir / "case.json", json.dumps(case, indent=2, ensure_ascii=False))
 
         cases.append(
             {

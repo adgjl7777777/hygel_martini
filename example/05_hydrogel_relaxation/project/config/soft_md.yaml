@@ -7,7 +7,7 @@ paths:
   workdir: ${CONFIG_DIR}/../relax_output/soft_md
 
 soft_md:
-  mdp: ${CONFIG_DIR}/../soft_md/npt_1ns.mdp
+  mdp: ${CONFIG_DIR}/npt_1ns.mdp
   deffnm: soft_md
   ntomp: 1
   maxwarn: 1
