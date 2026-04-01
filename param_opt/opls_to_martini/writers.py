@@ -136,16 +136,19 @@ def write_topol_stub(path: Path, cfg: Dict[str, Any]) -> None:
     if not (solvate_tool == "gromacs" and int(water_count) == 0):
         molecules_lines.append(f"{water_name}   {water_count}")
 
+    include_block = "\n".join(include_lines)
+    molecules_block = "\n".join(molecules_lines)
+
     content = f"""; Fill this topology for your force field and polymer itp.
 ; Update include paths and molecule names/count as needed.
 
-{"\n".join(include_lines)}
+{include_block}
 
 [ system ]
 {top_cfg['system_name']}
 
 [ molecules ]
-{"\n".join(molecules_lines)}
+{molecules_block}
 """
     write_text(path, content)
 
