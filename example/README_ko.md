@@ -1,6 +1,6 @@
 # example 안내
 
-이 폴더는 `example_myrun/`에서 생성물과 작업 메모를 제거한 배포용 기준 입력 세트입니다.
+이 폴더는 fresh clone에서도 바로 사용할 수 있게 정리한 tracked example 입력 세트입니다.
 
 ## 포함한 것
 

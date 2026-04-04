@@ -6,6 +6,13 @@ xTB trajectory 생성, Bartender 후처리를 이어서 수행합니다.
 
 ## 실행
 
+먼저 저장소 루트에서 패키지를 현재 Python 환경에 설치합니다.
+
+```bash
+cd /path/to/hygel_martini
+python -m pip install -e .
+```
+
 대표 진입점은 `config_common/common.yaml`입니다.
 
 ```bash
@@ -40,8 +47,8 @@ python -m param_opt.qm_to_martini --config config_common/common.yaml
 기본 launcher는 `environment.sh`를 source한 뒤 현재 shell 환경을 씁니다.
 conda/profile/python 쪽은 `environment.sh`에서 관리하고,
 xTB/ORCA/Bartender 경로는 `config_common/common.yaml`만 수정하면 됩니다.
-예제 디렉터리를 다른 위치로 옮겨 쓸 때는 `HYGEL_REPO_ROOT=/path/to/hygel_martini`를
-주거나, 패키지를 환경에 설치한 상태로 실행하면 됩니다.
+launcher는 저장소 clone 안에서 실행하고, Python 환경에는 `hygel_martini`가
+이미 설치되어 있어야 합니다.
 
 ## 현재 active 파일
 

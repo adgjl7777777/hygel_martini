@@ -5,20 +5,14 @@ set -euo pipefail
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 # Use central utilities
-LAUNCHER_UTILS_PATH=""
-if [ -n "${HYGEL_REPO_ROOT:-}" ] && [ -f "${HYGEL_REPO_ROOT}/launcher_utils.sh" ]; then
-  LAUNCHER_UTILS_PATH="${HYGEL_REPO_ROOT}/launcher_utils.sh"
-else
-  REPO_ROOT_LOCAL=$(cd "$SCRIPT_DIR/../../.." && pwd)
-  if [ -f "$REPO_ROOT_LOCAL/launcher_utils.sh" ]; then
-    LAUNCHER_UTILS_PATH="$REPO_ROOT_LOCAL/launcher_utils.sh"
-  fi
-fi
-if [ -n "$LAUNCHER_UTILS_PATH" ]; then
+REPO_ROOT_LOCAL=$(cd "$SCRIPT_DIR/../../.." && pwd)
+LAUNCHER_UTILS_PATH="$REPO_ROOT_LOCAL/launcher_utils.sh"
+if [ -f "$LAUNCHER_UTILS_PATH" ]; then
   # shellcheck disable=SC1090
   source "$LAUNCHER_UTILS_PATH"
 else
-  echo "[ERROR] launcher_utils.sh not found. Set HYGEL_REPO_ROOT=/path/to/hygel_martini or run from inside the repo copy." >&2
+  echo "[ERROR] launcher_utils.sh not found at $LAUNCHER_UTILS_PATH" >&2
+  echo "[ERROR] Run this launcher from a hygel_martini git clone after installing the package." >&2
   exit 1
 fi
 
@@ -36,7 +30,8 @@ Usage:
 
 Shell environment:
   run_qm_to_martini.sh sources environment.sh if it exists.
-  Override with ENVIRONMENT_FILE, HYGEL_REPO_ROOT, or PYTHON_BIN.
+  Override with ENVIRONMENT_FILE or PYTHON_BIN.
+  The hygel_martini package must already be installed in that Python environment.
 EOF
 }
 
@@ -109,13 +104,10 @@ if [ "$WORKFLOW_HELP" -eq 0 ] && [ ! -f "$CONFIG_PATH" ]; then
   exit 1
 fi
 
-RUN_DIR="$SCRIPT_DIR"
-if [ -n "$REPO_ROOT" ]; then
-  RUN_DIR="$REPO_ROOT"
-fi
-cd "$RUN_DIR"
+cd "$SCRIPT_DIR"
 
 if [ "$WORKFLOW_HELP" -eq 1 ]; then
+  require_python_module "param_opt.qm_to_martini" "$REPO_ROOT_LOCAL"
   "$PYTHON_BIN" -m param_opt.qm_to_martini --help
   exit 0
 fi
@@ -128,8 +120,10 @@ if [ "$CHECK_BARTENDER" -eq 1 ]; then
   CHECK_ARGS+=(bartender)
 fi
 if [ "${#CHECK_ARGS[@]}" -gt 0 ]; then
+  require_python_module "param_opt.qm_to_martini" "$REPO_ROOT_LOCAL"
   "$PYTHON_BIN" -m param_opt.qm_to_martini --config "$CONFIG_PATH" --check-tools "${CHECK_ARGS[@]}" "${PASSTHRU_ARGS[@]}" "$@"
   exit 0
 fi
 
+require_python_module "param_opt.qm_to_martini" "$REPO_ROOT_LOCAL"
 "$PYTHON_BIN" -m param_opt.qm_to_martini --config "$CONFIG_PATH" "${PASSTHRU_ARGS[@]}" "$@"

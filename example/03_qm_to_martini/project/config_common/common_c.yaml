@@ -248,6 +248,6 @@ bartender_pipeline:
 
   # Postprocess is intentionally split out of this file.
   # Run it later with:
-  #   bash hygel_run.sh --postprocess-only
+  #   bash run_qm_to_martini.sh --postprocess-only
   # or
-  #   bash hygel_run.sh config_common/postprocess.yaml --postprocess-only
+  #   bash run_qm_to_martini.sh config_common/postprocess.yaml --postprocess-only

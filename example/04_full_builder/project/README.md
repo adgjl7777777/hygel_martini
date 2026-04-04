@@ -4,6 +4,13 @@
 
 ## 가장 쉬운 실행
 
+먼저 저장소 루트에서 패키지를 현재 Python 환경에 설치합니다.
+
+```bash
+cd /path/to/hygel_martini
+python -m pip install -e .
+```
+
 ```bash
 bash run_full_builder.sh maker.yaml
 ```
@@ -32,7 +39,7 @@ python3 -m hydrogel_builder --config maker.yaml
 
 - `run_full_builder.sh`
   primary launcher입니다.
-  conda + GMXRC 환경을 잡고 `python -m hydrogel_builder`를 호출합니다.
+  conda + GMXRC 환경을 잡고 설치된 `python -m hydrogel_builder`를 호출합니다.
 - `maker.yaml`
   기본 smoke 진입점입니다.
 - `maker_anisotropy_x.yaml`

@@ -5,6 +5,13 @@
 
 순서는 아래처럼 잡으면 됩니다.
 
+먼저 저장소 루트에서 패키지를 현재 Python 환경에 설치합니다.
+
+```bash
+cd /path/to/hygel_martini
+python -m pip install -e .
+```
+
 ```bash
 bash run_hydrogel_relaxation.sh maker_soft_em.yaml
 bash run_hydrogel_relaxation.sh maker_soft_md.yaml
@@ -34,7 +41,7 @@ python3 -m hydrogel_builder.relax maker_soft_md.yaml
 
 - `run_hydrogel_relaxation.sh`
   primary launcher입니다.
-  maker yaml을 받아 `python -m hydrogel_builder.relax`를 호출합니다.
+  maker yaml을 받아 설치된 `python -m hydrogel_builder.relax`를 호출합니다.
 - `maker_soft_em.yaml`
   gradual EM / box relaxation 진입점
 - `maker_soft_md.yaml`

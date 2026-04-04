@@ -7,9 +7,7 @@
 - `hydrogel_builder`
   실제 hydrogel system 생성과 post-build relaxation
 
-처음 쓰는 경우에는 `example/`보다 `example_myrun/`을 먼저 보면 됩니다.
-`example/`은 배포용 참고본이고, 실제 실행과 수정은 `example_myrun/` 기준으로
-정리되어 있습니다.
+처음 시작할 때는 저장소에 포함된 `example/` 아래 프로젝트를 그대로 쓰면 됩니다.
 
 정말 처음이면 `START_HERE_ko.md`부터 보는 편이 더 빠릅니다.
 
@@ -17,8 +15,10 @@
 
 ```bash
 cd /path/to/hygel_martini
-pip install -e .
+python -m pip install -e .
 ```
+
+example launcher들은 이 설치가 현재 Python 환경에 이미 되어 있다고 가정합니다.
 
 지금 바로 돌려볼 수 있는 예시는 `03`, `04`, `04_1`, `05`입니다.
 `00`, `01`, `02` example 슬롯은 자리만 잡아둔 placeholder입니다.
@@ -26,8 +26,8 @@ pip install -e .
 ### 03. QM -> Martini
 
 ```bash
-cd /path/to/hygel_martini/example_myrun/03_qm_to_martini/project
-bash hygel_run.sh
+cd /path/to/hygel_martini/example/03_qm_to_martini/project
+bash run_qm_to_martini.sh config_common/common.yaml
 ```
 
 `md: off`로 두면 geometry optimization까지만 진행하고 Bartender/MD 단계는 생략합니다.
@@ -35,37 +35,35 @@ bash hygel_run.sh
 ### 04. Full Builder
 
 ```bash
-cd /path/to/hygel_martini/example_myrun/04_full_builder/project
-bash hygel_run.sh
+cd /path/to/hygel_martini/example/04_full_builder/project
+bash run_full_builder.sh maker.yaml
 ```
 
 anisotropy smoke:
 
 ```bash
-bash hygel_run.sh maker_anisotropy_x.yaml
+bash run_full_builder.sh maker_anisotropy_x.yaml
 ```
 
 ### 04_1. Example System
 
 ```bash
-cd /path/to/hygel_martini/example_myrun/04_1_example_system/project
-bash hygel_run.sh
+cd /path/to/hygel_martini/example/04_1_example_system/project
+bash run_example_system.sh maker.yaml
 ```
 
 ### 05. Hydrogel Relaxation
 
 ```bash
-cd /path/to/hygel_martini/example_myrun/05_hydrogel_relaxation/project
-bash hygel_run.sh maker_soft_em.yaml
-bash hygel_run.sh maker_soft_md.yaml
+cd /path/to/hygel_martini/example/05_hydrogel_relaxation/project
+bash run_hydrogel_relaxation.sh maker_soft_em.yaml
+bash run_hydrogel_relaxation.sh maker_soft_md.yaml
 ```
 
 ## 어떤 폴더를 봐야 하나
 
 - `example/`
-  배포용 참고본
-- `example_myrun/`
-  실제 실행용 작업 공간
+  fresh clone에서도 바로 쓸 수 있는 tracked example project
 - `param_opt/`
   00, 01, 02, 03 쪽 Python 본체
 - `hydrogel_builder/`
@@ -73,7 +71,7 @@ bash hygel_run.sh maker_soft_md.yaml
 - `martini_v300/`
   Martini force-field 리소스
 
-헷갈리면 `example_myrun/`의 `project/` 디렉터리만 보면 됩니다.
+헷갈리면 `example/` 아래 각 `project/` 디렉터리만 보면 됩니다.
 
 ## 패키지 구조
 
@@ -113,7 +111,7 @@ python -m hydrogel_builder.relax path/to/maker_soft_em.yaml
 
 실행 흐름은 아래처럼 이어집니다.
 
-1. `04_*` 예제의 `hygel_run.sh`
+1. `04_*` 예제의 `run_example_system.sh` / `run_full_builder.sh`
 2. `python -m hydrogel_builder`
 3. `hydrogel_builder.generator.run_hydrogel_builder`
 4. `hydrogel_builder.config_params.generator.run_hydrogel_example`
@@ -121,7 +119,7 @@ python -m hydrogel_builder.relax path/to/maker_soft_em.yaml
 
 후처리 relaxation은 아래 흐름입니다.
 
-1. `05_hydrogel_relaxation/project/hygel_run.sh`
+1. `05_hydrogel_relaxation/project/run_hydrogel_relaxation.sh`
 2. `python -m hydrogel_builder.relax`
 3. `hydrogel_builder.relax.generator.run_relax_workflow`
 4. `hydrogel_builder.relax.soft_em` 또는 `hydrogel_builder.relax.soft_md`
@@ -161,9 +159,7 @@ simulation_parameters:
 - `ENV_NAME`
   필요할 때만 activate할 conda 환경 이름
 - `ENVIRONMENT_FILE`
-  각 `hygel_run.sh`가 먼저 source하는 project-local shell 설정 파일
-- `HYGEL_REPO_ROOT`
-  예제 폴더를 다른 곳으로 옮겼을 때 직접 지정할 저장소 루트
+  각 example launcher가 먼저 source하는 project-local shell 설정 파일
 - `GMXRC_PATH`
   GROMACS 환경을 source할 GMXRC 경로
 - `GMX_CMD`
@@ -213,8 +209,8 @@ builder 쪽에서 막히면 보통 이 순서로 확인하면 됩니다.
 
 ## 추가 문서
 
-- `example_myrun/README_ko.md`
-  실제 작업용 예제 설명
+- `example/README_ko.md`
+  tracked example 구성 설명
 - `param_opt/README.md`
   00, 01, 02, 03 구조 설명
 - `hydrogel_builder/README.md`
