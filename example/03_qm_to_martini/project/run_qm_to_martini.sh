@@ -3,85 +3,27 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-ENVIRONMENT_FILE="${ENVIRONMENT_FILE:-$SCRIPT_DIR/environment.sh}"
 
-HYGEL_REPO_ROOT="${HYGEL_REPO_ROOT:-}"
-ADDITIONAL_BASH_PROFILE="${ADDITIONAL_BASH_PROFILE:-}"
-ENV_NAME="${ENV_NAME:-}"
-PYTHON_BIN="${PYTHON_BIN:-}"
-
-source_optional_script() {
-  local label="$1"
-  local path="$2"
-  if [ -z "$path" ]; then
-    return 0
-  fi
-  if [ ! -f "$path" ]; then
-    echo "[ERROR] $label not found: $path" >&2
-    exit 1
-  fi
-  set +u
-  # shellcheck disable=SC1090
-  source "$path"
-  set -u
-}
-
-activate_optional_env() {
-  if [ -z "$ENV_NAME" ]; then
-    return 0
-  fi
-  if ! command -v conda >/dev/null 2>&1; then
-    echo "[WARN] ENV_NAME is set but 'conda' is not available. Using the current shell environment." >&2
-    return 0
-  fi
-  set +e
-  conda activate "$ENV_NAME"
-  local status=$?
-  set -e
-  if [ "$status" -ne 0 ]; then
-    echo "[WARN] Failed to activate conda environment '$ENV_NAME'. Using the current shell environment." >&2
-  fi
-}
-
-find_repo_root() {
-  local current="$1"
-  while [ -n "$current" ] && [ "$current" != "/" ]; do
-    if [ -d "$current/param_opt" ] || [ -d "$current/hydrogel_builder" ]; then
-      printf '%s\n' "$current"
-      return 0
-    fi
-    current=$(dirname "$current")
-  done
-  if [ -d "/param_opt" ] || [ -d "/hydrogel_builder" ]; then
-    printf '/\n'
-    return 0
-  fi
-  return 1
-}
-
-if [ -f "$ENVIRONMENT_FILE" ]; then
-  source_optional_script "ENVIRONMENT_FILE" "$ENVIRONMENT_FILE"
-fi
-
-if [ -n "$HYGEL_REPO_ROOT" ]; then
-  REPO_ROOT="$HYGEL_REPO_ROOT"
-elif REPO_ROOT=$(find_repo_root "$SCRIPT_DIR"); then
-  :
+# Use central utilities
+LAUNCHER_UTILS_PATH=""
+if [ -n "${HYGEL_REPO_ROOT:-}" ] && [ -f "${HYGEL_REPO_ROOT}/launcher_utils.sh" ]; then
+  LAUNCHER_UTILS_PATH="${HYGEL_REPO_ROOT}/launcher_utils.sh"
 else
-  REPO_ROOT=""
-fi
-
-if [ -n "$REPO_ROOT" ]; then
-  export PYTHONPATH="$REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}"
-fi
-
-if [ -z "$PYTHON_BIN" ]; then
-  if command -v python3 >/dev/null 2>&1; then
-    PYTHON_BIN="python3"
-  else
-    PYTHON_BIN="python"
+  REPO_ROOT_LOCAL=$(cd "$SCRIPT_DIR/../../.." && pwd)
+  if [ -f "$REPO_ROOT_LOCAL/launcher_utils.sh" ]; then
+    LAUNCHER_UTILS_PATH="$REPO_ROOT_LOCAL/launcher_utils.sh"
   fi
 fi
+if [ -n "$LAUNCHER_UTILS_PATH" ]; then
+  # shellcheck disable=SC1090
+  source "$LAUNCHER_UTILS_PATH"
+else
+  echo "[ERROR] launcher_utils.sh not found. Set HYGEL_REPO_ROOT=/path/to/hygel_martini or run from inside the repo copy." >&2
+  exit 1
+fi
+
+# Standard environment setup
+setup_hygel_env "$SCRIPT_DIR"
 
 usage() {
   cat <<EOF
@@ -93,9 +35,8 @@ Usage:
   bash run_qm_to_martini.sh --help
 
 Shell environment:
-  run_qm_to_martini.sh sources $SCRIPT_DIR/environment.sh if it exists.
-  Override with ENVIRONMENT_FILE=/path/to/environment.sh
-  If this project is copied outside the repo, set HYGEL_REPO_ROOT=/path/to/hygel_martini
+  run_qm_to_martini.sh sources environment.sh if it exists.
+  Override with ENVIRONMENT_FILE, HYGEL_REPO_ROOT, or PYTHON_BIN.
 EOF
 }
 
@@ -167,9 +108,6 @@ if [ "$WORKFLOW_HELP" -eq 0 ] && [ ! -f "$CONFIG_PATH" ]; then
   echo "[ERROR] Config not found: $CONFIG_PATH" >&2
   exit 1
 fi
-
-source_optional_script "ADDITIONAL_BASH_PROFILE" "$ADDITIONAL_BASH_PROFILE"
-activate_optional_env
 
 RUN_DIR="$SCRIPT_DIR"
 if [ -n "$REPO_ROOT" ]; then

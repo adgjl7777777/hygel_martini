@@ -2,12 +2,12 @@ paths:
   # Base directory for all relative paths below.
   # `${CONFIG_DIR}` is the directory that contains this file.
   base_dir: ${CONFIG_DIR}/..
-  out_root: ${CONFIG_DIR}/../geo_opt_S
+  out_root: ${CONFIG_DIR}/../md_D
 system:
   # Explicit polymer sequences to build.
   # When this is set, the older symbols/lengths expansion is not used.
   sequences:
-    - S
+    - D
 
 # Monomer library for sequence tokens.
 # Each token entry supports:
@@ -23,20 +23,28 @@ monomers:
     init_template: NEW_SBMA_init.inp
     charge: 0
     multiplicity: 1
-    # backbone_atoms:
-    #   head: [0]
-    #   tail: [1]
-    #   body: []
+    backbone_atoms:
+      head: [0]
+      tail: [1]
+      body: []
   D:
     xyz: NEW_DMAPS.xyz
     init_template: NEW_DMAPS_init.inp
     charge: 0
     multiplicity: 1
+    backbone_atoms:
+      head: [0]
+      tail: [1]
+      body: []
   C:
     xyz: NEW_CBA.xyz
     init_template: NEW_CBA_init.inp
     charge: 0
     multiplicity: 1
+    backbone_atoms:
+      head: [0]
+      tail: [1]
+      body: []
 
 bartender_pipeline:
   # Geometry preparation stage before Bartender.
@@ -53,7 +61,7 @@ bartender_pipeline:
   #   an already existing trajectory from `md_traj`
   # - `xtb_nobartender`: run xTB MD here but stop before Bartender
   # - `off`: stop after the geometry stage above; do not create MD/Bartender jobs
-  md: xtb_nobartender
+  md: xtb
 
   # External trajectory path used only when `md: existing`.
   # Relative paths are resolved under `paths.base_dir`.
@@ -75,15 +83,14 @@ bartender_pipeline:
     # Supported now:
     # - `init_only`: keep only the init-template terms
     # - `all_unique`: add all unique reversible combinations
-    # - `topology_n`: keep only graph-topology-consistent terms whose
-    #   topology cost is <= n
-    # - `topology_swap_n`: topology_n plus permutation/swap allowance
     # - `polymer_backbone`: add all unique reversible combinations, then keep
     #   only new terms involving at least two distinct backbone beads
+    # Reserved for later:
+    # - `topology_n`
     # For real polymer cases, switch this to `polymer_backbone`.
     mode: all_unique
 
-    # Budget used by `topology_n` / `topology_swap_n`.
+    # Reserved for the future topology-budgeted implementation.
     n: 0
 
   execution:
@@ -92,14 +99,6 @@ bartender_pipeline:
 
     # If true, run the generated Bartender shell script immediately.
     run_bartender: true
-
-    # If true, treat this run as inside a Slurm allocation and let
-    # generated scripts default thread/cpu counts from SLURM_CPUS_PER_TASK.
-    slurm: false
-
-    # If true together with `slurm: true`, immediate execution uses
-    # `srun ... bash run_relax.sh` / `run_bartender.sh` instead of plain bash.
-    use_srun: false
 
     # Shell used for immediate execution.
     shell: bash
@@ -136,7 +135,7 @@ bartender_pipeline:
     gfn: 2
 
     # CPU count passed to `--parallel`.
-    parallel: 1
+    parallel: 20
 
     # Geometry optimization level used when `relaxation: xtb`.
     opt_level: normal
@@ -197,7 +196,7 @@ bartender_pipeline:
     binary: /opt/orca/orca
 
     # CPU count for ORCA.
-    nprocs: 1
+    nprocs: 24
 
     # Default ORCA method line used only when no template file is supplied.
     method_line: r2scan-3c CPCM(water) Opt TightSCF
@@ -220,7 +219,7 @@ bartender_pipeline:
     binary: /opt/bartender-1.1.0/bartender
 
     # CPU count passed to Bartender `-cpus`.
-    cpus: 1
+    cpus: 24
 
     # If null, Bartender charge defaults to the resolved case charge above.
     charge: null
