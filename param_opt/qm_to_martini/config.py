@@ -194,37 +194,34 @@ def resolve_term_generation_config(pipeline_cfg: Dict[str, Any]) -> TermGenerati
         raise ValueError("bartender_pipeline.term_generation.n must be >= 0")
     return TermGenerationConfig(mode=normalized_mode, n=budget)
 
+_WORKDIR_NAMES: Dict[Tuple[str, str], str] = {
+    # (md, relaxation) -> workdir name
+    ("bartender",       "xtb"):  "relax_xtb_geoopt",
+    ("bartender",       "orca"): "relax_orca_geoopt",
+    ("bartender",       "off"):  "relax_input_geometry",
+    ("existing",        "xtb"):  "relax_xtb_geoopt_existing_traj",
+    ("existing",        "orca"): "relax_orca_geoopt_existing_traj",
+    ("existing",        "off"):  "existing_traj_refit",
+    ("off",             "xtb"):  "relax_xtb_geoopt_only",
+    ("off",             "orca"): "relax_orca_geoopt_only",
+    ("off",             "off"):  "polymer_geometry_only",
+    ("xtb_nobartender", "xtb"):  "relax_xtb_geoopt_xtb_nvt_only",
+    ("xtb_nobartender", "orca"): "relax_orca_geoopt_xtb_nvt_only",
+    ("xtb_nobartender", "off"):  "relax_xtb_nvt_only",
+    ("xtb",             "xtb"):  "relax_xtb_geoopt_xtb_nvt",
+    ("xtb",             "orca"): "relax_orca_geoopt_xtb_nvt",
+    ("xtb",             "off"):  "relax_xtb_nvt",
+}
+
 def default_workdir_name(relaxation: str, md: str) -> str:
-    if md == "bartender":
-        if relaxation == "xtb":
-            return "relax_xtb_geoopt"
-        if relaxation == "orca":
-            return "relax_orca_geoopt"
-        return "relax_input_geometry"
-    if md == "existing":
-        if relaxation == "xtb":
-            return "relax_xtb_geoopt_existing_traj"
-        if relaxation == "orca":
-            return "relax_orca_geoopt_existing_traj"
-        return "existing_traj_refit"
-    if md == "off":
-        if relaxation == "xtb":
-            return "relax_xtb_geoopt_only"
-        if relaxation == "orca":
-            return "relax_orca_geoopt_only"
-        return "polymer_geometry_only"
-    if md == "xtb_nobartender":
-        if relaxation == "xtb":
-            return "relax_xtb_geoopt_xtb_nvt_only"
-        if relaxation == "orca":
-            return "relax_orca_geoopt_xtb_nvt_only"
-        return "relax_xtb_nvt_only"
-    if md == "xtb":
-        if relaxation == "xtb":
-            return "relax_xtb_geoopt_xtb_nvt"
-        if relaxation == "orca":
-            return "relax_orca_geoopt_xtb_nvt"
-        return "relax_xtb_nvt"
+    key = (md, relaxation)
+    name = _WORKDIR_NAMES.get(key)
+    if name is not None:
+        return name
+    # md known but relaxation unexpected: fall back to off-relaxation default
+    fallback = _WORKDIR_NAMES.get((md, "off"))
+    if fallback is not None:
+        return fallback
     raise ValueError(f"Unsupported md mode: {md}")
 
 def _normalize_pipeline_mode(value: Any, default: str, field_name: str) -> str:
@@ -779,74 +776,6 @@ def render_orca_input(
         f"   MaxIter {int(orca_cfg['max_iter'])}\n"
         "end\n\n"
         f"* xyzfile {int(state['charge'])} {int(state['multiplicity'])} {local_xyz_name}\n"
-    )
-
-def render_xyz_traj_to_pdb_converter() -> str:
-    return (
-        "from __future__ import annotations\n"
-        "\n"
-        "import sys\n"
-        "from pathlib import Path\n"
-        "\n"
-        "\n"
-        "def parse_frames_streaming(path: Path):\n"
-        "    with path.open('r', encoding='utf-8', errors='replace') as f:\n"
-        "        while True:\n"
-        "            line = f.readline()\n"
-        "            while line and not line.strip():\n"
-        "                line = f.readline()\n"
-        "            if not line:\n"
-        "                break\n"
-        "            try:\n"
-        "                natoms = int(line.strip())\n"
-        "            except ValueError:\n"
-        "                break\n"
-        "            f.readline()\n"
-        "            atom_lines = []\n"
-        "            for _ in range(natoms):\n"
-        "                atom_line = f.readline()\n"
-        "                if not atom_line:\n"
-        "                    break\n"
-        "                atom_lines.append(atom_line.strip())\n"
-        "            if len(atom_lines) == natoms:\n"
-        "                yield atom_lines\n"
-        "            else:\n"
-        "                break\n"
-        "\n"
-        "\n"
-        "def pdb_atom_line(atom_index: int, symbol: str, x: float, y: float, z: float) -> str:\n"
-        "    atom_name = symbol[:2].upper().rjust(2)\n"
-        "    return (\n"
-        "        f\"ATOM  {atom_index:5d} {atom_name:<4} MOL A{1:4d}    \"\n"
-        "        f\"{x:8.3f}{y:8.3f}{z:8.3f}  1.00  0.00          {symbol[:2].upper():>2}\\n\"\n"
-        "    )\n"
-        "\n"
-        "\n"
-        "def main(argv: list[str]) -> int:\n"
-        "    if len(argv) != 3:\n"
-        "        print('Usage: xtb_traj_to_pdb.py input.xyztraj output.pdb', file=sys.stderr)\n"
-        "        return 1\n"
-        "    input_path = Path(argv[1])\n"
-        "    output_path = Path(argv[2])\n"
-        "    with output_path.open('w', encoding='utf-8') as out_f:\n"
-        "        for model_index, atom_lines in enumerate(parse_frames_streaming(input_path), start=1):\n"
-        "            out_f.write(f'MODEL     {model_index}\\n')\n"
-        "            for atom_index, raw in enumerate(atom_lines, start=1):\n"
-        "                parts = raw.split()\n"
-        "                if len(parts) < 4:\n"
-        "                    continue\n"
-        "                symbol = parts[0]\n"
-        "                try:\n"
-        "                    x, y, z = float(parts[1]), float(parts[2]), float(parts[3])\n"
-        "                    out_f.write(pdb_atom_line(atom_index, symbol, x, y, z))\n"
-        "                except ValueError:\n"
-        "                    continue\n"
-        "            out_f.write('ENDMDL\\n')\n"
-        "    return 0\n"
-        "\n"
-        "\n"
-        "if __name__ == '__main__':\n"
-        "    sys.exit(main(sys.argv))\n"
     )
 
 def normalize_sequence(sequence: Sequence[str] | str) -> List[str]:

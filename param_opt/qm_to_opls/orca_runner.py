@@ -58,7 +58,8 @@ def generate_orca_inputs(cfg: Dict[str, Any]) -> None:
                 print(f"[ORCA Runner] Generated input for {seq_name} ({len(atoms)} atoms)")
                 
             except Exception as e:
-                print(f"[Error] Failed to build {seq_name}: {e}")
+                import sys
+                print(f"[Error] Failed to build {seq_name}: {e}", file=sys.stderr)
                 
         if not found_valid_in_length:
             break

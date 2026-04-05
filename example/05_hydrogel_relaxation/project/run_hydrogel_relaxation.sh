@@ -83,7 +83,7 @@ fi
 
 if [ "$WORKFLOW_HELP" -eq 1 ]; then
   cd "$SCRIPT_DIR"
-  require_python_module "hydrogel_builder.relax" "$REPO_ROOT_LOCAL"
+  require_python_module "hydrogel_builder.relax"
   "$PYTHON_BIN" -m hydrogel_builder.relax --help
   exit 0
 fi
@@ -113,5 +113,5 @@ if [ ! -f "$CONFIG_PATH" ]; then
 fi
 
 cd "$SCRIPT_DIR"
-require_python_module "hydrogel_builder.relax" "$REPO_ROOT_LOCAL"
+require_python_module "hydrogel_builder.relax"
 "$PYTHON_BIN" -m hydrogel_builder.relax --config "$CONFIG_PATH"

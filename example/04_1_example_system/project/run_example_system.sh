@@ -85,5 +85,5 @@ if [ ! -f "$CONFIG_PATH" ]; then
 fi
 
 cd "$SCRIPT_DIR"
-require_python_module "hydrogel_builder" "$REPO_ROOT_LOCAL"
+require_python_module "hydrogel_builder"
 "$PYTHON_BIN" -m hydrogel_builder --config "$CONFIG_PATH"

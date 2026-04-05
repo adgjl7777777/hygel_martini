@@ -64,18 +64,20 @@ setup_hygel_env() {
 
 require_python_module() {
   local module_name="$1"
-  local install_root="${2:-}"
 
   if "$PYTHON_BIN" -c "import importlib; importlib.import_module('${module_name}')" >/dev/null 2>&1; then
     return 0
   fi
 
-  echo "[ERROR] Python module '${module_name}' is not importable in the selected environment." >&2
-  echo "[ERROR] Install hygel_martini into that environment first." >&2
-  if [ -n "$install_root" ]; then
-    printf '[ERROR] Example command: python -m pip install -e %q\n' "$install_root" >&2
-  else
-    echo "[ERROR] Example command: python -m pip install -e /path/to/hygel_martini" >&2
+  local python_exe
+  python_exe=$("$PYTHON_BIN" -c 'import sys; print(sys.executable)' 2>/dev/null || echo "$PYTHON_BIN")
+
+  echo "[ERROR] Python module '${module_name}' is not importable." >&2
+  echo "[ERROR]   Python used: ${python_exe}" >&2
+  if [ -n "${CONDA_DEFAULT_ENV:-}" ]; then
+    echo "[ERROR]   Active conda env: ${CONDA_DEFAULT_ENV}" >&2
   fi
+  echo "[ERROR] Install hygel_martini into this environment:" >&2
+  echo "[ERROR]   cd /path/to/hygel_martini && python -m pip install -e ." >&2
   exit 1
 }

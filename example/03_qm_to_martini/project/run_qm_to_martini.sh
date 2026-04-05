@@ -107,7 +107,7 @@ fi
 cd "$SCRIPT_DIR"
 
 if [ "$WORKFLOW_HELP" -eq 1 ]; then
-  require_python_module "param_opt.qm_to_martini" "$REPO_ROOT_LOCAL"
+  require_python_module "param_opt.qm_to_martini"
   "$PYTHON_BIN" -m param_opt.qm_to_martini --help
   exit 0
 fi
@@ -120,10 +120,10 @@ if [ "$CHECK_BARTENDER" -eq 1 ]; then
   CHECK_ARGS+=(bartender)
 fi
 if [ "${#CHECK_ARGS[@]}" -gt 0 ]; then
-  require_python_module "param_opt.qm_to_martini" "$REPO_ROOT_LOCAL"
+  require_python_module "param_opt.qm_to_martini"
   "$PYTHON_BIN" -m param_opt.qm_to_martini --config "$CONFIG_PATH" --check-tools "${CHECK_ARGS[@]}" "${PASSTHRU_ARGS[@]}" "$@"
   exit 0
 fi
 
-require_python_module "param_opt.qm_to_martini" "$REPO_ROOT_LOCAL"
+require_python_module "param_opt.qm_to_martini"
 "$PYTHON_BIN" -m param_opt.qm_to_martini --config "$CONFIG_PATH" "${PASSTHRU_ARGS[@]}" "$@"

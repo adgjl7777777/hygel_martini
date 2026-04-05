@@ -67,6 +67,11 @@ def _load_with_includes(path: Path, seen: set[Path] | None = None) -> Dict[str, 
         data = json.load(handle)
     if not isinstance(data, dict):
         raise TypeError(f"Relax config root must be a mapping: {resolved}")
+    if "includes" in data:
+        raise ValueError(
+            f"'includes' is not supported in JSON config files: {resolved}\n"
+            "Convert to .yaml/.yml to use includes."
+        )
     return data
 
 

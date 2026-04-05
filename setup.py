@@ -7,6 +7,9 @@ setup(
     author="Daehong Kim",
     description="A package for generating hydrogel structures for molecular dynamics simulations.",
     packages=find_packages(),
+    package_data={
+        "param_opt.qm_to_martini": ["xtb_traj_to_pdb.py"],
+    },
     classifiers=[
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",

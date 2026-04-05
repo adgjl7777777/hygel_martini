@@ -42,7 +42,6 @@ from .config import (
     parse_xyz,
     render_orca_input,
     render_xtb_md_input,
-    render_xyz_traj_to_pdb_converter,
     resolve_backbone_atom_config,
     resolve_case_electronic_state,
     resolve_connection_detection_config,
@@ -1405,6 +1404,57 @@ def merged_summary_payload(
     return {"root": str(root), "group_count": len(groups), "groups": groups, "skipped": skipped}
 
 
+_XTB_TRAJ_TO_PDB_SRC = Path(__file__).parent / "xtb_traj_to_pdb.py"
+
+
+def _srun_reentry_lines(exec_cfg: Dict[str, Any], cpu_fallback_var: str) -> List[str]:
+    if not (parse_bool(exec_cfg.get("slurm", False), False) and parse_bool(exec_cfg.get("use_srun", False), False)):
+        return []
+    return [
+        "if [ -n \"${SLURM_JOB_ID:-}\" ] && [ -z \"${SLURM_STEP_ID:-}\" ]; then",
+        "  if ! command -v srun >/dev/null 2>&1; then",
+        "    echo \"[ERROR] execution.use_srun=true but srun was not found\" >&2",
+        "    exit 1",
+        "  fi",
+        f"  exec srun --export=ALL --ntasks=1 --cpus-per-task \"${{SLURM_CPUS_PER_TASK:-${cpu_fallback_var}}}\" bash \"$0\" \"$@\"",
+        "fi",
+    ]
+
+
+def _bartender_mode_args(
+    flow: Dict[str, str],
+    bartender_cfg: Dict[str, Any],
+    bartender_charge: int,
+    skip: int,
+    trajectory: Optional[Path],
+    outdir: Path,
+) -> List[str]:
+    """md 모드에 따른 Bartender CLI 인자 목록 반환 (quoting 없이 raw 값)."""
+    args: List[str] = ["-charge", str(int(bartender_charge))]
+    if flow["md"] == "bartender":
+        args += ["-method", "gfn2",
+                 "-time", str(int(bartender_cfg.get("time_ps", 5000))),
+                 "-temperature", f"{float(bartender_cfg.get('temperature_k', 310.0)):.3f}"]
+        solvent = str(bartender_cfg.get("solvent", "h2o")).strip()
+        if solvent:
+            args += ["-solvent", solvent]
+        dcd_save = str(bartender_cfg.get("dcd_save", "")).strip()
+        if dcd_save:
+            args += ["-dcdSave", dcd_save]
+        if skip > 1:
+            args += ["-skip", str(skip)]
+    elif flow["md"] in {"xtb", "existing"}:
+        if trajectory is None:
+            raise ValueError("Trajectory reuse mode requires a trajectory path.")
+        trajectory_arg = os.path.relpath(str(trajectory), start=str(outdir))
+        args += ["-owntraj", trajectory_arg, "-refit"]
+        if skip > 1:
+            args += ["-skip", str(skip)]
+    else:
+        raise ValueError(f"Unsupported md mode: {flow['md']}")
+    return args
+
+
 def prepare_relaxation_job(
     case_dir: Path,
     case: Dict[str, Any],
@@ -1493,18 +1543,7 @@ def prepare_relaxation_job(
         "export OPENBLAS_NUM_THREADS=${OPENBLAS_NUM_THREADS:-$OMP_NUM_THREADS}",
         "export OMP_STACKSIZE=1G",
     ]
-    if slurm_enabled and parse_bool(exec_cfg.get("use_srun", False), False):
-        lines.extend(
-            [
-                "if [ -n \"${SLURM_JOB_ID:-}\" ] && [ -z \"${SLURM_STEP_ID:-}\" ]; then",
-                "  if ! command -v srun >/dev/null 2>&1; then",
-                "    echo \"[ERROR] execution.use_srun=true but srun was not found\" >&2",
-                "    exit 1",
-                "  fi",
-                "  exec srun --export=ALL --ntasks=1 --cpus-per-task \"${SLURM_CPUS_PER_TASK:-$HYGEL_THREAD_HINT}\" bash \"$0\" \"$@\"",
-                "fi",
-            ]
-        )
+    lines.extend(_srun_reentry_lines(exec_cfg, "HYGEL_THREAD_HINT"))
     if needs_xtb:
         lines.append("export XTB_PARALLEL=${XTB_PARALLEL:-$HYGEL_THREAD_HINT}")
     if xtb_env_script and needs_xtb:
@@ -1550,7 +1589,7 @@ def prepare_relaxation_job(
             else None
         )
         write_text(workdir / "gochem.inp", render_xtb_md_input("nvt", xtb_cfg, md_template_text))
-        write_text(workdir / "xtb_traj_to_pdb.py", render_xyz_traj_to_pdb_converter())
+        shutil.copy(_XTB_TRAJ_TO_PDB_SRC, workdir / "xtb_traj_to_pdb.py")
         lines.append(
             f"$XTB_BIN {shlex.quote(geometry_hint)} {xtb_common_flags} --md --input gochem.inp > xtb_md.out"
         )
@@ -1656,46 +1695,19 @@ def prepare_bartender_job(
     slurm_cpu_count = _get_slurm_cpu_count() if slurm_enabled else 0
     if slurm_cpu_count > 0:
         bartender_cpus = slurm_cpu_count
-    command = [resolved_bartender_bin, "-cpus", "$HYGEL_BARTENDER_CPUS"]
-
     state = case.get("electronic_state", {})
     if not isinstance(state, dict):
         state = {}
     bartender_charge = bartender_cfg.get("charge")
     if bartender_charge is None:
         bartender_charge = int(state.get("charge", 0))
-    command.extend(["-charge", str(int(bartender_charge))])
 
     skip = int(bartender_cfg.get("skip", 1))
-    if flow["md"] == "bartender":
-        command.extend(
-            [
-                "-method",
-                "gfn2",
-                "-time",
-                str(int(bartender_cfg.get("time_ps", 5000))),
-            ]
-        )
-        command.extend(["-temperature", f"{float(bartender_cfg.get('temperature_k', 310.0)):.3f}"])
-        solvent = str(bartender_cfg.get("solvent", "h2o")).strip()
-        if solvent:
-            command.extend(["-solvent", solvent])
-        dcd_save = str(bartender_cfg.get("dcd_save", "")).strip()
-        if dcd_save:
-            command.extend(["-dcdSave", dcd_save])
-        if skip > 1:
-            command.extend(["-skip", str(skip)])
-    elif flow["md"] in {"xtb", "existing"}:
-        if trajectory is None:
-            raise ValueError("Trajectory reuse mode requires a trajectory path.")
-        trajectory_arg = os.path.relpath(str(trajectory), start=str(outdir))
-        command.extend(["-owntraj", trajectory_arg, "-refit"])
-        if skip > 1:
-            command.extend(["-skip", str(skip)])
-    else:
-        raise ValueError(f"Unsupported md mode: {flow['md']}")
+    mode_args = _bartender_mode_args(flow, bartender_cfg, bartender_charge, skip, trajectory, outdir)
 
-    command.extend([geometry_arg, local_inp.name])
+    # JSON manifest: records the logical command (shell vars kept as literals)
+    command = [resolved_bartender_bin, "-cpus", "$HYGEL_BARTENDER_CPUS"] + mode_args + [geometry_arg, local_inp.name]
+
     bt_root = str(bartender_cfg.get("root", "")).strip()
     bt_env_script = str(bartender_cfg.get("env_script", "")).strip()
     script_path = outdir / "run_bartender.sh"
@@ -1714,18 +1726,7 @@ def prepare_bartender_job(
         "export OPENBLAS_NUM_THREADS=${OPENBLAS_NUM_THREADS:-$OMP_NUM_THREADS}",
         shell_assign("BARTENDER_BIN", resolved_bartender_bin),
     ]
-    if slurm_enabled and parse_bool(exec_cfg.get("use_srun", False), False):
-        script_lines.extend(
-            [
-                "if [ -n \"${SLURM_JOB_ID:-}\" ] && [ -z \"${SLURM_STEP_ID:-}\" ]; then",
-                "  if ! command -v srun >/dev/null 2>&1; then",
-                "    echo \"[ERROR] execution.use_srun=true but srun was not found\" >&2",
-                "    exit 1",
-                "  fi",
-                "  exec srun --export=ALL --ntasks=1 --cpus-per-task \"${SLURM_CPUS_PER_TASK:-$HYGEL_BARTENDER_CPUS}\" bash \"$0\" \"$@\"",
-                "fi",
-            ]
-        )
+    script_lines.extend(_srun_reentry_lines(exec_cfg, "HYGEL_BARTENDER_CPUS"))
     if bt_root:
         script_lines.append(f"export {shell_assign('BTROOT', bt_root)}")
     if bt_env_script:
@@ -1738,42 +1739,12 @@ def prepare_bartender_job(
                 "set -u",
             ]
         )
-    command_parts = [
-        "$BARTENDER_BIN",
-        "-cpus",
-        "\"$HYGEL_BARTENDER_CPUS\"",
-        "-charge",
-        shlex.quote(str(int(bartender_charge))),
-    ]
-    if flow["md"] == "bartender":
-        command_parts.extend(
-            [
-                "-method",
-                "gfn2",
-                "-time",
-                shlex.quote(str(int(bartender_cfg.get("time_ps", 5000)))),
-                "-temperature",
-                shlex.quote(f"{float(bartender_cfg.get('temperature_k', 310.0)):.3f}"),
-            ]
-        )
-        solvent = str(bartender_cfg.get("solvent", "h2o")).strip()
-        if solvent:
-            command_parts.extend(["-solvent", shlex.quote(solvent)])
-        dcd_save = str(bartender_cfg.get("dcd_save", "")).strip()
-        if dcd_save:
-            command_parts.extend(["-dcdSave", shlex.quote(dcd_save)])
-        if skip > 1:
-            command_parts.extend(["-skip", shlex.quote(str(skip))])
-    elif flow["md"] in {"xtb", "existing"}:
-        if trajectory is None:
-            raise ValueError("Trajectory reuse mode requires a trajectory path.")
-        trajectory_arg = os.path.relpath(str(trajectory), start=str(outdir))
-        command_parts.extend(["-owntraj", shlex.quote(trajectory_arg), "-refit"])
-        if skip > 1:
-            command_parts.extend(["-skip", shlex.quote(str(skip))])
-    else:
-        raise ValueError(f"Unsupported md mode: {flow['md']}")
-    command_parts.extend([shlex.quote(geometry_arg), shlex.quote(local_inp.name)])
+    # bash script: quoted args for safe shell expansion
+    command_parts = (
+        ["$BARTENDER_BIN", "-cpus", "\"$HYGEL_BARTENDER_CPUS\""]
+        + [shlex.quote(a) for a in mode_args]
+        + [shlex.quote(geometry_arg), shlex.quote(local_inp.name)]
+    )
     script_lines.append(" ".join(command_parts))
     write_text(
         script_path,
