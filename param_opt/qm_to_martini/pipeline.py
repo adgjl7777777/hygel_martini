@@ -55,6 +55,7 @@ from .config import (
     resolve_term_generation_config,
     resolve_under_base,
     resolve_xtb_settings,
+    sequence_stem,
     shell_assign,
     write_text,
 )
