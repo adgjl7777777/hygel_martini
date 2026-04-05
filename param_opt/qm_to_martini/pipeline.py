@@ -50,6 +50,7 @@ from .config import (
     resolve_log_settings,
     resolve_optional_path,
     resolve_orca_settings,
+    resolve_pipeline_modes,
     resolve_spin_state,
     resolve_term_generation_config,
     resolve_under_base,
