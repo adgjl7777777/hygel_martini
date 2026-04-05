@@ -1,6 +1,6 @@
 import os
-from hydrogel_builder.core_utils.generators import polymer_generator
-from hydrogel_builder.main_components.Polymer import Polymer
+from hygel_martini.hydrogel_builder.core_utils.generators import polymer_generator
+from hygel_martini.hydrogel_builder.main_components.Polymer import Polymer
 
 def generate_polymer_only_from_config(sim_params, poly_gen_params, polymer_config=None):
     print(f"\n--- 단일 고분자 .gro 및 .itp 파일 생성 시작 (전달된 파라미터 기반) ---\n")

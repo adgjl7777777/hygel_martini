@@ -6,7 +6,7 @@ from typing import List, Dict, Any, Sequence, Tuple, Optional
 import random
 
 import numpy as np
-from hydrogel_builder.core_utils.templates.linker_loader import LinkerTemplateLibrary
+from hygel_martini.hydrogel_builder.core_utils.templates.linker_loader import LinkerTemplateLibrary
 CHAIN_AXIS = np.array([1.0, 1.0, 1.0]) / np.sqrt(3.0)
 LINKER_AXIS = np.array([1.0, 0.0, 0.0])
 

@@ -8,10 +8,10 @@ from typing import Dict, List, Tuple
 import os
 import numpy as np
 
-from hydrogel_builder.core_utils.io.gro_parser import read_gro_atoms
-from hydrogel_builder.core_utils.io.martini_parser import read_itp_definitions
-from hydrogel_builder.core_utils.templates.monomer_loader import BeadTemplate
-from hydrogel_builder.config_params.config import Config
+from hygel_martini.hydrogel_builder.core_utils.io.gro_parser import read_gro_atoms
+from hygel_martini.hydrogel_builder.core_utils.io.martini_parser import read_itp_definitions
+from hygel_martini.hydrogel_builder.core_utils.templates.monomer_loader import BeadTemplate
+from hygel_martini.hydrogel_builder.config_params.config import Config
 
 
 @dataclass

@@ -5,9 +5,9 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 
-from hydrogel_builder.core_utils.layout.layout_executor import LayoutBlueprint, ChainBlueprint
-from hydrogel_builder.main_components import Attributes
-from hydrogel_builder.main_components.Universe import World
+from hygel_martini.hydrogel_builder.core_utils.layout.layout_executor import LayoutBlueprint, ChainBlueprint
+from hygel_martini.hydrogel_builder.main_components import Attributes
+from hygel_martini.hydrogel_builder.main_components.Universe import World
 
 
 def _ordered_chain_entries(chain_key: Tuple[str, int],

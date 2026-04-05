@@ -4,7 +4,7 @@ Geometry optimization helpers (grompp/mdrun) with consistent stdout/stderr loggi
 import os
 import subprocess
 from typing import Any, Dict, List, Optional
-from hydrogel_builder.config_params.config import Config
+from hygel_martini.hydrogel_builder.config_params.config import Config
 
 
 def _print_process_output(label: str, stdout: Optional[str], stderr: Optional[str]) -> None:

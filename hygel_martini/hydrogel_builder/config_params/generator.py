@@ -7,9 +7,9 @@ input line endings, and then hands control to ``execute_mode``.
 import os
 import sys
 
-from hydrogel_builder.config_params.config import Config
-from hydrogel_builder.config_params.read_json import execute_mode
-from hydrogel_builder.core_utils.common.utility import run_dos2unix_on_inputs
+from hygel_martini.hydrogel_builder.config_params.config import Config
+from hygel_martini.hydrogel_builder.config_params.read_json import execute_mode
+from hygel_martini.hydrogel_builder.core_utils.common.utility import run_dos2unix_on_inputs
 
 def run_hydrogel_example(config_path):
     """Run a full hydrogel-generation job from a maker file."""

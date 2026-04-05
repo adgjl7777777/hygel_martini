@@ -8,16 +8,16 @@ import json
 import random
 import numpy as np
 
-from hydrogel_builder.core_utils.io.gro_parser import read_gro_atoms
-from hydrogel_builder.core_utils.io.writer import write_to_gro, write_combined_itp
-from hydrogel_builder.core_utils.layout.layout_executor import LayoutBlueprint, build_atom_blueprint
-from hydrogel_builder.core_utils.layout.proto_layout import LayoutPlan, LayoutCell, LinkPlacement
-from hydrogel_builder.core_utils.layout.proto_layout import MEDIUM_ACTIVE_INDICES, POLYMER_POSITIONS, ORIENTATION_MAP
-from hydrogel_builder.core_utils.layout.proto_populator import populate_hydrogel_from_blueprint
-from hydrogel_builder.core_utils.runtime.geo_opt import run_geo_opt
-from hydrogel_builder.main_components.Universe import World
-from hydrogel_builder.main_components import Attributes
-from hydrogel_builder.config_params.config import Config
+from hygel_martini.hydrogel_builder.core_utils.io.gro_parser import read_gro_atoms
+from hygel_martini.hydrogel_builder.core_utils.io.writer import write_to_gro, write_combined_itp
+from hygel_martini.hydrogel_builder.core_utils.layout.layout_executor import LayoutBlueprint, build_atom_blueprint
+from hygel_martini.hydrogel_builder.core_utils.layout.proto_layout import LayoutPlan, LayoutCell, LinkPlacement
+from hygel_martini.hydrogel_builder.core_utils.layout.proto_layout import MEDIUM_ACTIVE_INDICES, POLYMER_POSITIONS, ORIENTATION_MAP
+from hygel_martini.hydrogel_builder.core_utils.layout.proto_populator import populate_hydrogel_from_blueprint
+from hygel_martini.hydrogel_builder.core_utils.runtime.geo_opt import run_geo_opt
+from hygel_martini.hydrogel_builder.main_components.Universe import World
+from hygel_martini.hydrogel_builder.main_components import Attributes
+from hygel_martini.hydrogel_builder.config_params.config import Config
 
 
 def _linear_index(ix: int, iy: int, iz: int, repeats: Tuple[int, int, int]) -> int:

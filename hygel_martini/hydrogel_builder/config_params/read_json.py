@@ -21,21 +21,21 @@ import sys
 
 import numpy as np
 
-from hydrogel_builder.add_series import add_small_ion
-from hydrogel_builder.core_utils.io.martini_parser import read_atom_types, read_itp_definitions
-from hydrogel_builder.core_utils.io.writer import write_to_gro, write_to_itp, write_combined_itp
-from hydrogel_builder.core_utils.runtime import packer, topology_updater
-from hydrogel_builder.core_utils.runtime.backbone_patcher import patch_backbone_topology
-from hydrogel_builder.core_utils.runtime.dynamic_crosslink import (
+from hygel_martini.hydrogel_builder.add_series import add_small_ion
+from hygel_martini.hydrogel_builder.core_utils.io.martini_parser import read_atom_types, read_itp_definitions
+from hygel_martini.hydrogel_builder.core_utils.io.writer import write_to_gro, write_to_itp, write_combined_itp
+from hygel_martini.hydrogel_builder.core_utils.runtime import packer, topology_updater
+from hygel_martini.hydrogel_builder.core_utils.runtime.backbone_patcher import patch_backbone_topology
+from hygel_martini.hydrogel_builder.core_utils.runtime.dynamic_crosslink import (
     collect_backbone_ends,
     group_linker_stubs,
     plan_dynamic_crosslinks,
 )
-from hydrogel_builder.core_utils.runtime.geo_opt import run_geo_opt
-from hydrogel_builder.core_utils.templates.linker_loader import load_linker_templates
-from hydrogel_builder.core_utils.templates.monomer_loader import load_monomer_templates
-from hydrogel_builder.main_components.Universe import World
-from hydrogel_builder.main_components.Attributes import Bond
+from hygel_martini.hydrogel_builder.core_utils.runtime.geo_opt import run_geo_opt
+from hygel_martini.hydrogel_builder.core_utils.templates.linker_loader import load_linker_templates
+from hygel_martini.hydrogel_builder.core_utils.templates.monomer_loader import load_monomer_templates
+from hygel_martini.hydrogel_builder.main_components.Universe import World
+from hygel_martini.hydrogel_builder.main_components.Attributes import Bond
 
 
 def _seed_all(sim_params):
@@ -55,7 +55,7 @@ def _seed_all(sim_params):
         pass
 
 from datetime import datetime
-from hydrogel_builder.config_params.config import Config
+from hygel_martini.hydrogel_builder.config_params.config import Config
 
 
 class ProgressTracker:

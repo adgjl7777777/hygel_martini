@@ -1,7 +1,7 @@
 import yaml
 import os
-from hydrogel_builder.main_components.Universe import World
-from hydrogel_builder.main_components.Attributes import Angle, Dihedral, Bond
+from hygel_martini.hydrogel_builder.main_components.Universe import World
+from hygel_martini.hydrogel_builder.main_components.Attributes import Angle, Dihedral, Bond
 
 def patch_backbone_topology(config_path):
     """

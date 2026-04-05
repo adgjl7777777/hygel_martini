@@ -3,17 +3,14 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
-# Use central utilities
-REPO_ROOT_LOCAL=$(cd "$SCRIPT_DIR/../../.." && pwd)
-LAUNCHER_UTILS_PATH="$REPO_ROOT_LOCAL/launcher_utils.sh"
-if [ -f "$LAUNCHER_UTILS_PATH" ]; then
-  # shellcheck disable=SC1090
-  source "$LAUNCHER_UTILS_PATH"
-else
-  echo "[ERROR] launcher_utils.sh not found at $LAUNCHER_UTILS_PATH" >&2
-  echo "[ERROR] Run this launcher from a hygel_martini git clone after installing the package." >&2
+# Use central utilities (located via installed hygel_martini package)
+LAUNCHER_UTILS_PATH=$(python3 -c "from pathlib import Path; import hygel_martini; print(Path(hygel_martini.__file__).parent / 'bash_settings' / 'launcher_utils.sh')" 2>/dev/null || true)
+if [ -z "$LAUNCHER_UTILS_PATH" ] || [ ! -f "$LAUNCHER_UTILS_PATH" ]; then
+  echo "[ERROR] Cannot find launcher_utils.sh — is hygel_martini installed? (pip install -e .)" >&2
   exit 1
 fi
+# shellcheck disable=SC1090
+source "$LAUNCHER_UTILS_PATH"
 
 # Standard environment setup
 setup_hygel_env "$SCRIPT_DIR"
@@ -85,5 +82,5 @@ if [ ! -f "$CONFIG_PATH" ]; then
 fi
 
 cd "$SCRIPT_DIR"
-require_python_module "hydrogel_builder"
-"$PYTHON_BIN" -m hydrogel_builder --config "$CONFIG_PATH"
+require_python_module "hygel_martini.hydrogel_builder"
+"$PYTHON_BIN" -m hygel_martini.hydrogel_builder --config "$CONFIG_PATH"

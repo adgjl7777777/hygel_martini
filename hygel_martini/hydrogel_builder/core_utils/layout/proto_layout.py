@@ -12,8 +12,8 @@ try:
 except Exception:  # pragma: no cover - config may be unavailable in some contexts
     Config = None
 
-from hydrogel_builder.core_utils.layout.proto_builder import ProtoPlan
-from hydrogel_builder.core_utils.templates.linker_loader import LinkerTemplateLibrary
+from hygel_martini.hydrogel_builder.core_utils.layout.proto_builder import ProtoPlan
+from hygel_martini.hydrogel_builder.core_utils.templates.linker_loader import LinkerTemplateLibrary
 
 
 MEDIUM_ACTIVE_INDICES = [

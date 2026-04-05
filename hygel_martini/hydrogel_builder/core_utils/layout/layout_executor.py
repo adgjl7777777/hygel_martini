@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 
 import numpy as np
 
-from hydrogel_builder.core_utils.layout.proto_layout import LayoutPlan, LayoutCell, LinkPlacement
+from hygel_martini.hydrogel_builder.core_utils.layout.proto_layout import LayoutPlan, LayoutCell, LinkPlacement
 
 DEFAULT_BACKBONE_AXIS = np.array([1.0, 1.0, 1.0]) / np.sqrt(3.0)
 

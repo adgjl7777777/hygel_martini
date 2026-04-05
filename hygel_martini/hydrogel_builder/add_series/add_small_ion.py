@@ -22,8 +22,8 @@ import copy
 
 import numpy as np
 
-from hydrogel_builder.config_params.config import Config
-from hydrogel_builder.core_utils.runtime.geo_opt import _run_with_logs
+from hygel_martini.hydrogel_builder.config_params.config import Config
+from hygel_martini.hydrogel_builder.core_utils.runtime.geo_opt import _run_with_logs
 
 
 def _run_checked(cmd, label, cwd=None, env=None, input_text=None):

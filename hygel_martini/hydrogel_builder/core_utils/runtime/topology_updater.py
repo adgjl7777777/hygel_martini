@@ -1,6 +1,6 @@
 import re
 import os
-from hydrogel_builder.config_params.config import Config
+from hygel_martini.hydrogel_builder.config_params.config import Config
 
 def create_system_topology(output_dir, top_path, itp_files):
     # Get the base ITP file which should always be first.

@@ -1,9 +1,9 @@
 import os
 
-from hydrogel_builder.main_components.Universe import World, initialize_world
-from hydrogel_builder.main_components import Attributes
-from hydrogel_builder.core_utils.io import writer
-from hydrogel_builder.main_components.Polymer import Polymer
+from hygel_martini.hydrogel_builder.main_components.Universe import World, initialize_world
+from hygel_martini.hydrogel_builder.main_components import Attributes
+from hygel_martini.hydrogel_builder.core_utils.io import writer
+from hygel_martini.hydrogel_builder.main_components.Polymer import Polymer
 
 def generate_single_polymer_gro(
     p_mon_num: int,

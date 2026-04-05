@@ -15,14 +15,14 @@ records register themselves in ``World``.
 import numpy as np
 import sys
 from typing import List
-from hydrogel_builder.main_components import Attributes
+from hygel_martini.hydrogel_builder.main_components import Attributes
 from itertools import product as pd
-from hydrogel_builder.core_utils.common.utility import interp3D, dij_sq, rij, not_self, random_normal_vector
-from hydrogel_builder.core_utils.common.sequence_strategy import TemplateStrategyIterator, StrategyRecord
-from hydrogel_builder.core_utils.layout.template_placement import compute_template_positions, resolve_sidechain_placement_tuning
-from hydrogel_builder.core_utils.templates.monomer_loader import load_monomer_templates
+from hygel_martini.hydrogel_builder.core_utils.common.utility import interp3D, dij_sq, rij, not_self, random_normal_vector
+from hygel_martini.hydrogel_builder.core_utils.common.sequence_strategy import TemplateStrategyIterator, StrategyRecord
+from hygel_martini.hydrogel_builder.core_utils.layout.template_placement import compute_template_positions, resolve_sidechain_placement_tuning
+from hygel_martini.hydrogel_builder.core_utils.templates.monomer_loader import load_monomer_templates
 import random
-from hydrogel_builder.config_params import read_json as p
+from hygel_martini.hydrogel_builder.config_params import read_json as p
 import itertools
 import os
 from tqdm import tqdm

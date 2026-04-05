@@ -4,17 +4,14 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
-# Use central utilities
-REPO_ROOT_LOCAL=$(cd "$SCRIPT_DIR/../../.." && pwd)
-LAUNCHER_UTILS_PATH="$REPO_ROOT_LOCAL/launcher_utils.sh"
-if [ -f "$LAUNCHER_UTILS_PATH" ]; then
-  # shellcheck disable=SC1090
-  source "$LAUNCHER_UTILS_PATH"
-else
-  echo "[ERROR] launcher_utils.sh not found at $LAUNCHER_UTILS_PATH" >&2
-  echo "[ERROR] Run this launcher from a hygel_martini git clone after installing the package." >&2
+# Use central utilities (located via installed hygel_martini package)
+LAUNCHER_UTILS_PATH=$(python3 -c "from pathlib import Path; import hygel_martini; print(Path(hygel_martini.__file__).parent / 'bash_settings' / 'launcher_utils.sh')" 2>/dev/null || true)
+if [ -z "$LAUNCHER_UTILS_PATH" ] || [ ! -f "$LAUNCHER_UTILS_PATH" ]; then
+  echo "[ERROR] Cannot find launcher_utils.sh — is hygel_martini installed? (pip install -e .)" >&2
   exit 1
 fi
+# shellcheck disable=SC1090
+source "$LAUNCHER_UTILS_PATH"
 
 # Standard environment setup
 setup_hygel_env "$SCRIPT_DIR"
@@ -107,8 +104,8 @@ fi
 cd "$SCRIPT_DIR"
 
 if [ "$WORKFLOW_HELP" -eq 1 ]; then
-  require_python_module "param_opt.qm_to_martini"
-  "$PYTHON_BIN" -m param_opt.qm_to_martini --help
+  require_python_module "hygel_martini.param_opt.qm_to_martini"
+  "$PYTHON_BIN" -m hygel_martini.param_opt.qm_to_martini --help
   exit 0
 fi
 
@@ -120,10 +117,10 @@ if [ "$CHECK_BARTENDER" -eq 1 ]; then
   CHECK_ARGS+=(bartender)
 fi
 if [ "${#CHECK_ARGS[@]}" -gt 0 ]; then
-  require_python_module "param_opt.qm_to_martini"
-  "$PYTHON_BIN" -m param_opt.qm_to_martini --config "$CONFIG_PATH" --check-tools "${CHECK_ARGS[@]}" "${PASSTHRU_ARGS[@]}" "$@"
+  require_python_module "hygel_martini.param_opt.qm_to_martini"
+  "$PYTHON_BIN" -m hygel_martini.param_opt.qm_to_martini --config "$CONFIG_PATH" --check-tools "${CHECK_ARGS[@]}" "${PASSTHRU_ARGS[@]}" "$@"
   exit 0
 fi
 
-require_python_module "param_opt.qm_to_martini"
-"$PYTHON_BIN" -m param_opt.qm_to_martini --config "$CONFIG_PATH" "${PASSTHRU_ARGS[@]}" "$@"
+require_python_module "hygel_martini.param_opt.qm_to_martini"
+"$PYTHON_BIN" -m hygel_martini.param_opt.qm_to_martini --config "$CONFIG_PATH" "${PASSTHRU_ARGS[@]}" "$@"

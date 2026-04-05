@@ -23,20 +23,20 @@ import traceback
 
 import numpy as np
 
-from hydrogel_builder.config_params.config import Config
-from hydrogel_builder.core_utils.common.utility import find_minimum_distances
-from hydrogel_builder.core_utils.layout.isotropic_builder import build_isotropic_blueprint
-from hydrogel_builder.core_utils.layout.layout_executor import build_atom_blueprint
-from hydrogel_builder.core_utils.layout.proto_builder import prepare_proto_plan
-from hydrogel_builder.core_utils.layout.proto_layout import generate_layout_plan
-from hydrogel_builder.core_utils.layout.proto_populator import populate_hydrogel_from_blueprint
-from hydrogel_builder.core_utils.templates.linker_loader import (
+from hygel_martini.hydrogel_builder.config_params.config import Config
+from hygel_martini.hydrogel_builder.core_utils.common.utility import find_minimum_distances
+from hygel_martini.hydrogel_builder.core_utils.layout.isotropic_builder import build_isotropic_blueprint
+from hygel_martini.hydrogel_builder.core_utils.layout.layout_executor import build_atom_blueprint
+from hygel_martini.hydrogel_builder.core_utils.layout.proto_builder import prepare_proto_plan
+from hygel_martini.hydrogel_builder.core_utils.layout.proto_layout import generate_layout_plan
+from hygel_martini.hydrogel_builder.core_utils.layout.proto_populator import populate_hydrogel_from_blueprint
+from hygel_martini.hydrogel_builder.core_utils.templates.linker_loader import (
     linker_definitions_from_library,
     load_linker_templates,
 )
-from hydrogel_builder.core_utils.templates.monomer_loader import load_monomer_templates
-from hydrogel_builder.main_components import Attributes
-from hydrogel_builder.main_components.Universe import World, initialize_world
+from hygel_martini.hydrogel_builder.core_utils.templates.monomer_loader import load_monomer_templates
+from hygel_martini.hydrogel_builder.main_components import Attributes
+from hygel_martini.hydrogel_builder.main_components.Universe import World, initialize_world
 
 
 def _debug_stage(message):

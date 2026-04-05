@@ -3,7 +3,7 @@ import os
 import sys
 import shutil
 import numpy as np
-from hydrogel_builder.config_params.config import Config
+from hygel_martini.hydrogel_builder.config_params.config import Config
 
 
 def _normalize_box_lengths(box_lengths_nm, fallback=None):

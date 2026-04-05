@@ -8,10 +8,10 @@ lets the user specify the desired gel weight fraction directly in the config.
 import math
 import os
 
-from hydrogel_builder.config_params.config import Config
-from hydrogel_builder.add_series.add_small_ion import resolve_effective_ion_plan
-from hydrogel_builder.core_utils.io.martini_parser import read_itp_definitions
-from hydrogel_builder.core_utils.templates.monomer_loader import load_monomer_templates
+from hygel_martini.hydrogel_builder.config_params.config import Config
+from hygel_martini.hydrogel_builder.add_series.add_small_ion import resolve_effective_ion_plan
+from hygel_martini.hydrogel_builder.core_utils.io.martini_parser import read_itp_definitions
+from hygel_martini.hydrogel_builder.core_utils.templates.monomer_loader import load_monomer_templates
 
 
 DEFAULT_WATER_MASSES = {

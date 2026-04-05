@@ -9,12 +9,12 @@ import numpy as np
 import random
 from random import Random
 from collections import deque
-from hydrogel_builder.main_components import Attributes
-from hydrogel_builder.core_utils.common.utility import interp3D, dij_sq, normal_tetrahedral_vector, not_self, is_overlap, random_normal_vector, rij
-from hydrogel_builder.config_params import read_json as p
-from hydrogel_builder.core_utils.common.sequence_strategy import TemplateStrategyIterator, StrategyRecord
-from hydrogel_builder.core_utils.layout.template_placement import build_alignment_basis, compute_template_positions, place_template_coords
-from hydrogel_builder.core_utils.templates.monomer_loader import load_monomer_templates
+from hygel_martini.hydrogel_builder.main_components import Attributes
+from hygel_martini.hydrogel_builder.core_utils.common.utility import interp3D, dij_sq, normal_tetrahedral_vector, not_self, is_overlap, random_normal_vector, rij
+from hygel_martini.hydrogel_builder.config_params import read_json as p
+from hygel_martini.hydrogel_builder.core_utils.common.sequence_strategy import TemplateStrategyIterator, StrategyRecord
+from hygel_martini.hydrogel_builder.core_utils.layout.template_placement import build_alignment_basis, compute_template_positions, place_template_coords
+from hygel_martini.hydrogel_builder.core_utils.templates.monomer_loader import load_monomer_templates
 
 
 def _build_polymer_bond_lookup(bond_rules, fallback_length):
