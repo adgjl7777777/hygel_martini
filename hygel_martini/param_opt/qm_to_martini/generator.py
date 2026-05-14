@@ -6,9 +6,10 @@ import argparse
 from pathlib import Path
 from typing import Any, Dict
 
-from ..core.config import apply_cli_overrides, load_config
+from hygel_martini.core.config import apply_cli_overrides, load_config
 from .defaults import DEFAULT_CONFIG
-from .pipeline import check_configured_tools, run_pipeline, run_postprocess_only
+from .config import check_configured_tools
+from .pipeline import run_pipeline, run_postprocess_only
 
 
 def run_qm_to_martini(

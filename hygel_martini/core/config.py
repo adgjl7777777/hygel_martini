@@ -103,8 +103,13 @@ def _normalize_paths(cfg: Dict[str, Any], config_path: Path | None) -> Dict[str,
         return result
 
     for key, value in list(path_section.items()):
-        if isinstance(value, str) and key.endswith(("_dir", "_root", "_path")):
+        if isinstance(value, str) and key.endswith(("_dir", "_root", "_path", "_glob")):
             path_section[key] = _resolve_path_value(value, config_dir)
+        elif isinstance(value, list) and key.endswith(("_dirs", "_roots", "_paths", "_globs")):
+            path_section[key] = [
+                _resolve_path_value(item, config_dir) if isinstance(item, str) else item
+                for item in value
+            ]
     return result
 
 

@@ -3,8 +3,12 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
-# Use central utilities (located via installed hygel_martini package)
-LAUNCHER_UTILS_PATH=$(python3 -c "from pathlib import Path; import hygel_martini; print(Path(hygel_martini.__file__).parent / 'bash_settings' / 'launcher_utils.sh')" 2>/dev/null || true)
+# Locate launcher_utils.sh: prefer source checkout, fall back to installed package.
+REPO_ROOT_LOCAL=$(cd "$SCRIPT_DIR/../../.." && pwd)
+LAUNCHER_UTILS_PATH="$REPO_ROOT_LOCAL/hygel_martini/bash_settings/common/launcher_utils.sh"
+if [ ! -f "$LAUNCHER_UTILS_PATH" ]; then
+  LAUNCHER_UTILS_PATH=$(python3 -c "from pathlib import Path; import hygel_martini; print(Path(hygel_martini.__file__).parent / 'bash_settings' / 'common' / 'launcher_utils.sh')" 2>/dev/null || true)
+fi
 if [ -z "$LAUNCHER_UTILS_PATH" ] || [ ! -f "$LAUNCHER_UTILS_PATH" ]; then
   echo "[ERROR] Cannot find launcher_utils.sh — is hygel_martini installed? (pip install -e .)" >&2
   exit 1

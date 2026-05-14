@@ -5,14 +5,17 @@ import re
 import shlex
 import shutil
 import subprocess
+import sys
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 from fractions import Fraction
 
-from ..core.utils import parse_csv_list
+from hygel_martini.core.utils import parse_csv_list
 
 CONNECTION_CUTOFF = 2.2
+RMSD_RE = re.compile(r"rmsd:\s*([0-9]*\.?[0-9]+)", re.IGNORECASE)
 
 @dataclass(frozen=True)
 class ConnectionDetectionConfig:
@@ -23,6 +26,8 @@ class ConnectionDetectionConfig:
 class TermGenerationConfig:
     mode: str
     n: int
+    main_itp_dir: Optional[str] = None
+    candidates_tsv_dir: Optional[str] = None
 
 @dataclass(frozen=True)
 class WeightedAtomRef:
@@ -116,6 +121,16 @@ class TypedRecord:
     source_tag: str
     source_path: str
 
+@dataclass(frozen=True)
+class ConnectionMetadata:
+    head_carbon: int
+    tail_carbon: int
+    head_br: Optional[int]
+    tail_br: Optional[int]
+    left_connection_bead: int
+    right_connection_bead: int
+    backbone_beads: Tuple[int, ...]
+
 @dataclass
 class MergedVariant:
     section: str
@@ -182,7 +197,11 @@ def resolve_term_generation_config(pipeline_cfg: Dict[str, Any]) -> TermGenerati
         "all": "all_unique",
     }
     normalized_mode = aliases.get(str(mode).strip().lower(), str(mode).strip().lower())
-    supported = {"init_only", "all_unique", "polymer_backbone", "topology_n", "topology_swap_n"}
+    supported = {
+        "init_only", "all_unique", "polymer_backbone",
+        "topology_n", "topology_swap_n",
+        "polymer_n", "polymer_swap_n",
+    }
     if normalized_mode not in supported:
         raise ValueError(
             "bartender_pipeline.term_generation.mode must be one of "
@@ -192,7 +211,26 @@ def resolve_term_generation_config(pipeline_cfg: Dict[str, Any]) -> TermGenerati
     budget = int(n)
     if budget < 0:
         raise ValueError("bartender_pipeline.term_generation.n must be >= 0")
-    return TermGenerationConfig(mode=normalized_mode, n=budget)
+
+    main_itp_dir = raw_cfg.get("main_itp_dir") if isinstance(raw_cfg, dict) else None
+    candidates_tsv_dir = raw_cfg.get("candidates_tsv_dir") if isinstance(raw_cfg, dict) else None
+
+    if normalized_mode in {"polymer_n", "polymer_swap_n"}:
+        if not main_itp_dir:
+            raise ValueError(
+                "bartender_pipeline.term_generation.main_itp_dir is required for polymer_n / polymer_swap_n mode"
+            )
+        if not candidates_tsv_dir:
+            raise ValueError(
+                "bartender_pipeline.term_generation.candidates_tsv_dir is required for polymer_n / polymer_swap_n mode"
+            )
+
+    return TermGenerationConfig(
+        mode=normalized_mode,
+        n=budget,
+        main_itp_dir=main_itp_dir,
+        candidates_tsv_dir=candidates_tsv_dir,
+    )
 
 _WORKDIR_NAMES: Dict[Tuple[str, str], str] = {
     # (md, relaxation) -> workdir name
@@ -299,10 +337,12 @@ def resolve_pipeline_modes(pipeline_cfg: Dict[str, Any]) -> Dict[str, str]:
 
     if relaxation not in {"xtb", "orca", "off"}:
         raise ValueError("bartender_pipeline.relaxation must be one of: xtb, orca, off")
-    if md not in {"bartender", "xtb", "existing", "xtb_nobartender", "off"}:
-        raise ValueError(
-            "bartender_pipeline.md must be one of: bartender, xtb, existing, xtb_nobartender, off"
-        )
+    _VALID_MD = {
+        "bartender", "xtb", "existing", "existing_notrim",
+        "xtb_nobartender", "xtb_nobartender_notrim", "trim", "off",
+    }
+    if md not in _VALID_MD:
+        raise ValueError(f"bartender_pipeline.md must be one of: {', '.join(sorted(_VALID_MD))}")
 
     return {
         "relaxation": relaxation,
@@ -495,6 +535,14 @@ def resolve_xtb_settings(pipeline_cfg: Dict[str, Any]) -> Dict[str, Any]:
         "md_shake": int(md_cfg.get("shake", 2)),
         "md_sccacc": float(md_cfg.get("sccacc", 2.0)),
         "md_restart": parse_bool(md_cfg.get("restart", False)),
+        "md_skip_frames": int(xtb_cfg.get("md_skip_frames", md_cfg.get("skip_frames", 0))),
+        "trim_nskip": int(xtb_cfg.get("trim_nskip", 1)),
+        "trim_max_fraction": float(xtb_cfg.get("trim_max_fraction", 1.0)),
+        "trim_detrend": parse_bool(xtb_cfg.get("trim_detrend", False), False),
+        "trim_fast": parse_bool(xtb_cfg.get("trim_fast", True), True),
+        "trim_method": str(xtb_cfg.get("trim_method", "pymbar")),
+        "trim_ref_fraction": float(xtb_cfg.get("trim_ref_fraction", 0.2)),
+        "trim_threshold_sigma": float(xtb_cfg.get("trim_threshold_sigma", 1.0)),
     }
 
 def resolve_orca_settings(pipeline_cfg: Dict[str, Any]) -> Dict[str, Any]:
@@ -694,23 +742,46 @@ def execute_case_script(
             srun_command.extend(["--cpus-per-task", slurm_cpus])
         command = srun_command + command
 
-    result = subprocess.run(
-        command,
-        cwd=cwd,
-        text=True,
-        capture_output=capture_runtime,
-    )
-
     stdout_name = None
     stderr_name = None
+    stderr_lines: List[str] = []
+
     if capture_runtime and logs_dir is not None:
         stdout_name = f"{label}.stdout"
         stderr_name = f"{label}.stderr"
-        write_text(logs_dir / stdout_name, result.stdout)
-        write_text(logs_dir / stderr_name, result.stderr)
+        stdout_path = logs_dir / stdout_name
+        stderr_path = logs_dir / stderr_name
 
-    if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() if capture_runtime else f"{label} failed with exit code {result.returncode}")
+        def _drain(src, terminal, log_fh, sink=None):
+            for ln in src:
+                terminal.write(ln)
+                terminal.flush()
+                log_fh.write(ln)
+                log_fh.flush()
+                if sink is not None:
+                    sink.append(ln)
+
+        with open(stdout_path, "w", encoding="utf-8") as out_fh, \
+             open(stderr_path, "w", encoding="utf-8") as err_fh, \
+             subprocess.Popen(
+                 command, cwd=cwd, text=True,
+                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+             ) as proc:
+            t_out = threading.Thread(target=_drain, args=(proc.stdout, sys.stdout, out_fh))
+            t_err = threading.Thread(target=_drain, args=(proc.stderr, sys.stderr, err_fh, stderr_lines))
+            t_out.start()
+            t_err.start()
+            proc.wait()
+            t_out.join()
+            t_err.join()
+        returncode = proc.returncode
+    else:
+        result = subprocess.run(command, cwd=cwd, text=True)
+        returncode = result.returncode
+
+    if returncode != 0:
+        err_tail = "".join(stderr_lines[-20:]).strip() if stderr_lines else f"exit code {returncode}"
+        raise RuntimeError(err_tail)
 
     return {
         "script": script_path.name,
@@ -719,7 +790,7 @@ def execute_case_script(
         "slurm": slurm_enabled,
         "use_srun": use_srun,
         "command": command,
-        "returncode": result.returncode,
+        "returncode": returncode,
         "stdout": stdout_name,
         "stderr": stderr_name,
     }

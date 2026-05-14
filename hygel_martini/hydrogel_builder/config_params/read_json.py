@@ -23,7 +23,7 @@ import numpy as np
 
 from hygel_martini.hydrogel_builder.add_series import add_small_ion
 from hygel_martini.hydrogel_builder.core_utils.io.martini_parser import read_atom_types, read_itp_definitions
-from hygel_martini.hydrogel_builder.core_utils.io.writer import write_to_gro, write_to_itp, write_combined_itp
+from hygel_martini.hydrogel_builder.core_utils.io.writer import write_to_gro, write_combined_itp
 from hygel_martini.hydrogel_builder.core_utils.runtime import packer, topology_updater
 from hygel_martini.hydrogel_builder.core_utils.runtime.backbone_patcher import patch_backbone_topology
 from hygel_martini.hydrogel_builder.core_utils.runtime.dynamic_crosslink import (
@@ -739,7 +739,7 @@ def _execute_all_mode():
 
         add_series_params = Config.get_param('add_series_parameters')
 
-    except:
+    except Exception:
 
         add_series_params = {}
 

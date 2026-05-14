@@ -97,13 +97,30 @@ DEFAULT_CONFIG: Dict[str, Any] = {
             "output_dirname": "bartender_job",
         },
         "postprocess": {
-            "collect": False,
-            "merge": False,
-            "label_map_path": None,
-            "collect_json": "bartender_summary.json",
-            "merged_itp": "merged_forcefield.itp",
-            "merged_json": "merged_forcefield.json",
-            "summary_json": "postprocess_summary.json",
+            "screening": {
+                "enabled": False,
+                "potentials": {
+                    "angles": "bartender",
+                    "dihedrals": "bartender",
+                    "impropers": "bartender",
+                },
+                "bond_constraint_mode": "bartender",
+                "candidate_source": "active",
+                "show_all_info": True,
+                "multi_constant_metric": "max_abs",
+                "write_plots": True,
+                "thresholds": {
+                    "force_metric_min_mode": "absolute",
+                    "force_metric_min": {
+                        "bonds": 0.0,
+                        "constraints": 0.0,
+                        "angles": 0.0,
+                        "dihedrals": 0.0,
+                        "impropers": 0.0,
+                    },
+                    "rmsd_max": 10.0,
+                },
+            },
         },
     },
 }

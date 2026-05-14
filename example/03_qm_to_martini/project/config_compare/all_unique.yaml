@@ -1,0 +1,21 @@
+includes:
+  - ../config_common/common.yaml
+
+paths:
+  base_dir: ${CONFIG_DIR}/..
+  out_root: ${CONFIG_DIR}/../compare_existing_terms/all_unique
+
+bartender_pipeline:
+  relaxation: off
+  md: existing
+  md_traj: md_S/S/relax_xtb_geoopt/xtb_traj.pdb
+  workdir_name: existing_traj_refit
+  term_generation:
+    mode: all_unique
+    n: 0
+  execution:
+    run_relaxation: false
+    run_bartender: true
+    shell: bash
+  bartender:
+    cpus: 1

@@ -70,12 +70,7 @@ def convert_gro_to_pdb(gro_path, pdb_path, gmx_path):
     """Converts a .gro file to a .pdb file using gmx editconf or a manual fallback."""
     command = [gmx_path, 'editconf', '-f', gro_path, '-o', pdb_path]
     try:
-        result = subprocess.run(
-            command,
-            check=True,
-            capture_output=True,
-            text=True
-        )
+        subprocess.run(command, check=True, capture_output=True, text=True)
         print(f"Successfully converted {gro_path} to {pdb_path}")
         Config.debug_log(f"editconf gro->pdb success: {gro_path} -> {pdb_path}")
         return pdb_path
@@ -91,12 +86,7 @@ def convert_pdb_to_gro(pdb_path, gro_path, gmx_path, box_lengths_nm=None):
     if lengths_nm:
         command.extend(['-box', f"{lengths_nm[0]:.5f}", f"{lengths_nm[1]:.5f}", f"{lengths_nm[2]:.5f}"])
     try:
-        result = subprocess.run(
-            command,
-            check=True,
-            capture_output=True,
-            text=True
-        )
+        subprocess.run(command, check=True, capture_output=True, text=True)
         print(f"Successfully converted {pdb_path} to {gro_path}")
         Config.debug_log(f"editconf pdb->gro success: {pdb_path} -> {gro_path} box={lengths_nm}")
         return gro_path

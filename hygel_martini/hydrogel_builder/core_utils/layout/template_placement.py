@@ -82,7 +82,6 @@ def resolve_sidechain_placement_tuning(sim_params: Dict[str, Any], atom_count: i
         "num_candidate_vectors": int(sim_params.get("sidechain_num_candidates", 72)),
         "overlap_threshold_factor": float(sim_params.get("sidechain_overlap_threshold_factor", 0.8)),
         "search_radius_factor": float(sim_params.get("sidechain_search_radius_factor", 10.0)),
-        "placement_scale": float(sim_params.get("sidechain_placement_scale", 0.5)),
         "nearby_atom_limit": int(sim_params.get("sidechain_nearby_atom_limit", 800)),
         "auto_threshold": int(sim_params.get("sidechain_auto_threshold", 20000)),
     }

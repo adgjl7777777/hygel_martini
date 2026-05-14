@@ -12,7 +12,7 @@ conda activate hygel
 python -m pip install -e .
 ```
 
-설치 후에는 각 예제의 `project/` 디렉터리에서 launcher를 실행합니다.
+설치 후에는 각 예제의 `project/` 디렉터리에서 `bash_settings`에 있는 launcher를 실행합니다.
 launcher는 이 설치가 현재 Python 환경에 이미 돼 있다고 가정합니다.
 
 ## 1. 가장 먼저 돌릴 것
@@ -21,7 +21,7 @@ launcher는 이 설치가 현재 Python 환경에 이미 돼 있다고 가정합
 
 ```bash
 cd /path/to/hygel_martini/example/04_full_builder/project
-bash run_full_builder.sh maker.yaml
+bash ../../../hygel_martini/bash_settings/hydrogel_builder/run_full_builder.sh maker.yaml
 ```
 
 이 단계는 `hydrogel_builder`가 전체적으로 살아 있는지 가장 빨리 확인하는 용도입니다.
@@ -32,7 +32,7 @@ bash run_full_builder.sh maker.yaml
 
 ```bash
 cd /path/to/hygel_martini/example/04_1_example_system/project
-bash run_example_system.sh maker.yaml
+bash ../../../hygel_martini/bash_settings/hydrogel_builder/run_example_system.sh maker.yaml
 ```
 
 ## 3. build 뒤 추가 완화가 필요할 때
@@ -41,8 +41,7 @@ bash run_example_system.sh maker.yaml
 
 ```bash
 cd /path/to/hygel_martini/example/05_hydrogel_relaxation/project
-bash run_hydrogel_relaxation.sh maker_soft_em.yaml
-bash run_hydrogel_relaxation.sh maker_soft_md.yaml
+bash ../../../hygel_martini/bash_settings/relaxation/run_hydrogel_relaxation.sh maker_soft_em.yaml
 ```
 
 ## 4. xTB/ORCA/Bartender가 목적일 때
@@ -62,15 +61,38 @@ bash run_qm_to_martini.sh --check-xtb --check-bartender config_common/common.yam
 
 `md: off`면 geometry optimization까지만 진행하고 Bartender/MD는 생략됩니다.
 
-## 5. Slurm에서 실행할 때 (03만 해당)
+이미 만들어 둔 xTB trajectory에 Bartender만 다시 적용하려면 `run_compare.sh`를 씁니다.
+
+```bash
+LABEL=S \
+BASE_CONFIG=config_common/common.yaml \
+OUT_ROOT=compare_existing_terms/S/topology_n0 \
+MD_TRAJ=md_S/S/relax_xtb_geoopt/xtb_traj.pdb \
+TERM_MODE=topology_n \
+TERM_N=0 \
+MODE_TAG=topology_n0 \
+bash run_compare.sh
+```
+
+Bartender 결과를 screened ITP로 정리하려면 이어서 `postprocess.sh`를 실행합니다.
+
+```bash
+LABEL=S \
+MODE_TAG=topology_n0 \
+INPUT_ROOT=compare_existing_terms/S/topology_n0 \
+MIRROR_ROOT=compare_existing_terms \
+OUTPUT_ROOT=postprocessing_result \
+bash postprocess.sh
+```
+
+C/D/S 전체 반복은 `STAGE=compare|postprocess|both bash run_cds_iteration.sh`로 확인합니다. 자세한 설명은 `example/03_qm_to_martini/project/README.md`에 있습니다.
+
+## 5. Slurm에서 실행할 때
 
 ```bash
 cd /path/to/hygel_martini/example/03_qm_to_martini/project
-sbatch run_slurm.sh
+sbatch run_slurm.sh config_common/common.yaml
 ```
-
-`run_slurm.sh` 맨 위의 `#SBATCH` 줄과 `DEFAULT_CONFIG_REL`을 먼저 수정합니다.
-기본값은 `-N 1 -n 1 -c 32`입니다. 스레드 수는 `-c`로만 조정하세요.
 
 ## 6. 단계별 의미
 
@@ -86,7 +108,8 @@ sbatch run_slurm.sh
 
 ## 7. 환경 설정 방법
 
-각 `project/environment.sh`를 편집합니다 (launcher를 직접 수정하지 않습니다).
+모든 워크플로는 `hygel_martini/bash_settings/common/environment.sh`를 공통으로 참조할 수 있습니다. 
+개별 `project/environment.sh`를 편집하여 설정을 덮어쓸 수 있습니다.
 
 ```bash
 # environment.sh 예시
@@ -95,10 +118,8 @@ ENV_NAME=""                  # activate할 conda env (필요할 때만)
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 ```
 
-이미 올바른 conda env가 활성화된 상태라면 두 값 모두 비워두면 됩니다.
-
 ## 8. 공통 규칙
 
 - 실제 실행은 각 예제의 `project/` 디렉터리에서 시작합니다.
-- launcher 스크립트 이름은 각 디렉터리마다 다릅니다 (위 참고).
+- launcher 스크립트들은 `hygel_martini/bash_settings/` 아래에 워크플로별로 모여 있습니다.
 - `example/`이 tracked 기준입니다. `example_myrun/`은 gitignore된 로컬 작업 공간입니다.

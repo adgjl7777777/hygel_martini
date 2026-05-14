@@ -7,9 +7,18 @@
 - `hydrogel_builder`
   실제 hydrogel system 생성과 post-build relaxation
 
-처음 시작할 때는 저장소에 포함된 `example/` 아래 프로젝트를 그대로 쓰면 됩니다.
+## 주요 디렉터리 구조
 
-정말 처음이면 `START_HERE_ko.md`부터 보는 편이 더 빠릅니다.
+- `hygel_martini/`
+  - `core/`: 프로젝트 전역에서 사용하는 물리 상수, 유틸리티, 설정 로더 (`physics.py`, `utils.py`, `config.py`)
+  - `tools/`: 범용 실행 도구 모음 (`xtb_traj_to_pdb.py` 등)
+  - `bash_settings/`: 모든 워크플로의 Bash 실행 스크립트 통합 관리
+    - `common/`: 공통 환경 설정 및 Slurm 제출 템플릿
+    - `param_opt/`: Stage 03 관련 실행 스크립트
+    - `hydrogel_builder/`: Stage 04 관련 실행 스크립트
+    - `relaxation/`: Stage 05 관련 실행 스크립트
+  - `param_opt/`: 파라미터 최적화 Python 패키지
+    - `qm_to_martini/`: 03 단계 워크플로 (내부 `workflow_logic`, `analysis` 분리)
 
 ## 빠른 시작
 
@@ -18,10 +27,7 @@ cd /path/to/hygel_martini
 python -m pip install -e .
 ```
 
-example launcher들은 이 설치가 현재 Python 환경에 이미 되어 있다고 가정합니다.
-
-지금 바로 돌려볼 수 있는 예시는 `03`, `04`, `04_1`, `05`입니다.
-`00`, `01`, `02` example 슬롯은 자리만 잡아둔 placeholder입니다.
+example launcher들은 이 설치가 현재 Python 환경에 이미 되어 있다고 가정합니다. 모든 실행 스크립트는 `hygel_martini/bash_settings/` 아래에 모여 있습니다.
 
 ### 03. QM -> Martini
 
@@ -30,7 +36,32 @@ cd /path/to/hygel_martini/example/03_qm_to_martini/project
 bash run_qm_to_martini.sh config_common/common.yaml
 ```
 
-`md: off`로 두면 geometry optimization까지만 진행하고 Bartender/MD 단계는 생략합니다.
+**신규 기능:**
+- **Auto-Trimming**: Trajectory 기반 모드(`xtb`, `existing`)에서 통계적 수렴 지점을 자동으로 감지하여 불안정 구간을 잘라냅니다.
+- **xTB Restart**: 시뮬레이션 중단 시 `xtbrestart`를 감지하여 자동으로 이어서 실행하고 Trajectory를 병합합니다.
+- **Existing xTB -> Bartender**: 이미 있는 `xtb_traj.pdb`/trimmed trajectory를 `run_compare.sh`로 Bartender에 다시 넣고, `postprocess.sh`로 screened force field를 만듭니다.
+
+이미 있는 xTB trajectory를 Bartender에 적용하는 최소 예시는 아래입니다.
+
+```bash
+LABEL=S \
+BASE_CONFIG=config_common/common.yaml \
+OUT_ROOT=compare_existing_terms/S/topology_n0 \
+MD_TRAJ=md_S/S/relax_xtb_geoopt/xtb_traj.pdb \
+TERM_MODE=topology_n \
+TERM_N=0 \
+MODE_TAG=topology_n0 \
+bash run_compare.sh
+
+LABEL=S \
+MODE_TAG=topology_n0 \
+INPUT_ROOT=compare_existing_terms/S/topology_n0 \
+MIRROR_ROOT=compare_existing_terms \
+OUTPUT_ROOT=postprocessing_result \
+bash postprocess.sh
+```
+
+C/D/S 반복 실행은 `example/03_qm_to_martini/project/run_cds_iteration.sh`를 봅니다.
 
 ### 04. Full Builder
 

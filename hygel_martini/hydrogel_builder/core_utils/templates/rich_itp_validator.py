@@ -58,7 +58,7 @@ def validate_and_filter_other_sections(
                 warnings.append(msg)
                 continue
             if sec == "pairs":
-                msg = f"pairs: skipped by minimal allowlist policy"
+                msg = "pairs: skipped by minimal allowlist policy"
                 if strict:
                     raise ValueError(msg)
                 warnings.append(msg)

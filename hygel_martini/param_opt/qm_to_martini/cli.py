@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from ..core.config import add_qm_to_martini_cli_args
+from hygel_martini.core.config import add_qm_to_martini_cli_args
 from ..opls_to_martini.writers import write_text
 from .defaults import DEFAULT_CONFIG
 from .generator import run_qm_to_martini
@@ -18,7 +18,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--postprocess-only",
         action="store_true",
-        help="Skip case generation and run only collect/merge on the existing paths.out_root.",
+        help="Skip case generation and run only screening postprocess on configured postprocess roots.",
     )
     parser.add_argument(
         "--check-tools",
@@ -42,7 +42,7 @@ def main() -> None:
         return
 
     cfg, result = run_qm_to_martini(config_path, args)
-    out_root = Path(cfg["paths"]["out_root"])
+    out_root = Path(str(cfg["paths"].get("out_root") or cfg["paths"].get("postprocess_output_root") or "."))
     if args.check_tools:
         print(f"Checked tool paths from config: {config_path}")
         for tool in result["tools"]:
@@ -62,14 +62,11 @@ def main() -> None:
             raise SystemExit(1)
         return
     if args.postprocess_only:
-        print(f"Done. Postprocessed existing qm_to_martini results at: {out_root}")
-        print(f"Summary: {out_root / cfg['bartender_pipeline']['postprocess'].get('summary_json', 'postprocess_summary.json')}")
+        print("Done. Postprocessed existing qm_to_martini results.")
+        if result.get("summary_json"):
+            print(f"Summary: {result['summary_json']}")
+        for output in result.get("screening", {}).get("outputs", []):
+            print(f"Output: {output.get('output_dir')}")
     else:
         print(f"Done. Generated {len(result['cases'])} qm_to_martini case(s) at: {out_root}")
         print(f"Summary: {out_root / 'summary.json'}")
-    if "collect" in result:
-        collect_name = cfg["bartender_pipeline"]["postprocess"]["collect_json"]
-        print(f"Collected Bartender summaries: {out_root / collect_name}")
-    if "merge" in result:
-        merged_name = cfg["bartender_pipeline"]["postprocess"]["merged_itp"]
-        print(f"Merged forcefield: {out_root / merged_name}")

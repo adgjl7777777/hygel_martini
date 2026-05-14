@@ -1,20 +1,107 @@
 paths:
-  # Point this at an existing qm_to_martini output root.
-  out_root: ${CONFIG_DIR}/../geo_opt_SDDS
+  # Point this at one existing qm_to_martini output root.
+  # To process several roots at once from Python, use out_roots: [...] or out_root_glob.
+  # For the shell helper in this example, prefer project/run_cds_iteration.sh.
+  out_root: ${CONFIG_DIR}/../compare_existing_terms/S/topology_n0
+  # Example:
+  # out_root_glob: ${CONFIG_DIR}/../compare_existing_terms/*/topology_n0
+
+  # Mirror compare_existing_terms/<label>/<mode> into postprocessing_result/<label>/<mode>.
+  # This avoids hard-coded string replacement in the postprocessor.
+  postprocess_mirror_root: ${CONFIG_DIR}/../compare_existing_terms
+  postprocess_output_root: ${CONFIG_DIR}/../postprocessing_result
 
 bartender_pipeline:
   postprocess:
-    # Collect every gmx_out.itp under out_root into one JSON summary.
-    collect: true
+    screening:
+      enabled: true
+      potentials:
+        # "bartender": do not force a funct number. Keep the funct number from
+        # each candidate line. candidate_source decides whether only active
+        # Bartender lines or commented alternatives are considered.
+        #
+        # Use a number only for deliberate function comparisons.
+        # Examples: angles: 2, angles: 10.
+        #
+        # bonds/constraints are handled by bond_constraint_mode below.
+        #
+        # Reference:
+        #   angles 1: Harmonic
+        #   angles 2: Harmonic Cosine (Gromos96)
+        #   angles 10: Displaced/Rescaled
+        angles: "bartender"
 
-    # Merge multiple gmx_out.itp results into one merged forcefield.
-    # This is not a statistical replica average. It is a record-merging step.
-    merge: false
+        # Reference:
+        #   dihedrals 1: Proper Dihedral
+        #   dihedrals 3: Ryckaert-Bellemans
+        #   dihedrals 11: Combined Bending-Torsion
+        dihedrals: "bartender"
 
-    # Optional type-label remapping used only when merge=true.
-    label_map_path: null
+        # Reference:
+        #   impropers 1: Harmonic
+        #   impropers 2: Periodic
+        impropers: "bartender"
 
-    collect_json: bartender_summary.json
-    merged_itp: merged_forcefield.itp
-    merged_json: merged_forcefield.json
-    summary_json: postprocess_summary.json
+      # bonds/constraints handling:
+      #   ignore_constraints: use only [bonds]
+      #   bartender: use active [bonds]+[constraints] as Bartender left them
+      #   ignore_bonds: use only [constraints]
+      bond_constraint_mode: "bartender"
+
+      # candidate_source:
+      #   active: screen only lines Bartender did not comment out.
+      #   all: treat commented alternatives as active candidates too.
+      #
+      # For ordinary postprocess, active is the conservative default. For
+      # potential function comparisons, all can be useful.
+      candidate_source: "active"
+
+      # true keeps commented alternatives in all_terms.json/itp and plots.
+      # false writes only candidates that pass candidate_source/potentials filters.
+      show_all_info: true
+
+      # force_metric is a scalar "term strength" used for screening. Its exact
+      # units and meaning differ by potential type, so compare it mainly within
+      # the same section/funct family.
+      #
+      # Rough calculation:
+      #   bonds/constraints/angles:
+      #     usually the second numeric parameter, force constant k.
+      #   dihedrals/impropers funct 1/2:
+      #     periodic/harmonic force constant or barrier coefficient.
+      #   dihedrals funct 3, 11, etc.:
+      #     all constants are saved as force_values, then represented by the
+      #     multi_constant_metric below.
+      #
+      # multi_constant_metric options:
+      #   max_abs: maximum absolute constant. Default/recommended.
+      #   l2: sqrt(sum(c_i^2)).
+      #   mean_abs: mean absolute constant.
+      #   first: first constant only; mostly for legacy comparison.
+      multi_constant_metric: "max_abs"
+
+      thresholds:
+        # force_metric_min is a lower cutoff for force_metric.
+        #
+        # absolute:
+        #   values below are literal force_metric cutoffs.
+        #
+        # relative_to_section_max:
+        #   values below are fractions of the max force_metric within the same
+        #   section/funct group.
+        #
+        # Parsed force_values/force_metric are written to all_terms.json,
+        # plots/*.csv, and plots/*.pdf. Use those files when tuning thresholds.
+        force_metric_min_mode: "absolute"
+        force_metric_min:
+          bonds: 0.1
+          constraints: 0.1
+          angles: 0.1
+          dihedrals: 0.1
+          impropers: 0.1
+
+        # Maximum allowed RMSD.
+        rmsd_max: 10.0
+
+      write_plots: true
+

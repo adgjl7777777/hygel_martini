@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ..core.config import load_config
+from hygel_martini.core.config import load_config
 from .defaults import DEFAULT_CONFIG
 from .orca_runner import generate_orca_inputs
 

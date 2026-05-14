@@ -296,8 +296,6 @@ def build_atom_blueprint(layout_plan: LayoutPlan,
     inst = instantiate_layout(layout_plan)
     atoms: List[AtomBlueprint] = []
     chains: List[ChainBlueprint] = []
-    backbone_lookup = {entry.get('id'): entry.get('definition', entry)
-                       for entry in backbone_defs}
 
     for chain_idx, chain in enumerate(inst.backbone_segments):
         component_entry = chain.definition or {}

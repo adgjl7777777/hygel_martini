@@ -385,9 +385,6 @@ def _load_single_linker(entry: Dict, backbone_defs: List[Dict]) -> LinkerTemplat
             continue
         internal_impropers.append(new_imp)
 
-    # build mapping from original index -> global idx list placeholder (used later)
-    idx_map_inv = {v: k for k, v in index_map.items()}
-
     backbone_ids = (backbone_map[left_idx], backbone_map[right_idx])
     return LinkerTemplate(
         id=linker_id,

@@ -8,8 +8,13 @@ setup(
     description="A package for generating hydrogel structures for molecular dynamics simulations.",
     packages=find_packages(),
     package_data={
-        "hygel_martini.param_opt.qm_to_martini": ["xtb_traj_to_pdb.py"],
-        "hygel_martini": ["bash_settings/launcher_utils.sh"],
+        "hygel_martini": [
+            "bash_settings/common/*.sh",
+            "bash_settings/hydrogel_builder/*.sh",
+            "bash_settings/param_opt/*.sh",
+            "bash_settings/param_opt/*.md",
+            "bash_settings/relaxation/*.sh",
+        ],
     },
     classifiers=[
         "Programming Language :: Python :: 3",
@@ -24,5 +29,8 @@ setup(
     'CoolProp',
     'PyYAML',
     'requests',
+    'pymbar[jax]',
+    'matplotlib',
+    'tqdm',
     ],
 )

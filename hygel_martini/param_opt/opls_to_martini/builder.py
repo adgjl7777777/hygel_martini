@@ -10,8 +10,8 @@ from ase.io import read, write
 
 from ..polymer_maker.maker import build_polymer, load_monomer_library
 
-from ..core.physics import estimate_water_molecules, water_density_g_cm3
-from ..core.utils import ensure_min_box_nm, parse_csv_list
+from hygel_martini.core.physics import estimate_water_molecules, water_density_g_cm3
+from hygel_martini.core.utils import ensure_min_box_nm, parse_csv_list
 from .defaults import NM_TO_ANGSTROM
 from .writers import (
     write_gromacs_mdp_templates,

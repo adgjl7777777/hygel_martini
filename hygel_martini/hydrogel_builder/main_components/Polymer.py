@@ -168,8 +168,6 @@ class Polymer():
         Returns:
             np.ndarray: Interpolated backbone coordinates.
         """
-        from hydrogel_builder.main_components.Universe import World # 순환 참조를 피하기 위해 함수 내에서 임포트합니다.
-
         # 1. 고분자 사슬의 중간 지점을 무작위로 결정합니다.
         # 시뮬레이션 박스 내에서 고분자 길이가 p_length인 고분자가 배치될 수 있도록
         # 0.5 * p_length ~ 1.5 * p_length 범위 내에서 중간 지점을 설정합니다.
@@ -198,15 +196,13 @@ class Polymer():
 
     def construct_atoms(self, random_seed):
         """Dispatch to the template-driven or legacy atom-construction path."""
-        from hydrogel_builder.main_components.Universe import World # 순환 참조를 피하기 위해 함수 내에서 임포트합니다.
-
         if self._backbone_iterator is not None and self._backbone_defs:
             return self._construct_atoms_from_templates(random_seed)
         return self._legacy_construct_atoms(random_seed)
 
     def _legacy_construct_atoms(self, random_seed):
         """Construct a polymer using the historical single-backbone settings."""
-        from hydrogel_builder.main_components.Universe import World
+        from hygel_martini.hydrogel_builder.main_components.Universe import World
         # World에 고분자가 1개만 있는 경우 (즉, 현재 생성 중인 고분자가 첫 번째 고분자인 경우)
         if World.number_of_polymers == 1: 
              # make_lines 메서드를 호출하여 고분자 단량체들의 3D 좌표 리스트를 생성합니다.
@@ -232,10 +228,8 @@ class Polymer():
                          _tmp2.bond_funct = p.Config.get_param('polymer_components', 'backbone', 'bond_funct') # 결합 함수 타입 (예: 조화 포텐셜).
                          _tmp2.bond_c0 = p.Config.get_param('polymer_components', 'backbone', 'bond_c0') # 평형 결합 거리 (nm).
                          _tmp2.bond_c1 = p.Config.get_param('polymer_components', 'backbone', 'bond_c1') # 힘 상수 (kJ/mol/nm^2).
-                     # self.terminals[_tmp.end_tag].append(_tmp) # 터미널 원자를 저장하는 로직 (현재 주석 처리됨).
                  elif i == 0:  # 고분자 사슬의 첫 번째 원자인 경우
                      _tmp.end_tag = 1 # end_tag를 1로 설정하여 터미널 원자임을 표시합니다.
-                     # self.terminals[_tmp.end_tag].append(_tmp) # 터미널 원자를 저장하는 로직 (현재 주석 처리됨).
                  else: # 중간 원자
                     if _tmp.atom_id > 0:
                         _tmp2 = Attributes.Bond(_tmp.atom_id - 1, _tmp.atom_id)
@@ -359,7 +353,6 @@ class Polymer():
     def _connect_template_bonds(self, template, created_atom_ids, backbone_atom_id):
         """Transfer template-local topology terms to global polymer indices."""
         from hydrogel_builder.main_components.Universe import World
-        idx_map = {i: created_atom_ids[i] for i in range(len(created_atom_ids))}
         # original_index -> global atom id (backbone 포함)
         orig_to_global = {}
         for i, bead in enumerate(getattr(template, "beads", [])):
@@ -581,7 +574,6 @@ class Polymer():
         NUM_CANDIDATE_VECTORS = 72
         OVERLAP_THRESHOLD_FACTOR = 0.8
         SEARCH_RADIUS_FACTOR = 10.0
-        overlap_check_limit = p.Config.get_param('simulation_parameters', 'overlap_check_limit')
 
         all_atoms = [World.Atoms[_id][0] for _id in World.Atoms]
         for backbone_atom in all_atoms:
@@ -863,7 +855,6 @@ class Polymer():
 
         # 현재 World에 존재하는 총 원자 및 결합 수를 업데이트합니다.
         self.num_PLM_atoms = len(World.Atoms)
-        # print('World.Atoms', len(World.Atoms), self.num_HDG_atoms) # 디버깅용 주석 처리된 라인
         self.num_PLM_bonds = len(World.Bonds)
 
     def construct_angles(self):

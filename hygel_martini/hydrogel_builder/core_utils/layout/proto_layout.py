@@ -169,8 +169,6 @@ def generate_layout_plan(proto_plan: ProtoPlan,
     medium_size = proto_plan.medium_size
     small_edge = proto_plan.small_size[0]
     proto_linker_length = max(proto_plan.proto_linker.length, 1e-9)
-    chain_span = proto_plan.proto_backbone.length
-    chain_span_x = chain_span / np.sqrt(3.0) if chain_span > 0 else 0.0
     backbone_weights = [entry.get('ratio', 1) for entry in backbone_defs] if backbone_defs else [1]
     linker_records = list(linker_library.records) if linker_library and linker_library.records else []
     if linker_records:
@@ -242,7 +240,6 @@ def generate_layout_plan(proto_plan: ProtoPlan,
                         chain_length = proto_plan.proto_backbone.length
                         raw_chain_length = proto_plan.proto_backbone.raw_length
                         if sequence_factory is not None:
-                            # print(f"[DEBUG] Calling instantiate. enforce={enforce_unique_sequences}")
                             sequence, proto_positions, raw_chain_length, chain_length = sequence_factory.instantiate(
                                 enforce_unique=enforce_unique_sequences,
                                 used_signatures=used_sequences

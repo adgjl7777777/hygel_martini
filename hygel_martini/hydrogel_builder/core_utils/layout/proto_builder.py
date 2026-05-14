@@ -428,4 +428,4 @@ def describe_proto_summary(segment_length: int,
             span += float(bond.get('length', 0.0))
         for ext in external:
             span += float(ext.get('length', 0.0))
-        linker_spans[entry.get('id')] = span if span > 0 else proto_linker.length
+        linker_spans[entry.get('id')] = span if span > 0 else proto.proto_linker.length

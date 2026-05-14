@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 import itertools
-from ase.io import read, write
+from ase.io import write
 
 from ..polymer_maker.maker import _sequence_output_stem, load_monomer_library
 

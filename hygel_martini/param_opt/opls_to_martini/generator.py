@@ -6,7 +6,7 @@ import argparse
 from pathlib import Path
 from typing import Any, Dict
 
-from ..core.config import apply_cli_overrides, load_config
+from hygel_martini.core.config import apply_cli_overrides, load_config
 from .builder import build_cases
 from .defaults import DEFAULT_CONFIG
 

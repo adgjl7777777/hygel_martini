@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from ..core.config import add_config_args
+from hygel_martini.core.config import add_config_args
 from .defaults import DEFAULT_CONFIG
 from .generator import run_qm_to_opls
 

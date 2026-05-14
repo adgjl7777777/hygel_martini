@@ -76,7 +76,6 @@ simulation_parameters:
   sidechain_num_candidates: 72
   sidechain_overlap_threshold_factor: 0.8
   sidechain_search_radius_factor: 10.0
-  sidechain_placement_scale: 0.5
   sidechain_nearby_atom_limit: 800
   sidechain_auto_threshold: 20000
 

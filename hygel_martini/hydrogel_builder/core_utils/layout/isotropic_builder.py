@@ -424,7 +424,6 @@ def build_isotropic_blueprint(proto_plan,
                     second_vec = np.array([small_edge, small_edge, small_edge], dtype=float)
                     second_vec[axis_index[primary_axis]] += linker_len
                     second_vec[axis_index[secondary_axis]] += linker_len * 0.5
-                    anchor_secondary = medium_origin + second_vec
                     Config.debug_log(f"[isotropy] medium_cell {idx} axes={axes} origin={medium_origin.tolist()}")
 
                     def _axis_center(idx_val: int) -> float:

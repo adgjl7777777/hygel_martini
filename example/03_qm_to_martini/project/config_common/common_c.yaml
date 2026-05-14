@@ -251,3 +251,5 @@ bartender_pipeline:
   #   bash run_qm_to_martini.sh --postprocess-only
   # or
   #   bash run_qm_to_martini.sh config_common/postprocess.yaml --postprocess-only
+  # For the current C/D/S batch helper:
+  #   STAGE=postprocess bash run_cds_iteration.sh

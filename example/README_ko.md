@@ -28,3 +28,14 @@
 
 현재 바로 실행 가능한 example은 `03`, `04`, `04_1`, `05`입니다.
 `00`, `01`, `02`는 placeholder로만 남겨뒀습니다.
+
+## `03_qm_to_martini`에서 볼 것
+
+`03_qm_to_martini/project`는 xTB/ORCA/Bartender 쪽 tracked example입니다.
+
+- 새 geometry/trajectory 생성: `bash run_qm_to_martini.sh config_common/common.yaml`
+- 이미 있는 xTB trajectory를 Bartender에 적용: `run_compare.sh`
+- Bartender output screening: `postprocess.sh`
+- C/D/S 반복 실행: `run_cds_iteration.sh`
+
+자세한 사용법은 `03_qm_to_martini/project/README.md`에 정리되어 있습니다.

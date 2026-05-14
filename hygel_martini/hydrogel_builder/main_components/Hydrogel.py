@@ -24,7 +24,6 @@ from hygel_martini.hydrogel_builder.core_utils.templates.monomer_loader import l
 import random
 from hygel_martini.hydrogel_builder.config_params import read_json as p
 import itertools
-import os
 from tqdm import tqdm
 
 
@@ -298,8 +297,6 @@ class Hydrogel():
                 for sec, lines in template_like.get("other_sections", {}).items():
                     for ln in lines:
                         _add(sec, {"line": ln})
-
-        PBC_Linker_test = []
 
         # 정의된 반복 횟수(x, y, z)에 따라 단위 셀을 순회합니다.
         chain_global_idx = 0
@@ -738,7 +735,6 @@ class Hydrogel():
             Config.debug_log("[stage] construct_chemical_detail enter")
         except Exception:
             pass
-        import os
 
         # Side-chain placement is intentionally parameterized because the search
         # quality/performance tradeoff changes dramatically with system size.
@@ -752,7 +748,6 @@ class Hydrogel():
         NUM_CANDIDATE_VECTORS = int(tuning["num_candidate_vectors"])
         OVERLAP_THRESHOLD_FACTOR = float(tuning["overlap_threshold_factor"])
         SEARCH_RADIUS_FACTOR = float(tuning["search_radius_factor"])
-        SIDE_CHAIN_PLACEMENT_SCALE = float(tuning["placement_scale"])
         NEARBY_ATOM_LIMIT = int(tuning["nearby_atom_limit"])
 
         # Prepare one sequence iterator per backbone chemistry so mixed
