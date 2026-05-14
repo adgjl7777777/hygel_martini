@@ -1,0 +1,28 @@
+paths:
+  out_root: ${CONFIG_DIR}/../opls_bartender_runs/S/topology_n0
+  postprocess_mirror_root: ${CONFIG_DIR}/../opls_bartender_runs
+  postprocess_output_root: ${CONFIG_DIR}/../postprocessing_result
+
+bartender_pipeline:
+  postprocess:
+    screening:
+      enabled: true
+      potentials:
+        angles: "bartender"
+        dihedrals: "bartender"
+        impropers: "bartender"
+      bond_constraint_mode: "bartender"
+      candidate_source: "active"
+      show_all_info: true
+      multi_constant_metric: "max_abs"
+      write_plots: true
+      thresholds:
+        force_metric_min_mode: "absolute"
+        force_metric_min:
+          bonds: 0.1
+          constraints: 0.1
+          angles: 0.1
+          dihedrals: 0.1
+          impropers: 0.1
+        rmsd_max: 10.0
+

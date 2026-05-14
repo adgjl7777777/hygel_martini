@@ -280,6 +280,17 @@ def add_opls_to_martini_cli_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--cpu-omp-threads", type=int, default=None)
     parser.add_argument("--gpu-omp-threads", type=int, default=None)
     parser.add_argument("--default-run-mode", choices=["none", "cpu", "gpu"], default=None)
+    parser.add_argument(
+        "--set",
+        dest="set_values",
+        action="append",
+        default=None,
+        help=(
+            "Override a nested config value with key.path=value. "
+            "Repeatable. Example: --set workflow.mode=existing_data_fit "
+            "--set bartender_pipeline.md=md_notrim"
+        ),
+    )
 
 
 def add_qm_to_martini_cli_args(parser: argparse.ArgumentParser) -> None:

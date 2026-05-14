@@ -7,9 +7,21 @@ from ..polymer_maker.maker import DEFAULT_MONOMER_FILES
 NM_TO_ANGSTROM = 10.0
 
 DEFAULT_CONFIG: Dict[str, Any] = {
+    "workflow": {
+        # constructor: legacy OPLS input / GROMACS setup generator.
+        # existing_data_fit: consume existing OPLS/GROMACS data and prepare
+        # trim + Bartender refit jobs without launching an MD production run.
+        "mode": "constructor",
+    },
     "paths": {
         "base_dir": ".",
         "out_root": "constructor_output",
+        "gmxrc_path": "/opt/gromacs/2026/bin/GMXRC",
+        "postprocess_mirror_root": "opls_bartender_runs",
+        "postprocess_output_root": "postprocessing_result",
+    },
+    "tools": {
+        "gmx": "gmx_mpi",
         "gmxrc_path": "/opt/gromacs/2026/bin/GMXRC",
     },
     "monomers": dict(DEFAULT_MONOMER_FILES),
@@ -72,5 +84,72 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "molecule_count": 1,
         "water_molecule_name": "SOL",
         "water_molecule_count": 0,
+    },
+    "opls_data": {
+        "cases": [],
+        "trim": {
+            "auto_trim": True,
+            "method": "pymbar",
+            "skip_frames": 0,
+            "nskip": 1,
+            "max_trim_fraction": 1.0,
+            "fast": True,
+            "ref_fraction": 0.2,
+            "threshold_sigma": 1.0,
+            "energy_term": "Potential",
+            "write_plots": True,
+            "trjconv_selections": ["System"],
+            "trjconv_extra": [],
+        },
+        "execution": {
+            "mode": "",
+            "run_trim": False,
+            "run_bartender": False,
+        },
+    },
+    "bartender_pipeline": {
+        # 02 names the existing trajectory source "md" instead of "xtb".
+        # Aliases accepted by the runner: existing, gromacs, bartender-noxtb.
+        #   md:       prepare/trim existing MD trajectory, then run Bartender.
+        #   md_notrim: convert/use existing MD trajectory without auto-trim.
+        #   trim:     prepare/trim trajectory only; no Bartender script.
+        #   off:      metadata/case scaffolding only.
+        "md": "md",
+        "bartender": {
+            "enabled": True,
+            "root": "",
+            "env_script": "",
+            "binary": "bartender",
+            "cpus": 1,
+            "charge": 0,
+            "skip": 1,
+            "output_dirname": "bartender_job",
+        },
+        "postprocess": {
+            "screening": {
+                "enabled": False,
+                "potentials": {
+                    "angles": "bartender",
+                    "dihedrals": "bartender",
+                    "impropers": "bartender",
+                },
+                "bond_constraint_mode": "bartender",
+                "candidate_source": "active",
+                "show_all_info": True,
+                "multi_constant_metric": "max_abs",
+                "write_plots": True,
+                "thresholds": {
+                    "force_metric_min_mode": "absolute",
+                    "force_metric_min": {
+                        "bonds": 0.0,
+                        "constraints": 0.0,
+                        "angles": 0.0,
+                        "dihedrals": 0.0,
+                        "impropers": 0.0,
+                    },
+                    "rmsd_max": 10.0,
+                },
+            },
+        },
     },
 }

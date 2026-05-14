@@ -9,7 +9,7 @@
 - `qm_to_opls`
   01 단계. ORCA/QM 쪽 입력과 OPLS 준비물 생성
 - `opls_to_martini`
-  02 단계. OPLS 기반에서 Martini constructor 쪽 입력 생성
+  02 단계. 기존 OPLS/GROMACS trajectory를 Martini/Bartender fitting에 재사용하거나, legacy constructor 입력 생성
 - `qm_to_martini`
   03 단계. QM/xTB relaxation 후 Bartender/Martini 입력 생성
 - `bead_generator`
@@ -29,8 +29,19 @@ python -m param_opt.opls_to_martini --config ...
 python -m param_opt.qm_to_martini --config ...
 ```
 
-`example_myrun/01_qm_to_opls`와 `example_myrun/02_opls_to_martini`는 현재 placeholder만 남겨둔 상태입니다.
-따라서 지금은 Python 모듈 직접 실행 또는 별도 config 준비가 기준입니다.
+`example/02_opls_to_martini/project`는 기존 OPLS/GROMACS data를 연결하는 tracked template입니다. 실제 production trajectory는 저장소에 없으므로 `config/opls_existing_data.yaml`의 `data/...` 경로를 사용자 데이터로 채웁니다.
+`example_myrun/02_opls_to_martini`는 로컬 실험 사본을 둘 자리입니다.
+
+### 02. Existing OPLS/GROMACS -> Martini
+
+```bash
+cd /nas_0/software_backup/hygel_martini/example/02_opls_to_martini/project
+MODE=setup bash run_existing_opls.sh
+MODE=md bash run_existing_opls.sh
+MODE=md_notrim bash run_existing_opls.sh
+```
+
+`MODE`는 `opls_data.execution.mode`로 전달되며 trim 여부, Bartender 여부, 즉시 실행 여부를 한 번에 정합니다.
 
 ### 03. QM/xTB -> Martini
 

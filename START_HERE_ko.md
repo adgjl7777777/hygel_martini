@@ -44,7 +44,39 @@ cd /path/to/hygel_martini/example/05_hydrogel_relaxation/project
 bash ../../../hygel_martini/bash_settings/relaxation/run_hydrogel_relaxation.sh maker_soft_em.yaml
 ```
 
-## 4. xTB/ORCA/Bartender가 목적일 때
+## 4. 이미 있는 OPLS/GROMACS MD를 Martini fitting에 쓸 때
+
+`02` 예시를 봅니다. 이 단계는 OPLS input 생성이나 GROMACS production run을 하지 않고, 이미 있는 `.xtc/.trr + .tpr (+ .edr)` 또는 `.pdb` trajectory를 Bartender refit에 재사용합니다.
+
+```bash
+cd /path/to/hygel_martini/example/02_opls_to_martini/project
+MODE=setup bash run_existing_opls.sh
+```
+
+실제로 trim 후 Bartender까지 실행하려면:
+
+```bash
+MODE=md bash run_existing_opls.sh
+```
+
+trim 없이 기존 trajectory를 쓰려면:
+
+```bash
+MODE=md_notrim bash run_existing_opls.sh
+```
+
+결과 postprocess는:
+
+```bash
+INPUT_ROOT=opls_bartender_runs/S/topology_n0 \
+MIRROR_ROOT=opls_bartender_runs \
+OUTPUT_ROOT=postprocessing_result \
+bash postprocess.sh
+```
+
+`02`는 실제 production trajectory를 저장소에 포함하지 않습니다. 먼저 `config/opls_existing_data.yaml`의 `data/...` 경로를 사용자 데이터로 바꿉니다.
+
+## 5. xTB/ORCA/Bartender가 목적일 때
 
 `03` 예시를 봅니다.
 
@@ -87,14 +119,14 @@ bash postprocess.sh
 
 C/D/S 전체 반복은 `STAGE=compare|postprocess|both bash run_cds_iteration.sh`로 확인합니다. 자세한 설명은 `example/03_qm_to_martini/project/README.md`에 있습니다.
 
-## 5. Slurm에서 실행할 때
+## 6. Slurm에서 실행할 때
 
 ```bash
 cd /path/to/hygel_martini/example/03_qm_to_martini/project
 sbatch run_slurm.sh config_common/common.yaml
 ```
 
-## 6. 단계별 의미
+## 7. 단계별 의미
 
 - `00`  bead selector 예정 위치
 - `01`  ORCA/QM → OPLS
@@ -104,9 +136,9 @@ sbatch run_slurm.sh config_common/common.yaml
 - `04_1`  예시 시스템 builder
 - `05`  Post-build relaxation
 
-지금 `example/00`, `01`, `02`는 placeholder이고, 실제 ready-to-run example은 `03`, `04`, `04_1`, `05`입니다.
+지금 `example/00`, `01`은 placeholder입니다. `02`는 기존 OPLS/GROMACS data를 연결해야 하는 template-ready workflow이고, 실제 ready-to-run example은 `03`, `04`, `04_1`, `05`입니다.
 
-## 7. 환경 설정 방법
+## 8. 환경 설정 방법
 
 모든 워크플로는 `hygel_martini/bash_settings/common/environment.sh`를 공통으로 참조할 수 있습니다. 
 개별 `project/environment.sh`를 편집하여 설정을 덮어쓸 수 있습니다.
@@ -118,7 +150,7 @@ ENV_NAME=""                  # activate할 conda env (필요할 때만)
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 ```
 
-## 8. 공통 규칙
+## 9. 공통 규칙
 
 - 실제 실행은 각 예제의 `project/` 디렉터리에서 시작합니다.
 - launcher 스크립트들은 `hygel_martini/bash_settings/` 아래에 워크플로별로 모여 있습니다.

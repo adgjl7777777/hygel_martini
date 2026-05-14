@@ -44,12 +44,26 @@ M hygel_martini/param_opt/qm_to_martini/pipeline.py
 
 주요 진입점은 다음입니다.
 
+- `python -m hygel_martini.param_opt.opls_to_martini --config ...`: 02 existing OPLS/GROMACS trajectory -> Martini/Bartender fitting workflow
 - `python -m hygel_martini.param_opt.qm_to_martini --config ...`: 03 QM/xTB -> Martini workflow
 - `python -m hygel_martini.hydrogel_builder --config maker.yaml`: 04/04_1 hydrogel builder
 - `python -m hygel_martini.hydrogel_builder.relax --config maker_soft_em.yaml`: 05 post-build relaxation
 - 예제 shell launcher는 package 안의 `hygel_martini/bash_settings/launcher_utils.sh`를 찾아 source한 뒤 위 Python module을 호출합니다.
 
 ## 핵심 워크플로
+
+### 02 Existing OPLS/GROMACS -> Martini
+
+1. CLI: `hygel_martini.param_opt.opls_to_martini.cli.main`
+2. Config: `hygel_martini.core.config.load_config` 및 `apply_cli_overrides`
+3. Generator: `opls_to_martini.generator.run_opls_to_martini`
+4. Existing-data path: `opls_to_martini.fitting.run_existing_data_fit`
+5. Case 입력: `opls_data.cases[]`의 `geometry`, `bartender_inp`, `trajectory`, optional `tpr`, optional `edr`
+6. Mode preset: `opls_data.execution.mode`가 `bartender_pipeline.md`, `bartender_pipeline.bartender.enabled`, `run_trim`, `run_bartender`를 함께 결정
+7. Generated jobs: `trim/run_prepare_md.sh`, `bartender_job/run_bartender.sh`, root `run_all.sh`
+8. Postprocess: 03의 `run_screening_postprocess`를 공유해 `gmx_out.itp`를 screening
+
+예제 진입점은 `example/02_opls_to_martini/project`입니다. 일반 실행은 `MODE=setup|md|md_notrim|trim|bartender bash run_existing_opls.sh` 형태를 사용합니다.
 
 ### 03 QM/xTB -> Martini
 

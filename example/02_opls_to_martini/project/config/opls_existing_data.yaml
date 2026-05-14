@@ -1,0 +1,117 @@
+workflow:
+  mode: existing_data_fit
+
+paths:
+  base_dir: ${CONFIG_DIR}/..
+  out_root: ${CONFIG_DIR}/../opls_bartender_runs
+
+  # These are used by --postprocess-only and by project/postprocess.sh-style calls.
+  postprocess_mirror_root: ${CONFIG_DIR}/../opls_bartender_runs
+  postprocess_output_root: ${CONFIG_DIR}/../postprocessing_result
+
+tools:
+  gmx: gmx_mpi
+  gmxrc_path: /opt/gromacs/2026/bin/GMXRC
+
+opls_data:
+  trim:
+    # Existing GROMACS trajectories are converted to multi-model PDB by gmx trjconv,
+    # then trimmed using energy.xvg from gmx energy when an .edr file is available.
+    auto_trim: true
+    method: pymbar
+    skip_frames: 0
+    nskip: 1
+    max_trim_fraction: 1.0
+    fast: true
+    energy_term: Potential
+    write_plots: true
+
+    # gmx trjconv selections. One item is enough for ordinary no-center output.
+    # If trjconv_extra includes -center, use two selections, e.g. [Polymer, System].
+    trjconv_selections:
+      - System
+    trjconv_extra: []
+
+  execution:
+    # One simple preset can drive the lower-level md/run flags.
+    # Common values:
+    #   setup              make trim + Bartender scripts only
+    #   md                 run trim/prepare, then run Bartender
+    #   md_notrim          convert/use trajectory without auto-trim, then run Bartender
+    #   trim               run trim/prepare only; no Bartender job
+    #   bartender          run Bartender; run trim first only if md_traj.pdb is missing
+    #   bartender_notrim   same, but without auto-trim
+    #   notrim_nobartender prepare trajectory without auto-trim; no Bartender job
+    #   off                metadata scaffold only
+    mode: setup
+
+    # These are used only when mode is empty. Prefer mode for routine runs.
+    run_trim: false
+    run_bartender: false
+
+  cases:
+    - label: S
+      mode_tag: topology_n0
+      # Geometry passed to Bartender as the -refit reference geometry.
+      geometry: data/S/reference.gro
+      # Martini/Bartender input with the candidate terms to fit.
+      bartender_inp: data/S/S_topology_n0_bartender.inp
+      # Existing OPLS/GROMACS production data.
+      trajectory: data/S/md.xtc
+      tpr: data/S/md.tpr
+      edr: data/S/md.edr
+      charge: 0
+
+    # One physical trajectory can be reused with multiple Bartender input variants.
+    - label: S
+      geometry: data/S/reference.gro
+      trajectory: data/S/md.xtc
+      tpr: data/S/md.tpr
+      edr: data/S/md.edr
+      charge: 0
+      variants:
+        - mode_tag: topology_swap_n2
+          bartender_inp: data/S/S_topology_swap_n2_bartender.inp
+        - mode_tag: all_unique
+          bartender_inp: data/S/S_all_unique_bartender.inp
+
+bartender_pipeline:
+  # 02 uses md naming because this is an existing OPLS/GROMACS MD trajectory,
+  # not xTB MD.
+  #   md:       convert/trim existing MD trajectory, then run Bartender.
+  #   md_notrim: convert/use existing MD trajectory without auto-trim.
+  #   trim:     prepare/trim trajectory only.
+  #   off:      scaffold metadata only.
+  md: md
+
+  bartender:
+    enabled: true
+    root: /opt/bartender-1.1.0
+    env_script: /opt/bartender-1.1.0/bartender_config.sh
+    binary: /opt/bartender-1.1.0/bartender
+    cpus: 1
+    charge: 0
+    skip: 1
+    output_dirname: bartender_job
+
+  postprocess:
+    screening:
+      enabled: true
+      potentials:
+        angles: "bartender"
+        dihedrals: "bartender"
+        impropers: "bartender"
+      bond_constraint_mode: "bartender"
+      candidate_source: "active"
+      show_all_info: true
+      multi_constant_metric: "max_abs"
+      write_plots: true
+      thresholds:
+        force_metric_min_mode: "absolute"
+        force_metric_min:
+          bonds: 0.1
+          constraints: 0.1
+          angles: 0.1
+          dihedrals: 0.1
+          impropers: 0.1
+        rmsd_max: 10.0

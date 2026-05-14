@@ -14,10 +14,11 @@
   - `tools/`: 범용 실행 도구 모음 (`xtb_traj_to_pdb.py` 등)
   - `bash_settings/`: 모든 워크플로의 Bash 실행 스크립트 통합 관리
     - `common/`: 공통 환경 설정 및 Slurm 제출 템플릿
-    - `param_opt/`: Stage 03 관련 실행 스크립트
+    - `param_opt/`: Stage 02/03 관련 실행 스크립트
     - `hydrogel_builder/`: Stage 04 관련 실행 스크립트
     - `relaxation/`: Stage 05 관련 실행 스크립트
   - `param_opt/`: 파라미터 최적화 Python 패키지
+    - `opls_to_martini/`: 02 단계 워크플로
     - `qm_to_martini/`: 03 단계 워크플로 (내부 `workflow_logic`, `analysis` 분리)
 
 ## 빠른 시작
@@ -28,6 +29,19 @@ python -m pip install -e .
 ```
 
 example launcher들은 이 설치가 현재 Python 환경에 이미 되어 있다고 가정합니다. 모든 실행 스크립트는 `hygel_martini/bash_settings/` 아래에 모여 있습니다.
+
+### 02. Existing OPLS/GROMACS -> Martini
+
+02는 이미 존재하는 OPLS/GROMACS production trajectory를 Bartender fitting에 재사용합니다. 저장소에는 실제 trajectory가 포함되지 않으므로 `example/02_opls_to_martini/project/config/opls_existing_data.yaml`의 `data/...` 경로를 사용자 데이터로 바꿔서 씁니다.
+
+```bash
+cd /path/to/hygel_martini/example/02_opls_to_martini/project
+MODE=setup bash run_existing_opls.sh
+MODE=md bash run_existing_opls.sh
+MODE=md_notrim bash run_existing_opls.sh
+```
+
+`MODE` 하나가 trim 여부, Bartender job 생성 여부, 실제 실행 여부를 함께 정합니다. 자세한 mode 표는 `example/02_opls_to_martini/project/README.md`를 봅니다.
 
 ### 03. QM -> Martini
 
@@ -200,8 +214,8 @@ simulation_parameters:
 - `OPENMPI_HOME`, `ORCA_HOME`
   ORCA 쪽 실행 경로
 
-`03_qm_to_martini`의 xTB / ORCA / Bartender 경로는 shell 환경 변수보다
-`config_common/common.yaml` 쪽을 수정하는 것을 기준으로 합니다.
+`02_opls_to_martini`의 GROMACS/Bartender 경로는 `config/opls_existing_data.yaml` 또는 `project/environment.sh`에서 맞춥니다.
+`03_qm_to_martini`의 xTB / ORCA / Bartender 경로는 shell 환경 변수보다 `config_common/common.yaml` 쪽을 수정하는 것을 기준으로 합니다.
 
 가능하면 스크립트를 직접 수정하지 말고 먼저 환경 변수로 맞추는 편이 낫습니다.
 
@@ -231,6 +245,8 @@ builder 쪽에서 막히면 보통 이 순서로 확인하면 됩니다.
 
 - `03`
   `runs/.../summary.json`
+- `02`
+  `opls_bartender_runs/.../summary.json`
 
 ### `hydrogel_builder.relax`
 

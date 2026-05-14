@@ -1,9 +1,10 @@
 # param_opt launchers
 
-Shared shell entry points for qm-to-Martini parameterization and analysis.
+Shared shell entry points for 02 OPLS-to-Martini, 03 QM-to-Martini parameterization, and analysis.
 
 ## Scripts
 
+- `run_opls_to_martini.sh`: generic package launcher for `python -m hygel_martini.param_opt.opls_to_martini`. The 02 example wraps this with `MODE=... bash run_existing_opls.sh`.
 - `run_qm_to_martini.sh`: generic package launcher for `python -m hygel_martini.param_opt.qm_to_martini`.
 - `run_postprocess_sweep.sh`: shared sweep runner for analysis directories containing `configs/*.yaml`.
 - `run_trim_summary.sh`: summarize `*_trim_info.json` files under a compare root.

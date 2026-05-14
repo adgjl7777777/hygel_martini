@@ -27,7 +27,21 @@
 - `05_hydrogel_relaxation`
 
 현재 바로 실행 가능한 example은 `03`, `04`, `04_1`, `05`입니다.
-`00`, `01`, `02`는 placeholder로만 남겨뒀습니다.
+`02`는 이미 존재하는 OPLS/GROMACS trajectory와 Bartender input을 넣어 쓰는 template-ready example입니다. 저장소에는 실제 production trajectory가 들어 있지 않으므로 `config/opls_existing_data.yaml`의 `data/...` 경로를 사용자 데이터로 채운 뒤 실행합니다.
+`00`, `01`은 placeholder로만 남겨뒀습니다.
+
+## `02_opls_to_martini`에서 볼 것
+
+`02_opls_to_martini/project`는 이미 있는 OPLS/GROMACS MD trajectory를 Martini/Bartender fitting에 재사용하는 example입니다.
+
+- setup-only job 생성: `MODE=setup bash run_existing_opls.sh`
+- trim 후 Bartender까지 실행: `MODE=md bash run_existing_opls.sh`
+- trim 없이 Bartender 실행: `MODE=md_notrim bash run_existing_opls.sh`
+- trajectory prepare/trim만 실행: `MODE=trim bash run_existing_opls.sh`
+- Bartender output screening: `postprocess.sh`
+- C/D/S와 mode별 postprocess 반복: `run_cds_iteration.sh`
+
+자세한 사용법은 `02_opls_to_martini/project/README.md`에 정리되어 있습니다.
 
 ## `03_qm_to_martini`에서 볼 것
 
