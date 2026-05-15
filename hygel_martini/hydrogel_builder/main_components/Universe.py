@@ -161,7 +161,7 @@ class World:
             ny: Number of unit-cell repetitions along the y axis.
             nz: Number of unit-cell repetitions along the z axis.
         """
-        from hydrogel_builder.main_components.Hydrogel import Hydrogel
+        from hygel_martini.hydrogel_builder.main_components.Hydrogel import Hydrogel
 
         if fix_dna:
             World.number_of_hydrogels = 0
@@ -189,7 +189,7 @@ class World:
             p_mon_num: Number of backbone monomers in the polymer chain.
             p_length: End-to-end span used to initialize the polymer box.
         """
-        from hydrogel_builder.main_components.Polymer import Polymer
+        from hygel_martini.hydrogel_builder.main_components.Polymer import Polymer
         World.number_of_polymers += 1
         World.polymers.append(Polymer(p_mon_num, p_length))
 

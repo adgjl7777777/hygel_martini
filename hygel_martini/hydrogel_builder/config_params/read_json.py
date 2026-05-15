@@ -554,7 +554,7 @@ def _execute_all_mode():
 
     """
 
-    from hydrogel_builder.config_params import build_hydrogel, make_polymer_only
+    from hygel_martini.hydrogel_builder.config_params import build_hydrogel, make_polymer_only
 
     
 
@@ -596,6 +596,13 @@ def _execute_all_mode():
     if progress:
         progress.advance(2, "dynamic_crosslink")
 
+    # Apply backbone bond patches before writing initial_backbone.itp so the backbone EM uses correct k values.
+    # bonds only: angles/dihedrals don't exist yet (construct_chemical_detail hasn't run),
+    # so patching them here would create duplicates that persist into initial_hydrogel.itp.
+    if Config._file_path:
+        _bb_patch_path = os.path.join(os.path.dirname(Config._file_path), 'config', 'backbone.yaml')
+        patch_backbone_topology(_bb_patch_path, sections=('bonds',))
+
     backbone_gro = os.path.join(output_dir, "initial_backbone.gro")
 
     backbone_itp = os.path.join(output_dir, "initial_backbone.itp")
@@ -603,7 +610,7 @@ def _execute_all_mode():
     write_to_gro(hydrogel_world, filename=backbone_gro)
 
     # Combined ITP (rich sections) for hydrogel
-    from hydrogel_builder.core_utils.io.writer import write_combined_itp
+    from hygel_martini.hydrogel_builder.core_utils.io.writer import write_combined_itp
     try:
         raw_other = {k: len(v) for k, v in getattr(hydrogel_world, "OtherSections", {}).items() if v}
         Config.debug_log(
@@ -708,7 +715,7 @@ def _execute_all_mode():
     box_vector = getattr(hydrogel_world, 'box_vector', None)
     if box_vector is None or not np.any(box_vector):
         try:
-            from hydrogel_builder.main_components.Universe import World as _WorldRef
+            from hygel_martini.hydrogel_builder.main_components.Universe import World as _WorldRef
             box_vector = getattr(_WorldRef, 'box_vector', None)
         except ImportError:
             box_vector = None
@@ -1008,7 +1015,7 @@ def _execute_all_mode():
         watername = water_params.get('molecule_name', 'W')
 
         try:
-            from hydrogel_builder.add_series.add_water import calculate_water_molecules
+            from hygel_martini.hydrogel_builder.add_series.add_water import calculate_water_molecules
             n_water = calculate_water_molecules(water_params.get('mode', 'full'))
         except (ImportError, KeyError, ValueError) as e:
             print(f"Could not calculate water molecules due to an error: {e}. Using fallback value.")

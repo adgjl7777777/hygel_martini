@@ -60,7 +60,7 @@ class ProtoChain:
 class ProtoPlan:
     segment_length: int
     proto_backbone: ProtoChain
-    proto_linker: ProtoChain
+    proto_linker: Optional[ProtoChain]
     box_margin: float
     cell_vector: np.ndarray
     medium_size: np.ndarray
@@ -290,9 +290,9 @@ def build_proto_backbone(segment_length: int,
 
 
 def build_proto_linker(linker_definitions: List[Dict[str, Any]],
-                       strategy: Optional[Dict[str, Any]] = None) -> ProtoChain:
+                       strategy: Optional[Dict[str, Any]] = None) -> Optional[ProtoChain]:
     if not linker_definitions:
-        raise ValueError("linker_definitions must not be empty")
+        return None
 
     strategy = (strategy or {}).get('strategy', 'random').lower()
     if strategy == 'alternating':
@@ -369,7 +369,7 @@ def prepare_proto_plan(segment_length: int,
     margin = max(box_margin, 0.0)
     small_edge = proto_backbone.length / np.sqrt(3.0)
     small_size = np.array([small_edge, small_edge, small_edge], dtype=np.float64)
-    effective_linker_len = proto_linker.length
+    effective_linker_len = proto_linker.length if proto_linker is not None else 0.0
     linker_axes = _normalize_linker_axes(linker_axes)
     base_size = np.array([2.0 * small_edge, 2.0 * small_edge, 2.0 * small_edge], dtype=np.float64)
     for axis in linker_axes:
@@ -414,9 +414,9 @@ def describe_proto_summary(segment_length: int,
     return {
         'backbone_length': proto.proto_backbone.length,
         'backbone_length_raw': proto.proto_backbone.raw_length,
-        'linker_length': proto.proto_linker.length,
+        'linker_length': proto.proto_linker.length if proto.proto_linker is not None else 0.0,
         'num_backbone_beads': proto.proto_backbone.positions.shape[0],
-        'num_linker_beads': proto.proto_linker.positions.shape[0]
+        'num_linker_beads': proto.proto_linker.positions.shape[0] if proto.proto_linker is not None else 0
     }
     linker_spans = {}
     for entry in linker_defs:

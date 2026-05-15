@@ -280,7 +280,7 @@ def find_minimum_distances(positions, box_length, top_n=10, cell_size=None):
                 heapq.heapreplace(heap, (-d_sq, i, j))
 
     try:
-        from hydrogel_builder.config_params.config import Config
+        from hygel_martini.hydrogel_builder.config_params.config import Config
         progress = Config.get_runtime("progress_tracker")
     except Exception:
         progress = None
