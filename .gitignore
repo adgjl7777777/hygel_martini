@@ -1,6 +1,11 @@
 # Local-only playground for reruns of the published examples
 example_myrun/
 
+# Martini force field files (copyright: Marrink Lab / MARTINI Force Field Initiative)
+# Do not redistribute — download from cgmartini.nl
+martini_v2/
+martini_v300/
+
 # Python cache
 __pycache__/
 **/__pycache__/
