@@ -56,7 +56,7 @@ class Hydrogel():
             z_number_of_repeat: Number of unit-cell repetitions along the
                 z axis.
         """
-        from hydrogel_builder.main_components.Universe import World # 순환 참조를 피하기 위해 함수 내에서 임포트
+        from hygel_martini.hydrogel_builder.main_components.Universe import World # 순환 참조를 피하기 위해 함수 내에서 임포트
 
         # 단위 셀(unit cell)의 반복 횟수를 설정합니다.
         self.x_number_of_repeat = x_number_of_repeat
@@ -100,7 +100,7 @@ class Hydrogel():
             tuple[list[np.ndarray], list[np.ndarray]]: Interpolated backbone
             coordinates and linker coordinates for the selected cell.
         """
-        from hydrogel_builder.main_components.Universe import World # 순환 참조를 피하기 위해 함수 내에서 임포트
+        from hygel_martini.hydrogel_builder.main_components.Universe import World # 순환 참조를 피하기 위해 함수 내에서 임포트
         
         max_linker_span = getattr(World, 'max_linker_span', 0.0)
         # 주 사슬(segment)의 단량체(monomer) 개수를 계산합니다.
@@ -193,8 +193,8 @@ class Hydrogel():
         template configuration usually produces much harder-to-debug errors in
         later GROMACS stages.
         """
-        from hydrogel_builder.main_components.Universe import World # 순환 참조를 피하기 위해 함수 내에서 임포트
-        from hydrogel_builder.core_utils.templates.linker_loader import load_linker_templates
+        from hygel_martini.hydrogel_builder.main_components.Universe import World # 순환 참조를 피하기 위해 함수 내에서 임포트
+        from hygel_martini.hydrogel_builder.core_utils.templates.linker_loader import load_linker_templates
         
         # 주기 경계 조건(PBC)을 넘어가는 링커 원자들을 테스트하기 위한 리스트
         # --- Backbone 정의 및 생성기 준비 ---
@@ -230,7 +230,7 @@ class Hydrogel():
                 idx_map: Mapping from template-local atom indices to global
                     ``World`` atom identifiers.
             """
-            from hydrogel_builder.main_components.Universe import World
+            from hygel_martini.hydrogel_builder.main_components.Universe import World
             def _add(sec, payload):
                 World.OtherSections[sec].append(payload)
             def get_list(name):
@@ -407,7 +407,7 @@ class Hydrogel():
                     
                     chosen_linker = next(linker_generator) # This is now a LinkerTemplate object
                     try:
-                        from hydrogel_builder.config_params.config import Config
+                        from hygel_martini.hydrogel_builder.config_params.config import Config
                         Config.debug_log(
                             f"[choose-linker] id={chosen_linker.id} beads={len(chosen_linker.beads)} "
                             f"constraints={len(chosen_linker.constraints)} pairs={len(chosen_linker.pairs)} "
@@ -512,7 +512,7 @@ class Hydrogel():
                         self.terminals[2].append(atom)
                     # 부가 섹션을 World에 반영
                     try:
-                        from hydrogel_builder.main_components.Universe import World
+                        from hygel_martini.hydrogel_builder.main_components.Universe import World
                         idx_map = {e["original_index"]: e["global_atom_id"] for e in linker_map_entries}
                         def _add(sec, payload):
                             World.OtherSections[sec].append(payload)
@@ -571,7 +571,7 @@ class Hydrogel():
                                 _add("impropers", {"values": vals})
                             else:
                                 try:
-                                    from hydrogel_builder.config_params.config import Config
+                                    from hygel_martini.hydrogel_builder.config_params.config import Config
                                     Config.debug_log(f"[linker-rich-skip] improper refs missing local idx (likely stub): {imp}")
                                 except Exception:
                                     pass
@@ -585,7 +585,7 @@ class Hydrogel():
                             for ln in lines:
                                 _add(sec_lower, {"line": ln})
                         try:
-                            from hydrogel_builder.config_params.config import Config
+                            from hygel_martini.hydrogel_builder.config_params.config import Config
                             Config.debug_log(
                                 f"[linker-rich] {chosen_linker.id}: constraints={len(chosen_linker.constraints)}, "
                                 f"pairs={len(chosen_linker.pairs)}, exclusions={len(chosen_linker.exclusions)}, "
@@ -609,9 +609,9 @@ class Hydrogel():
             bool: ``True`` when the proto-bond pass finishes without a fatal
             configuration error.
         """
-        from hydrogel_builder.main_components.Universe import World
+        from hygel_martini.hydrogel_builder.main_components.Universe import World
         try:
-            from hydrogel_builder.config_params.config import Config
+            from hygel_martini.hydrogel_builder.config_params.config import Config
             Config.debug_log("[stage] _construct_proto_bonds start")
         except Exception:
             pass
@@ -694,7 +694,7 @@ class Hydrogel():
         self.num_Bonds_12 += success
         print(f"[INFO] Proto bonds 생성: {success}개")
         try:
-            from hydrogel_builder.config_params.config import Config
+            from hygel_martini.hydrogel_builder.config_params.config import Config
             Config.debug_log(f"[stage] _construct_proto_bonds done: {success}")
         except Exception:
             pass
@@ -728,10 +728,10 @@ class Hydrogel():
         overlap threshold are now exposed through
         ``simulation_parameters.sidechain_*`` settings.
         """
-        from hydrogel_builder.main_components.Universe import World
+        from hygel_martini.hydrogel_builder.main_components.Universe import World
         print(f"World.box_length in construct_chemical_detail: {World.box_length}")
         try:
-            from hydrogel_builder.config_params.config import Config
+            from hygel_martini.hydrogel_builder.config_params.config import Config
             Config.debug_log("[stage] construct_chemical_detail enter")
         except Exception:
             pass
@@ -784,7 +784,7 @@ class Hydrogel():
         # 효율적인 겹침 계산을 위해 모든 원자 객체 리스트를 미리 만듭니다.
         all_atoms = [World.Atoms[k][0] for k in World.Atoms]
         try:
-            from hydrogel_builder.config_params.config import Config
+            from hygel_martini.hydrogel_builder.config_params.config import Config
             progress = Config.get_runtime("progress_tracker")
         except Exception:
             progress = None
@@ -923,7 +923,7 @@ class Hydrogel():
         for name, count in monomer_counts.items():
             print(f"- {name}: {count}개")
         try:
-            from hydrogel_builder.config_params.config import Config
+            from hygel_martini.hydrogel_builder.config_params.config import Config
             Config.debug_log("[stage] construct_chemical_detail exit")
         except Exception:
             pass
@@ -936,7 +936,7 @@ class Hydrogel():
                 mapped_by_template.setdefault(entry["template_id"], []).append(entry)
 
             def _add_other(section, payload):
-                from hydrogel_builder.main_components.Universe import World as W
+                from hygel_martini.hydrogel_builder.main_components.Universe import World as W
                 W.OtherSections[section].append(payload)
 
             for temp_id, entries in mapped_by_template.items():
@@ -1014,7 +1014,7 @@ class Hydrogel():
         2. coarse structural heuristics based on backbone/sidechain role,
         3. configured default angle parameters.
         """
-        from hydrogel_builder.main_components.Universe import World
+        from hygel_martini.hydrogel_builder.main_components.Universe import World
 
         angle_configs = {}
         try:
@@ -1120,7 +1120,7 @@ class Hydrogel():
 
     def construct_dihedrals(self):
         """Generate internal dihedrals directly from template definitions."""
-        from hydrogel_builder.main_components.Universe import World
+        from hygel_martini.hydrogel_builder.main_components.Universe import World
         
         processed_templates = set()
         all_atoms_list = [a[0] for a in World.Atoms.values()]

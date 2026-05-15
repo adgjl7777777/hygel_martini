@@ -182,7 +182,7 @@ def populate_hydrogel_from_blueprint(hydrogel, blueprint: LayoutBlueprint):
 
     # --- Map linker rich sections into World.OtherSections (stub 포함 idx_map 사용) ---
     try:
-        from hydrogel_builder.config_params.config import Config
+        from hygel_martini.hydrogel_builder.config_params.config import Config
     except Exception:
         Config = None  # type: ignore
 

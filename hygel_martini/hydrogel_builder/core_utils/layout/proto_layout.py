@@ -8,7 +8,7 @@ import random
 import numpy as np
 
 try:
-    from hydrogel_builder.config_params.config import Config
+    from hygel_martini.hydrogel_builder.config_params.config import Config
 except Exception:  # pragma: no cover - config may be unavailable in some contexts
     Config = None
 
@@ -168,7 +168,7 @@ def generate_layout_plan(proto_plan: ProtoPlan,
     links: List[LinkPlacement] = []
     medium_size = proto_plan.medium_size
     small_edge = proto_plan.small_size[0]
-    proto_linker_length = max(proto_plan.proto_linker.length, 1e-9)
+    proto_linker_length = max(proto_plan.proto_linker.length, 1e-9) if proto_plan.proto_linker is not None else 0.0
     backbone_weights = [entry.get('ratio', 1) for entry in backbone_defs] if backbone_defs else [1]
     linker_records = list(linker_library.records) if linker_library and linker_library.records else []
     if linker_records:
@@ -283,6 +283,9 @@ def generate_layout_plan(proto_plan: ProtoPlan,
                     second_vec[axis_index[secondary_axis]] += linker_len * 0.5
 
                     linker_local_specs = [first_vec, second_vec]
+
+                    if not linker_defs and not linker_records:
+                        continue
 
                     for spec_idx, local_anchor in enumerate(linker_local_specs):
                         axis_choice = random.choice(linker_axes)

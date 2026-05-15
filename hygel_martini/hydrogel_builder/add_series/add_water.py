@@ -174,6 +174,16 @@ def calculate_water_molecules(mode):
     else: # monomer_only
         total_gel_mass = pol_mass
 
+    # Backbone-only mode: MONOMERS is empty so mass_monomer=0. Fall back to actual World atom mass.
+    if total_gel_mass == 0:
+        try:
+            from hygel_martini.hydrogel_builder.main_components.Universe import World
+            backbone_defs = Config.get_param('hydrogel_components', 'backbone_definitions', 'BACKBONES') or []
+            backbone_mass = backbone_defs[0].get('definition', {}).get('mass', 45.0) if backbone_defs else 45.0
+            total_gel_mass = float(len(World.Atoms)) * backbone_mass
+        except Exception:
+            pass
+
     if not (0 < gel_wt < 1):
         raise ValueError("Error: gel_weight_fraction must be between 0 and 1.")
 

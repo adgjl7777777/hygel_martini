@@ -281,15 +281,18 @@ def _plan_backbone_blueprint(sim_params, output_dir):
 
     bb_len = proto_plan.proto_backbone.length
     bb_raw = getattr(proto_plan.proto_backbone, "raw_length", bb_len)
-    ln_len = proto_plan.proto_linker.length
     print(
         f"Proto backbone length: {bb_len:.3f} nm "
         f"(raw {bb_raw:.3f} nm, {proto_plan.proto_backbone.positions.shape[0]} beads)"
     )
-    print(
-        f"Proto linker length  : {ln_len:.3f} nm "
-        f"({proto_plan.proto_linker.positions.shape[0]} beads)"
-    )
+    if proto_plan.proto_linker is not None:
+        ln_len = proto_plan.proto_linker.length
+        print(
+            f"Proto linker length  : {ln_len:.3f} nm "
+            f"({proto_plan.proto_linker.positions.shape[0]} beads)"
+        )
+    else:
+        print("Proto linker         : none (backbone-only mode)")
     print(f"Cell vector (nm)     : {proto_plan.cell_vector}")
 
     num_cells = int(sim_params.get("number_of_cells"))

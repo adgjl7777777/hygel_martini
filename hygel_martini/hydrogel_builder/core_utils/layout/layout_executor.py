@@ -224,7 +224,8 @@ def instantiate_layout(layout_plan: LayoutPlan) -> InstantiatedLayout:
     linker_segments: List[InstantiatedChain] = []
 
     proto_backbone_positions = layout_plan.proto_plan.proto_backbone.positions
-    proto_linker_positions = layout_plan.proto_plan.proto_linker.positions
+    proto_linker = layout_plan.proto_plan.proto_linker
+    proto_linker_positions = proto_linker.positions if proto_linker is not None else np.zeros((0, 3), dtype=np.float64)
 
     for cell in layout_plan.cells:
         backbone_segments.append(instantiate_backbone(cell, proto_backbone_positions))
@@ -417,7 +418,8 @@ def build_atom_blueprint(layout_plan: LayoutPlan,
                 bead_pos = np.array(chain.positions[bead_idx], dtype=np.float64)
                 proj = float(np.dot(bead_pos - anchor, axis_dir))
                 sign = 1.0 if proj >= 0 else -1.0
-                ext_length = float(ext.get('length', layout_plan.proto_plan.proto_linker.length))
+                _proto_linker = layout_plan.proto_plan.proto_linker
+                ext_length = float(ext.get('length', _proto_linker.length if _proto_linker is not None else 0.0))
                 stub_pos = bead_pos + axis_dir * ext_length * sign
                 
                 extra = {

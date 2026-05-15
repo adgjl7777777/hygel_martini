@@ -381,7 +381,7 @@ def build_isotropic_blueprint(proto_plan,
                               sim_params: Dict) -> LayoutBlueprint:
     nx, ny, nz = repeats
     small_edge = float(proto_plan.small_size[0])
-    linker_len = float(proto_plan.proto_linker.length)
+    linker_len = float(proto_plan.proto_linker.length) if proto_plan.proto_linker is not None else 0.0
     base_size = np.array([2.0 * small_edge, 2.0 * small_edge, 2.0 * small_edge], dtype=float)
     cell_vector = base_size * 2.0
     cube_side = float(base_size[0])
@@ -397,7 +397,7 @@ def build_isotropic_blueprint(proto_plan,
     sequence_factory = getattr(proto_plan, 'sequence_factory', None)
     bond_lookup = getattr(proto_plan, 'bond_lookup', {})
     mean_sep = getattr(proto_plan, 'mean_sep', 0.24)
-    proto_linker_length = max(proto_plan.proto_linker.length, 1e-9)
+    proto_linker_length = max(proto_plan.proto_linker.length, 1e-9) if proto_plan.proto_linker is not None else 0.0
 
     all_atoms = []
     all_chains = []

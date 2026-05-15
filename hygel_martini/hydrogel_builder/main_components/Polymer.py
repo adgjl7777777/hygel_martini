@@ -67,7 +67,7 @@ class Polymer():
             p_length: End-to-end length used for the initial straight-chain
                 coordinate interpolation.
         """
-        from hydrogel_builder.main_components.Universe import World
+        from hygel_martini.hydrogel_builder.main_components.Universe import World
 
         self.p_length = p_length # 고분자 사슬의 정의된 전체 길이
         self.p_mon_num = p_mon_num # 고분자 사슬을 구성하는 단량체의 수
@@ -260,7 +260,7 @@ class Polymer():
         parameters when available, falling back to the configured default
         backbone bond otherwise.
         """
-        from hydrogel_builder.main_components.Universe import World
+        from hygel_martini.hydrogel_builder.main_components.Universe import World
         coords = self.make_lines(random_seed)
         prev_atom_id = None
         prev_backbone_id = None
@@ -352,7 +352,7 @@ class Polymer():
 
     def _connect_template_bonds(self, template, created_atom_ids, backbone_atom_id):
         """Transfer template-local topology terms to global polymer indices."""
-        from hydrogel_builder.main_components.Universe import World
+        from hygel_martini.hydrogel_builder.main_components.Universe import World
         # original_index -> global atom id (backbone 포함)
         orig_to_global = {}
         for i, bead in enumerate(getattr(template, "beads", [])):
@@ -496,7 +496,7 @@ class Polymer():
                         dih_obj.dihedral_c2 = float(params[2])
                 else:
                     try:
-                        from hydrogel_builder.config_params.config import Config
+                        from hygel_martini.hydrogel_builder.config_params.config import Config
                         Config.debug_log(f"[polymer-rich-skip] dihedral refs missing local idx: {dih}")
                     except Exception:
                         pass
@@ -523,7 +523,7 @@ class Polymer():
                         imp_obj.dihedral_c2 = float(params[2])
                 else:
                     try:
-                        from hydrogel_builder.config_params.config import Config
+                        from hygel_martini.hydrogel_builder.config_params.config import Config
                         Config.debug_log(f"[polymer-rich-skip] improper refs missing local idx: {imp}")
                     except Exception:
                         pass
@@ -567,7 +567,7 @@ class Polymer():
 
     def _construct_sidechains_from_templates(self):
         """Attach polymer side-chain templates while avoiding local clashes."""
-        from hydrogel_builder.main_components.Universe import World
+        from hygel_martini.hydrogel_builder.main_components.Universe import World
         if not self._sidechain_iterators or not self._sidechain_library:
             return
 
@@ -651,7 +651,7 @@ class Polymer():
         """
         if self._sidechain_iterators:
             return self._construct_sidechains_from_templates()
-        from hydrogel_builder.main_components.Universe import World # 순환 참조를 피하기 위해 함수 내에서 임포트합니다.
+        from hygel_martini.hydrogel_builder.main_components.Universe import World # 순환 참조를 피하기 위해 함수 내에서 임포트합니다.
         overlap_check_limit = p.Config.get_param('simulation_parameters', 'overlap_check_limit')
 
         # 루프 도중 World.Atoms 컬렉션이 변경되는 것을 방지하기 위해 복사본을 사용합니다.
@@ -864,7 +864,7 @@ class Polymer():
         the polymer configuration. If no override matches the atom-type set,
         the method applies the configured default angle parameters.
         """
-        from hydrogel_builder.main_components.Universe import World # 순환 참조를 피하기 위해 함수 내에서 임포트합니다.
+        from hygel_martini.hydrogel_builder.main_components.Universe import World # 순환 참조를 피하기 위해 함수 내에서 임포트합니다.
         
         _World_Bonds = World.Bonds
         _atom = World.Atoms

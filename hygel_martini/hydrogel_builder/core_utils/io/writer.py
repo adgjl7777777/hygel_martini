@@ -134,25 +134,28 @@ def write_to_itp(object, filename='gromacs.itp', moleculetype_name='HDGEL'):
         # --- [ angles ] 섹션 ---
         f.write('\n[ angles ]\n\n')
         for k, z in enumerate(object.Angles):
-            angle = object.Angles[z][0]
-            f.write('{:5d}  {:5d}  {:5d}  {:5d}  {:f}  {:f}\n'.format(
-                angle.angle_atom_1.atom_id + 1, angle.angle_atom_2.atom_id + 1, angle.angle_atom_3.atom_id + 1,
-                angle.angle_funct, angle.angle_c0, angle.angle_c1))
+            for angle in object.Angles[z]:
+                f.write('{:5d}  {:5d}  {:5d}  {:5d}  {:f}  {:f}\n'.format(
+                    angle.angle_atom_1.atom_id + 1, angle.angle_atom_2.atom_id + 1, angle.angle_atom_3.atom_id + 1,
+                    angle.angle_funct, angle.angle_c0, angle.angle_c1))
 
         # --- [ dihedrals ] 섹션 ---
         f.write('\n[ dihedrals ]\n\n')
         for p, q in enumerate(object.Dihedrals):
-            dihedral = object.Dihedrals[q][0]
-            if dihedral.dihedral_c2 == ' ':
-                f.write('{} {} {} {} {} {} {}\n'.format(
+            for dihedral in object.Dihedrals[q]:
+                d_params = getattr(dihedral, "dihedral_params", None)
+                ids_str = '{} {} {} {} {}'.format(
                     dihedral.dihedral_atom_1.atom_id + 1, dihedral.dihedral_atom_2.atom_id + 1,
                     dihedral.dihedral_atom_3.atom_id + 1, dihedral.dihedral_atom_4.atom_id + 1,
-                    dihedral.dihedral_funct, dihedral.dihedral_c0, dihedral.dihedral_c1))
-            else:
-                f.write('{} {} {} {} {} {} {} {}\n'.format(
-                    dihedral.dihedral_atom_1.atom_id + 1, dihedral.dihedral_atom_2.atom_id + 1,
-                    dihedral.dihedral_atom_3.atom_id + 1, dihedral.dihedral_atom_4.atom_id + 1,
-                    dihedral.dihedral_funct, dihedral.dihedral_c0, dihedral.dihedral_c1, dihedral.dihedral_c2))
+                    dihedral.dihedral_funct)
+                if d_params:
+                    f.write('{} {}\n'.format(ids_str, ' '.join(str(p) for p in d_params)))
+                else:
+                    c2 = dihedral.dihedral_c2
+                    if c2 in (None, ' ', ''):
+                        f.write('{} {} {}\n'.format(ids_str, dihedral.dihedral_c0, dihedral.dihedral_c1))
+                    else:
+                        f.write('{} {} {} {}\n'.format(ids_str, dihedral.dihedral_c0, dihedral.dihedral_c1, c2))
 
         # --- 추가 섹션 (파서에서 보존된 항목) ---
         extras = getattr(object, "OtherSections", {}) or {}
@@ -291,16 +294,16 @@ def write_combined_itp(world, filename, moleculetype_name):
         # angles
         f.write('\n[ angles ]\n')
         for z in world.Angles:
-            angle = world.Angles[z][0]
-            f.write('{:5d}  {:5d}  {:5d}  {:5d}  {:f}  {:f}\n'.format(
-                angle.angle_atom_1.atom_id + 1, angle.angle_atom_2.atom_id + 1, angle.angle_atom_3.atom_id + 1,
-                angle.angle_funct, angle.angle_c0, angle.angle_c1))
+            for angle in world.Angles[z]:
+                f.write('{:5d}  {:5d}  {:5d}  {:5d}  {:f}  {:f}\n'.format(
+                    angle.angle_atom_1.atom_id + 1, angle.angle_atom_2.atom_id + 1, angle.angle_atom_3.atom_id + 1,
+                    angle.angle_funct, angle.angle_c0, angle.angle_c1))
 
         # impropers는 현재 OtherSections로만 전달되며, emit_rich_itp_sections=true일 때만 기록됨
 
         # OtherSections 그대로 append (옵션으로 on/off)
         try:
-            from hydrogel_builder.config_params.config import Config
+            from hygel_martini.hydrogel_builder.config_params.config import Config
             emit_rich = Config.get_param("simulation_parameters").get("emit_rich_itp_sections", True)
         except Exception:
             emit_rich = False
@@ -313,7 +316,7 @@ def write_combined_itp(world, filename, moleculetype_name):
             except Exception:
                 pass
             try:
-                from hydrogel_builder.core_utils.templates.rich_itp_validator import validate_and_filter_other_sections
+                from hygel_martini.hydrogel_builder.core_utils.templates.rich_itp_validator import validate_and_filter_other_sections
                 try:
                     strict = Config.get_param("simulation_parameters").get("strict_rich_itp_validation", False)
                 except Exception:
@@ -338,24 +341,26 @@ def write_combined_itp(world, filename, moleculetype_name):
         if not (emit_rich and extras.get("dihedrals")):
             f.write('\n[ dihedrals ]\n')
             for q in world.Dihedrals:
-                dihedral = world.Dihedrals[q][0]
-                try:
-                    funct = int(dihedral.dihedral_funct)
-                except Exception:
-                    continue
-                if funct <= 0 or funct > 50:
-                    continue
-                c2 = getattr(dihedral, "dihedral_c2", None)
-                if c2 in (None, ' ', ''):
-                    f.write('{} {} {} {} {} {} {}\n'.format(
+                for dihedral in world.Dihedrals[q]:
+                    try:
+                        funct = int(dihedral.dihedral_funct)
+                    except Exception:
+                        continue
+                    if funct <= 0 or funct > 50:
+                        continue
+                    d_params = getattr(dihedral, "dihedral_params", None)
+                    ids_str = '{} {} {} {} {}'.format(
                         dihedral.dihedral_atom_1.atom_id + 1, dihedral.dihedral_atom_2.atom_id + 1,
                         dihedral.dihedral_atom_3.atom_id + 1, dihedral.dihedral_atom_4.atom_id + 1,
-                        funct, dihedral.dihedral_c0, dihedral.dihedral_c1))
-                else:
-                    f.write('{} {} {} {} {} {} {} {}\n'.format(
-                        dihedral.dihedral_atom_1.atom_id + 1, dihedral.dihedral_atom_2.atom_id + 1,
-                        dihedral.dihedral_atom_3.atom_id + 1, dihedral.dihedral_atom_4.atom_id + 1,
-                        funct, dihedral.dihedral_c0, dihedral.dihedral_c1, c2))
+                        funct)
+                    if d_params:
+                        f.write('{} {}\n'.format(ids_str, ' '.join(str(p) for p in d_params)))
+                    else:
+                        c2 = getattr(dihedral, "dihedral_c2", None)
+                        if c2 in (None, ' ', ''):
+                            f.write('{} {} {}\n'.format(ids_str, dihedral.dihedral_c0, dihedral.dihedral_c1))
+                        else:
+                            f.write('{} {} {} {}\n'.format(ids_str, dihedral.dihedral_c0, dihedral.dihedral_c1, c2))
 
             def _write_section(sec, rows):
                 if not rows:

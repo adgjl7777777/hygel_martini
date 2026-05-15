@@ -33,7 +33,7 @@ class Atom():
     num_atoms = 0
 
     def __init__(self, source_template=None, source_index=None, source_residue_name=None):
-        from hydrogel_builder.main_components.Universe import World
+        from hygel_martini.hydrogel_builder.main_components.Universe import World
 
         # MARTINI 원자를 위한 고유 ID를 부여합니다.
         self.atom_id = Atom.num_atoms
@@ -122,7 +122,7 @@ class Bond():
     num_bonds = 0
 
     def __init__(self, i, j, **kwargs):
-        from hydrogel_builder.main_components.Universe import World
+        from hygel_martini.hydrogel_builder.main_components.Universe import World
 
         # Enforce canonical order for atom IDs to prevent duplicate bonds
         if i > j:
@@ -172,7 +172,7 @@ class Network_bond():
 
     # 네트워크 결합 객체 초기화 메서드입니다.
     def __init__(self, i, j):
-        from hydrogel_builder.main_components.Universe import World
+        from hygel_martini.hydrogel_builder.main_components.Universe import World
         # 고유한 네트워크 결합 ID를 부여합니다.
         self.network_bond_id = Network_bond.num_network_bonds
 
@@ -213,7 +213,7 @@ class Constraint():
 
     # 제약조건 객체 초기화 메서드입니다.
     def __init__(self, i, j):
-        from hydrogel_builder.main_components.Universe import World
+        from hygel_martini.hydrogel_builder.main_components.Universe import World
 
         # 고유한 제약조건 ID를 부여합니다.
         self.constraint_id = Constraint.num_constraints
@@ -251,7 +251,7 @@ class Exclusion():
 
     # 제외 객체 초기화 메서드입니다.
     def __init__(self, i, j):
-        from hydrogel_builder.main_components.Universe import World
+        from hygel_martini.hydrogel_builder.main_components.Universe import World
         # 고유한 제외 ID를 부여합니다.
         self.exclustion_id = Exclusion.num_exclustions
 
@@ -282,7 +282,7 @@ class Angle():
 
     # 각도 객체 초기화 메서드입니다. i, j, k는 각도를 형성하는 세 원자의 ID입니다.
     def __init__(self, i, j, k):
-        from hydrogel_builder.main_components.Universe import World
+        from hygel_martini.hydrogel_builder.main_components.Universe import World
         
         # 고유한 각도 ID를 부여합니다.
         self.angle_id = Angle.num_angles
@@ -329,15 +329,15 @@ class Dihedral():
     num_dihedrals = 0
 
     # 이면각 객체 초기화 메서드입니다. i, j, m, n은 이면각을 형성하는 네 원자의 ID이며, c0는 위상(phase) 각도입니다.
-    def __init__(self, i, j, m, n, c0):
-        from hydrogel_builder.main_components.Universe import World
-        
+    def __init__(self, i, j, m, n, c0=0):
+        from hygel_martini.hydrogel_builder.main_components.Universe import World
+
         # 고유한 이면각 ID를 부여합니다.
         self.dihedral_id = Dihedral.num_dihedrals
 
         # 총 이면각 수를 1 증가시킵니다.
         Dihedral.num_dihedrals += 1
-        
+
         # 이면각의 기능 타입을 지정합니다.
         self.dihedral_funct = 0
         
@@ -361,12 +361,15 @@ class Dihedral():
 
         # 주기성(multiplicity) 파라미터 (c2) 입니다. 여기서는 사용되지 않아 None으로 설정됩니다.
         self.dihedral_c2 = None
-        
+
+        # Multi-parameter list for dihedrals like CBT (funct 11). Overrides c0/c1/c2 in writer.
+        self.dihedral_params = None
+
         # 생성된 객체를 World의 Dihedrals 딕셔너리에 추가합니다.
+        # 키에서 c0 제거: 같은 원자쌍에 여러 항(periodic/CBT)을 허용하기 위함.
         World.Dihedrals[
                     (self.dihedral_atom_1.atom_id,
                      self.dihedral_atom_2.atom_id,
                      self.dihedral_atom_3.atom_id,
-                     self.dihedral_atom_4.atom_id,
-                     self.dihedral_c0)
+                     self.dihedral_atom_4.atom_id)
                 ].append(self)
