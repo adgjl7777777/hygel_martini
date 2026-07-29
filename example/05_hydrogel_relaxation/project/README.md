@@ -15,6 +15,7 @@ python -m pip install -e .
 ```bash
 bash run_hydrogel_relaxation.sh maker_soft_em.yaml
 bash run_hydrogel_relaxation.sh maker_soft_md.yaml
+bash run_hydrogel_relaxation.sh maker_hard_em_shrink.yaml
 ```
 
 도움말과 GROMACS 확인:
@@ -30,6 +31,7 @@ bash run_hydrogel_relaxation.sh --workflow-help
 ```bash
 python3 -m hydrogel_builder.relax maker_soft_em.yaml
 python3 -m hydrogel_builder.relax maker_soft_md.yaml
+python3 -m hydrogel_builder.relax maker_hard_em_shrink.yaml
 ```
 
 ## 기본 입력 경로
@@ -46,9 +48,15 @@ python3 -m hydrogel_builder.relax maker_soft_md.yaml
   gradual EM / box relaxation 진입점
 - `maker_soft_md.yaml`
   `grompp + mdrun` 추가 완화 진입점
+- `maker_hard_em_shrink.yaml`
+  1% 고정 비율 hard-EM shrink와 NVT recovery 진입점
 - `config/`
   공통 path/runtime와 mode별 설정
 - `config/minim.mdp`
   soft EM에서 쓰는 minimization mdp
 - `config/npt_1ns.mdp`
   soft MD에서 쓰는 mdp
+- `config/hard_em_shrink.yaml`
+  목표 box까지 guarded hard shrink 설정. `target_box_nm`는 formulation별 dense target으로 반드시 확인한다.
+- `config/nvt_hard_shrink_recovery_100ps.mdp`
+  shrink guard 실패 시 쓰는 짧은 2 fs NVT recovery mdp

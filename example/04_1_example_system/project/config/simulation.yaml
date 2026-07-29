@@ -1,88 +1,278 @@
 # simulation.yaml
-# 한글: 실행/환경 기본 설정. 영어: base simulation/runtime settings.
+# 실행 환경 및 GROMACS 기본 설정 (base simulation/runtime settings).
+# maker.yaml의 includes 목록 중 첫 번째로 로드됨.
+# 다른 config yaml 또는 maker.yaml 최상단 설정으로 덮어쓸 수 있음.
 
 simulation_parameters:
-  # gromacs 실행 파일 (예: gmx_mpi)
-  # gromacs executable (e.g., gmx_mpi)
+
+  # ---------------------------------------------------------------------------
+  # 실행 파일 경로 (Executable paths)
+  # ---------------------------------------------------------------------------
+
+  # GROMACS 실행 파일. MPI 빌드는 gmx_mpi, 단일 바이너리는 gmx.
+  # GROMACS executable. Use gmx_mpi for MPI builds, gmx for single binary.
   gromacs_executable_path: gmx_mpi
 
-  # packmol 실행 파일 이름/경로
-  # packmol executable path/name
+  # Packmol 실행 파일. PATH에 있으면 이름만, 아니면 절대경로.
+  # Packmol executable. Just the name if it is on PATH, else absolute path.
   packmol_path: packmol
 
-  # 기본 include 경로 (Martini forcefield 등)
-  # Base include path for Martini forcefield, etc.
+  # Martini forcefield ITP 파일들이 들어있는 디렉토리.
+  # ${REPO_ROOT}는 run_full_builder.sh 가 설정하는 환경변수.
+  # Directory containing Martini forcefield ITP files.
+  # ${REPO_ROOT} is set by run_full_builder.sh.
   gromacs_include_path: ${REPO_ROOT}/martini_v300
 
-  # base itp 파일 (Martini atomtypes)
-  # Base itp containing atomtypes
+  # Martini atomtypes를 담은 기본 ITP 파일. grompp가 항상 include함.
+  # Base ITP file containing Martini atomtypes — always included by grompp.
   base_itp_file: ${REPO_ROOT}/martini_v300/martini_v3.0.0.itp
 
-  # 출력 디렉토리
+  # ---------------------------------------------------------------------------
+  # 출력 디렉토리 (Output)
+  # ---------------------------------------------------------------------------
+
+  # 빌드 결과물 출력 디렉토리. ${CONFIG_DIR}는 이 yaml 파일이 있는 config/ 폴더.
+  # Output directory for all build artifacts.
+  # ${CONFIG_DIR} resolves to the directory containing this yaml file.
   output_dir: ${CONFIG_DIR}/output
-  # PBC/박스 관련
+
+  # ---------------------------------------------------------------------------
+  # 구조 파라미터 (Topology / box)
+  # ---------------------------------------------------------------------------
+
+  # 전체 큰 셀 반복 횟수. 1 → 1×1×1 (small test), 2 → 2×2×2 (8 medium cells).
+  # Number of large-cell repetitions. 1=single test cell, 2=2×2×2 (8 medium cells).
   number_of_cells: 1
+
+  # Backbone chain 당 CG bead 수 (segment length).
+  # 예: PEG 4.8 kDa ≈ 4800/44 ≈ 109 EO units → 110 사용.
+  # Number of CG beads per backbone chain.
+  # e.g. PEG 4.8 kDa ≈ 109 EO units → use 110.
   segment_length: 20
+
+  # PBC(주기적 경계 조건) 사용 여부.
+  # Whether to apply periodic boundary conditions.
   pbc_true_or_false: true
+
+  # Bead 간 평균 격자 간격 (nm). 물분자 패킹 및 bond fallback에 사용.
+  # Mean bead separation (nm). Used for water packing and as a bond-length fallback.
   mean_sep: 0.24
+
+  # bond_lookup에 없는 bead 쌍에 적용되는 기본 결합 파라미터.
+  # Default bond parameters used when no specific rule is found in bond_lookup.
   default_bond:
-    bond_funct: 1
-    bond_c0: 0.24
-    bond_c1: 15000
-  # default angle parameters (used when angle rules are not specified)
+    bond_funct: 1       # 결합 함수 타입 (1 = harmonic)
+    bond_c0: 0.24       # 평형 결합 길이 (nm) / equilibrium bond length (nm)
+    bond_c1: 15000      # 스프링 상수 (kJ/mol/nm²) / spring constant (kJ/mol/nm²)
+
+  # 각도 파라미터가 명시되지 않은 경우의 기본값.
+  # Default angle parameters used when no specific rule is found.
   default_angle:
-    angle_funct: 1
-    angle_c0: 180
-    angle_c1: 25
-  # anisotropy axis for layout rotation: x, y, or z. set false for isotropy path
+    angle_funct: 1      # 각도 함수 타입 (1 = harmonic)
+    angle_c0: 180       # 평형 각도 (도) / equilibrium angle (degrees)
+    angle_c1: 25        # 스프링 상수 (kJ/mol/rad²) / spring constant (kJ/mol/rad²)
+
+  # ---------------------------------------------------------------------------
+  # Diamond lattice 배치 제어 (Layout)
+  # ---------------------------------------------------------------------------
+
+  # false → isotropy 경로 (정육면체 셀). x/y/z → 해당 축 방향으로 anisotropy.
+  # false=isotropic (cubic cell). x/y/z=anisotropic along that axis.
   anisotropy: false
+
   isotropy:
+    # medium-cell EM 시 경계 원자에 적용하는 position restraint force constant (kJ/mol/nm²).
+    # Position restraint fc for boundary atoms during per-medium-cell EM (kJ/mol/nm²).
     boundary_fix_fc: 100000.0
 
-  # GROMACS grompp 허용 경고 수
+  # ---------------------------------------------------------------------------
+  # GPU / CPU 스레드 제어 (Compute resources)
+  # ---------------------------------------------------------------------------
+
+  # GPU 제어:
+  #   null → CPU 전용 (-nb cpu -update cpu). 공용 서버 기본값.
+  #   0    → GPU 0번 전용 (CUDA_VISIBLE_DEVICES=0).
+  #   1    → GPU 1번 전용 (CUDA_VISIBLE_DEVICES=1).
+  # 특정 번호 지정 시 다른 사용자의 GPU와 겹치는 것을 방지함.
+  # GPU control:
+  #   null → CPU-only. Safe default for shared machines.
+  #   N    → pin to GPU N via CUDA_VISIBLE_DEVICES=N.
+  gpu_id: null
+
+  # 빌드 EM 단계(backbone_stage, initial_hydrogel 등) mdrun의 OpenMP 스레드 수.
+  #   null → GROMACS 자동 감지 (공용 서버에서 전체 코어를 잡을 수 있으므로 주의).
+  #   N    → mdrun -ntomp N 으로 실행.
+  # SLURM 환경에서는 SLURM_CPUS_PER_TASK가 우선 적용됨 (null일 때만).
+  # OpenMP thread count for build EM stages (backbone_stage, initial_hydrogel, etc.).
+  #   null → GROMACS auto-detect (may grab all cores on shared machines).
+  #   N    → runs mdrun -ntomp N.
+  # SLURM_CPUS_PER_TASK is used as fallback when this is null.
+  omp_threads: 4
+
+  # ---------------------------------------------------------------------------
+  # GROMACS 설정 (GROMACS options)
+  # ---------------------------------------------------------------------------
+
+  # grompp가 허용할 경고 최대 수 (-maxwarn). 필요 이상으로 높이지 말 것.
+  # Max warnings allowed by grompp (-maxwarn). Do not raise unnecessarily.
   grompp_maxwarn: 4
 
-  # 난수 시드
-  random_seed: 2020
-
-  # proto builder 사용 여부
-
-  # 디버그 모드: true이면 output/debug.txt에 상세 로그 기록
-  # debug mode: if true, write verbose logs to output/debug.txt
-  debug_mode: true
-
-  # 무전하 EM 단계에서 사용할 Coulomb 타입 (예: "Cut-off", 설정 안하면 기존 mdp 사용)
-  # Coulomb type override for neutral EM stages (e.g., "Cut-off"; leave null to keep mdp)
+  # 전하가 0인 EM 단계에서 사용할 Coulomb 타입.
+  # Cut-off: 빠름, PME 없이 중성계에 적합. null이면 mdp 파일 설정 그대로 사용.
+  # Coulomb type for neutral (zero-charge) EM stages.
+  # "Cut-off": fast, appropriate for neutral systems without PME.
+  # null: keep whatever coulombtype is in the mdp file.
   neutral_em_coulombtype: Cut-off
 
-  # 탭 포텐셜 테이블(include 시 사용). 예: table.xvg, table_dih.xvg
-  # Tabulated potential tables to include (optional)
-  additional_tabulated_tables: []
+  # 중성 EM 단계의 rcoulomb / rvdw 거리 cutoff (nm). null이면 mdp 기본값 사용.
+  # rcoulomb/rvdw cutoff (nm) for neutral EM stages. null = use mdp defaults.
+  # neutral_em_rcoulomb: 1.5
+  # neutral_em_rvdw: 1.5
 
-  # rich ITP 섹션(virtual_sites/restraints/cmap/polarization 등)을 combined ITP에 실제로 쓸지 여부
-  # If true, emit rich ITP sections into combined ITP (may require valid parameters)
+  # ---------------------------------------------------------------------------
+  # 재현성 (Reproducibility)
+  # ---------------------------------------------------------------------------
+
+  # 난수 시드. 동일 시드로 실행하면 backbone 배치 등이 동일하게 재현됨.
+  # Random seed. Same seed → reproducible backbone placement and packing.
+  random_seed: 2020
+
+  # ---------------------------------------------------------------------------
+  # 디버그 및 로그 (Debug / logging)
+  # ---------------------------------------------------------------------------
+
+  # true → output/debug.txt에 상세 실행 로그 기록.
+  # true → write verbose execution log to output/debug.txt.
+  debug_mode: true
+
+  # ---------------------------------------------------------------------------
+  # ITP 출력 제어 (ITP output)
+  # ---------------------------------------------------------------------------
+
+  # true → combined ITP에 virtual_sites, restraints, cmap 등 rich 섹션 포함.
+  # false → atoms/bonds/angles/dihedrals 기본 섹션만 출력 (안전 모드).
+  # true → include virtual_sites, restraints, cmap, etc. in combined ITP.
+  # false → emit only atoms/bonds/angles/dihedrals (safe mode).
   emit_rich_itp_sections: true
-  # strict_rich_itp_validation: false  # 기본은 문제 라인 skip
 
-  # packmol 허용 중첩 거리(Å)
+  # ---------------------------------------------------------------------------
+  # Packmol 옵션 (Packing)
+  # ---------------------------------------------------------------------------
+
+  # Packmol의 원자 간 최소 허용 거리 (Å). 작을수록 더 빡빡하게 패킹.
+  # Minimum allowed inter-atom distance for Packmol (Å). Smaller = tighter packing.
   packmol_threshold: 2
+
+  # 겹침 검사 반복 한계. 내부 패킹 루프 최대 시도 횟수.
+  # Max iterations for internal overlap-check loop.
   overlap_check_limit: 10
-  # min distance report auto-skip threshold (atom count)
+
+  # 최소 거리 보고를 건너뛸 원자 수 임계값. 원자가 이보다 많으면 계산 생략.
+  # Skip min-distance reporting if atom count exceeds this threshold.
   min_distance_report_max_atoms: 3000
-  # side-chain placement performance tuning
+
+  # ---------------------------------------------------------------------------
+  # Side-chain 배치 성능 (Side-chain placement tuning)
+  # ---------------------------------------------------------------------------
+
+  # 후보 배치 방향 수 (회전 후보). 클수록 정확하지만 느림.
+  # Number of candidate orientations for side-chain placement.
   sidechain_num_candidates: 72
+
+  # 후보 중 겹침 허용 상대 임계값 (1.0 = 본드길이 그대로, <1 = 더 엄격).
+  # Relative overlap threshold for side-chain candidates (1.0 = bond length).
   sidechain_overlap_threshold_factor: 0.8
+
+  # 후보 탐색 반경 배율.
+  # Search radius multiplier for nearby atom detection.
   sidechain_search_radius_factor: 10.0
+
+  # 인근 원자 탐색 최대 수. 큰 시스템에서 성능 제한.
+  # Max nearby atoms to check for overlap. Limits cost on large systems.
   sidechain_nearby_atom_limit: 800
+
+  # 원자 수가 이보다 많으면 side-chain 배치를 자동 간략 모드로 전환.
+  # Switch to fast side-chain mode when total atoms exceed this.
   sidechain_auto_threshold: 20000
 
+  # ---------------------------------------------------------------------------
+  # 동적 가교 결합 기본값 (Dynamic crosslink fallback bond)
+  # ---------------------------------------------------------------------------
+
+  # 링커 템플릿에 backbone 특정 결합 파라미터가 없을 때 사용하는 fallback.
   # Fallback bond used only when linker-specific dynamic crosslink parameters are absent.
   default_dynamic_crosslink_bond:
     bond_funct: 1
-    bond_c0: 0.25
-    bond_c1: 5000
+    bond_c0: 0.25       # nm
+    bond_c1: 5000       # kJ/mol/nm²
 
-# 추가 include ITP (예: custom ion types)
-# additional ITPs to include
+  # ---------------------------------------------------------------------------
+  # 가교 알고리즘 설정 (Crosslinking algorithm settings)
+  # ---------------------------------------------------------------------------
+
+  # 각 가교제 stub(말단)이 토폴로지 상에서 물리적으로 연결될 최대 백본 체인 끝단(end) 수.
+  # (예: 한 개의 두 가닥 링커 stub이 주변 2개의 고분자 말단과 연결될 경우 2로 설정)
+  # Maximum number of physical backbone ends each crosslinker stub connects to.
+  dynamic_crosslink_targets_per_stub: 2
+
+  # block copolymer 전용 generic 제어. 기본 PEGDA/random 예제에서는 비활성화한다.
+  # respect_target_backbone=true이면 linker stub의 target_backbone과 맞는 진짜 chain end만 연결 후보로 쓴다.
+  # linker_terminal_compensation은 LNK를 terminal 보정 bead로 세는 block-copolymer 모델에서만 켠다.
+  # chain_orientation_policy: random | one_direction | graph_directed
+  respect_target_backbone: false
+  linker_terminal_compensation:
+    enabled: false
+    target_backbone: null
+    compensation_beads: 0
+  chain_orientation_policy: random
+
+  # 링커 stub 주위에서 연결할 후보 백본 체인을 탐색할 때 유지할 후보군의 최대 개수 (탐색 공간 너비 제어).
+  # Number of candidate backbone chains retained per crosslinker stub during runtime.
+  dynamic_crosslink_candidate_limit: 64
+
+  # 가교 연결 형성 시 런타임 매칭 알고리즘 전략 (nearest: 기하학적 최근접 단부를 찾아 본딩).
+  # Runtime matching strategy for dynamic crosslinking (nearest = geometry-only closest matching).
+  dynamic_crosslink_assignment_strategy: nearest
+
+  # 레이아웃 빌더 단계에서 가교제의 국소 x/y/z 방향(배향)을 결정하고 최적화하는 전략.
+  # connectivity_aware는 레이아웃 그래프 전체의 전이 상태(transition state)를 고려하여 연결성이 극대화되도록 배향을 선택함.
+  # Crosslinker orientation optimization strategy during layout generation.
+  linker_orientation_strategy: connectivity_aware
+
+  # 동적 가교 본드가 생성된 직후, 가교 부위의 심한 늘어남이나 겹침을 해소하기 위해 임시로 soft bond 에너지 최소화 완화(EM relaxation) 단계를 수행할지 여부.
+  # Enable soft-bond energy minimization immediately after dynamic crosslinking.
+  dynamic_crosslink_relax_enabled: true
+
+  # 임시 soft bond 완화 단계에서 가교 본드에 일시적으로 가할 force constant (kJ/mol/nm²).
+  # Force constant for temporary soft-bond EM relaxation (kJ/mol/nm²).
+  dynamic_crosslink_relax_fc: 50.0
+
+# ---------------------------------------------------------------------------
+# 추가 ITP 파일 (Additional ITP includes)
+# ---------------------------------------------------------------------------
+# grompp topology에 추가로 include할 ITP 파일 목록.
+# Additional ITP files to include in the grompp topology.
 #additional_itp_files:
 #  - ${CONFIG_DIR}/structure/additional_ions.itp
+
+# ---------------------------------------------------------------------------
+# 하이드로젤 네트워크 연결성 감사 및 검증 (Topology Connectivity Audit)
+# ---------------------------------------------------------------------------
+# 빌드가 끝난 후 생성된 하이드로젤 네트워크의 공유결합 그래프 연결 상태를 분석하고 검증합니다.
+# 만약 가교 결합이 파편화되어 고립된 컴포넌트가 임계치를 초과하면 빌드를 즉시 중단(실패)시킵니다.
+hydrogel_topology_connectivity_audit:
+  # 네트워크 연결성 감사 및 검증 활성화 여부.
+  # Enable or disable the post-build topology connectivity check.
+  enabled: false
+
+  # 가장 거대한 단일 연결 네트워크(최대 컴포넌트)에 속해야 하는 하이드로젤 전체 원자의 최소 비율 (0.95 = 최소 95% 이상이 하나의 거대 네트워크에 묶여야 함).
+  # Minimum fraction of hydrogel atoms that must belong to the largest single bonded component.
+  min_largest_component_fraction: 0.95
+
+  # 허용할 수 있는 최대 연결 컴포넌트(독립된 네트워크 덩어리) 개수. (1로 설정하면 전체 네트워크가 완벽히 하나로 이어져야 함)
+  # Maximum number of disconnected bonded topology components allowed.
+  max_components: 1
+
+  # 위 연결성 기준을 만족하지 못해 위반이 발생했을 때 빌드를 실패(에러) 처리하고 즉시 멈출지 여부.
+  # If true, fail the build immediately when connectivity thresholds are violated.
+  fail_on_violation: true

@@ -1,0 +1,60 @@
+schema_version: 1
+template: true
+
+# validation_manifest.yaml (템플릿)
+# 논문/실험 target 정의만 담습니다. 시뮬레이션 파일 경로를 넣지 않습니다.
+# 실제 사용 시 references와 targets를 프로젝트에 맞게 채우세요.
+
+references:
+  REF-1:
+    path: null
+    doi: 10.xxxx/xxxxxx
+    system: SYSTEM_NAME
+    notes: 논문 설명
+
+targets:
+  example_target:
+    reference: REF-1
+    formulation:
+      polymer: POLYMER_NAME
+      mw_g_mol: 0
+      initial_polymer_wt_percent: 0
+      temperature_k: 310.15
+    properties:
+      equilibrium_mass_swelling_ratio:
+        value: 0.0
+        uncertainty: 0.0
+        unit: dimensionless
+        definition: m_swollen / m_dry
+        comparable_to:
+          - equilibrium_swelling_qm
+        not_comparable_to:
+          - loading_qm
+
+      pore_diameter_nm:
+        value: 0.0
+        uncertainty: 0.0
+        unit: nm
+        method: Poreblazer trajectory analysis
+        comparable_to:
+          - pore_size_poreblazer_equivalent
+        not_comparable_to:
+          - pore_size_single_frame_grid
+          - local_clearance_diameter_p50_nm
+
+      storage_modulus_mpa:
+        value: 0.0
+        uncertainty: 0.0
+        unit: MPa
+        definition: method-matched experimental oscillatory storage modulus
+        comparable_to: []
+        not_comparable_to:
+          - paired_step_finite_rate_apparent_shear_response
+
+      polymer_volume_fraction:
+        min: 0.0
+        max: 1.0
+        unit: dimensionless
+        definition: V_polymer / V_box
+        comparable_to:
+          - polymer_volume_fraction

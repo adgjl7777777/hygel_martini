@@ -1,0 +1,8 @@
+;Gromacs.itp file
+[ moleculetype ]
+; name  nrexcl
+***         1
+
+[ atoms ]
+;   nr    type    resnr   residu    atom    cgnr  charge  mass
+1      W   1   &&&   W   1     0.0000  36.0000 

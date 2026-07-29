@@ -1,0 +1,125 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hygel-martini"
+dynamic = ["version"]
+description = "Graph-first construction and analysis workflows for coarse-grained Martini hydrogel systems."
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.9"
+authors = [
+  { name = "Daehong Kim" },
+]
+keywords = [
+  "coarse-grained molecular dynamics",
+  "GROMACS",
+  "hydrogel",
+  "Martini",
+  "polymer",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Chemistry",
+]
+dependencies = [
+  "ase>=3.22",
+  "CoolProp>=6.4",
+  "matplotlib>=3.6",
+  "MDAnalysis>=2.4",
+  "numba>=0.57",
+  "numpy>=1.23",
+  "pandas>=1.5",
+  "pymbar[jax]>=4.0",
+  "PyYAML>=6.0",
+  "requests>=2.28",
+  "scipy>=1.9",
+  "tqdm>=4.64",
+]
+
+[project.optional-dependencies]
+dev = [
+  "build>=1.2",
+  "pytest>=8.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/adgjl7777777/hygel_martini"
+Repository = "https://github.com/adgjl7777777/hygel_martini"
+Issues = "https://github.com/adgjl7777777/hygel_martini/issues"
+
+[project.scripts]
+hygel-builder = "hygel_martini.hydrogel_builder.cli:main"
+hygel-relax = "hygel_martini.hydrogel_builder.relax.cli:main"
+hygel-property = "hygel_martini.property_extract.__main__:main"
+hygel-qm-to-opls = "hygel_martini.param_opt.qm_to_opls.cli:main"
+hygel-opls-to-martini = "hygel_martini.param_opt.opls_to_martini.cli:main"
+hygel-qm-to-martini = "hygel_martini.param_opt.qm_to_martini.cli:main"
+hygel-qm-reference-audit = "hygel_martini.param_opt.qm_to_martini.analysis.reference_qualification:main"
+hygel-bead-selector = "hygel_martini.param_opt.bead_generator.cli:main"
+hygel-audit-topology = "hygel_martini.tools.audit_hydrogel_topology:main"
+hygel-xtb-traj-to-pdb = "hygel_martini.tools.xtb_traj_to_pdb:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "hygel_martini.__version__" }
+
+[tool.setuptools]
+include-package-data = false
+packages = [
+  "hygel_martini",
+  "hygel_martini.core",
+  "hygel_martini.hydrogel_builder",
+  "hygel_martini.hydrogel_builder.add_series",
+  "hygel_martini.hydrogel_builder.config_params",
+  "hygel_martini.hydrogel_builder.core_utils",
+  "hygel_martini.hydrogel_builder.core_utils.common",
+  "hygel_martini.hydrogel_builder.core_utils.generators",
+  "hygel_martini.hydrogel_builder.core_utils.io",
+  "hygel_martini.hydrogel_builder.core_utils.layout",
+  "hygel_martini.hydrogel_builder.core_utils.runtime",
+  "hygel_martini.hydrogel_builder.core_utils.templates",
+  "hygel_martini.hydrogel_builder.main_components",
+  "hygel_martini.hydrogel_builder.relax",
+  "hygel_martini.param_opt",
+  "hygel_martini.param_opt.bead_generator",
+  "hygel_martini.param_opt.core",
+  "hygel_martini.param_opt.opls_to_martini",
+  "hygel_martini.param_opt.polymer_maker",
+  "hygel_martini.param_opt.qm_to_martini",
+  "hygel_martini.param_opt.qm_to_martini.analysis",
+  "hygel_martini.param_opt.qm_to_martini.tools",
+  "hygel_martini.param_opt.qm_to_martini.workflow_logic",
+  "hygel_martini.param_opt.qm_to_opls",
+  "hygel_martini.property_extract",
+  "hygel_martini.property_extract.extractors",
+  "hygel_martini.tools",
+]
+
+[tool.setuptools.package-data]
+hygel_martini = [
+  "bash_settings/common/*.sh",
+  "bash_settings/hydrogel_builder/*.sh",
+  "bash_settings/param_opt/*.md",
+  "bash_settings/param_opt/*.sh",
+  "bash_settings/property_extract/*.sh",
+  "bash_settings/relaxation/*.sh",
+  "hydrogel_builder/*.md",
+  "hydrogel_builder/add_series/*.gro",
+  "hydrogel_builder/add_series/*.itp",
+  "hydrogel_builder/relax/*.md",
+  "param_opt/*.md",
+  "param_opt/qm_to_martini/*.md",
+  "param_opt/qm_to_martini/analysis/*.md",
+  "property_extract/*.md",
+]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]

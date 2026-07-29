@@ -22,10 +22,8 @@ setup_hygel_env "$SCRIPT_DIR"
 # GROMACS specific defaults
 GMXRC_PATH="${GMXRC_PATH:-/opt/gromacs/2026/bin/GMXRC}"
 GMX_CMD="${GMX_CMD:-gmx_mpi}"
-OMP_NUM_THREADS="${OMP_NUM_THREADS:-1}"
-GMX_OPENMP_MAX_THREADS="${GMX_OPENMP_MAX_THREADS:-$OMP_NUM_THREADS}"
-export OMP_NUM_THREADS
-export GMX_OPENMP_MAX_THREADS
+# OMP_NUM_THREADS is NOT set here — it is controlled by runtime.omp_threads in the maker yaml.
+# soft_em.py / soft_md.py set OMP_NUM_THREADS in the mdrun subprocess environment to match ntomp.
 
 if [ -f "$GMXRC_PATH" ]; then
   source_optional_script "GMXRC_PATH" "$GMXRC_PATH"
@@ -36,8 +34,10 @@ usage() {
 Usage:
   bash run_hydrogel_relaxation.sh maker_soft_em.yaml
   bash run_hydrogel_relaxation.sh maker_soft_md.yaml
+  bash run_hydrogel_relaxation.sh maker_hard_em_shrink.yaml
   bash run_hydrogel_relaxation.sh soft_em (shorthand for maker_soft_em.yaml)
   bash run_hydrogel_relaxation.sh soft_md (shorthand for maker_soft_md.yaml)
+  bash run_hydrogel_relaxation.sh hard_em_shrink (shorthand for maker_hard_em_shrink.yaml)
   bash run_hydrogel_relaxation.sh --check-gmx
   bash run_hydrogel_relaxation.sh --workflow-help
   bash run_hydrogel_relaxation.sh --help
@@ -46,7 +46,8 @@ Shell environment:
   run_hydrogel_relaxation.sh sources environment.sh if it exists.
   Override with ENVIRONMENT_FILE or PYTHON_BIN.
   The hygel_martini package must already be installed in that Python environment.
-  GROMACS settings: GMXRC_PATH, GMX_CMD, OMP_NUM_THREADS.
+  GROMACS settings: GMXRC_PATH, GMX_CMD.
+  Thread count: set runtime.omp_threads in the maker yaml (null=GROMACS auto-detect).
 EOF
 }
 
@@ -96,6 +97,9 @@ case "$CONFIG_ARG_RAW" in
     ;;
   soft_md)
     CONFIG_ARG="maker_soft_md.yaml"
+    ;;
+  hard_em_shrink)
+    CONFIG_ARG="maker_hard_em_shrink.yaml"
     ;;
   *)
     CONFIG_ARG="$CONFIG_ARG_RAW"

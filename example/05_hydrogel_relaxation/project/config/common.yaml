@@ -4,7 +4,16 @@ tools:
 
 runtime:
   # Keep the default conservative for shared NAS runs.
+  # omp_threads: rank당 OpenMP 스레드 수 (= -ntomp = OMP_NUM_THREADS)
+  # MPI 사용 시 총 코어 = omp_threads × mpi_np
   omp_threads: 1
+  # GPU control: null=CPU-only, N=pin to GPU N (CUDA_VISIBLE_DEVICES=N).
+  gpu_id: null
+  # mpi_np: null → mpirun 없음 (단일 프로세스). N으로 설정하면 mdrun만 mpirun으로 실행.
+  # mpi_args: 추가 mpirun 옵션 (예: ["--bind-to", "none"])
+  # 예) 8-GPU 멀티노드: omp_threads=6, gpu_id="01234567", mpi_np=8
+  mpi_np: null
+  mpi_args: []
 
 paths:
   # Default upstream builder output. Change these if you want to use
