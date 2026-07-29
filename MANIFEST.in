@@ -1,0 +1,16 @@
+include README.md
+include README_detailed_for_llm.md
+include START_HERE_ko.md
+include pyproject.toml
+include docs/VALIDATION_HISTORY_AND_DESIGN_RATIONALE.md
+
+# Local trajectories, external force fields, and bundled third-party tools are
+# not package sources.  Pruning them also prevents editable/sdist metadata
+# generation from crawling multi-gigabyte research workspaces.
+prune example_myrun
+prune martini_v2
+prune martini_v300
+prune tools/PoreBlazer
+
+global-exclude __pycache__
+global-exclude *.py[cod]

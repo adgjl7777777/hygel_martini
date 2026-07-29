@@ -43,6 +43,25 @@ hydrogel_components:
       strategy: random
 
   linker_definitions:
+    # 한글: linker ITP의 양끝 BCK bead는 실제 linker 내부 bead가 아니라
+    #       backbone에 붙을 자리(stub/anchor)를 나타낸다.
+    #       backbone_1/backbone_2의 between 값이 이 stub의 target backbone을 정한다.
+    #       예: BCK-LNK-LNK-BCK + backbone_1: BD, backbone_2: BS
+    #           => 의미상 BD-LNK-LNK-BS junction으로 해석된다.
+    #       이때 BCK stub의 질량은 ITP보다 target backbone YAML mass가 우선이다.
+    #       그러나 stub-LNK 내부 bond parameter는 linker ITP의 BCK-LNK 값을 보존한다.
+    #       실제 backbone end와 stub 사이의 external dynamic bond는 target backbone에 맞춰
+    #       backbone_1/backbone_2 및 backbone.yaml patch rule로 결정된다.
+    # English: The two BCK beads in linker ITP files are stub/anchor beads, not
+    #          ordinary linker-internal beads. backbone_1/backbone_2 define the
+    #          target backbone for each stub. For example,
+    #          BCK-LNK-LNK-BCK with backbone_1: BD and backbone_2: BS is treated
+    #          conceptually as a BD-LNK-LNK-BS junction. The stub mass follows
+    #          the target backbone YAML mass, overriding the ITP stub mass.
+    #          The stub-LNK internal bond keeps the original BCK-LNK ITP
+    #          parameter. The external dynamic bond between a real backbone end
+    #          and the stub is selected from backbone_1/backbone_2 and can be
+    #          finalized by backbone.yaml patch rules.
     LINKERS:
       - id: LDD
         ratio: 1
@@ -50,17 +69,29 @@ hydrogel_components:
         itp: ${CONFIG_DIR}/structure/LDD.itp
         linker_residue_name: LDD
         backbone_residue_name: [LBDDA, LBDDB]
+        backbone_1:
+          - between: BD
+        backbone_2:
+          - between: BD
       - id: LSS
         ratio: 1
         gro: ${CONFIG_DIR}/structure/LSS.gro
         itp: ${CONFIG_DIR}/structure/LSS.itp
         linker_residue_name: LSS
         backbone_residue_name: [LBSSA, LBSSB]
+        backbone_1:
+          - between: BS
+        backbone_2:
+          - between: BS
       - id: LDS
         ratio: 2
         gro: ${CONFIG_DIR}/structure/LDS.gro
         itp: ${CONFIG_DIR}/structure/LDS.itp
         linker_residue_name: LDS
         backbone_residue_name: [LBDSA, LBDSB]
+        backbone_1:
+          - between: BD
+        backbone_2:
+          - between: BS
     SEQUENCE_STRATEGY:
       strategy: random

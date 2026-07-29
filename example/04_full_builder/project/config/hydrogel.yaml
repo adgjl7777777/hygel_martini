@@ -60,6 +60,26 @@ hydrogel_components:
       strategy: random
 
   linker_definitions:
+    # 한글: linker ITP의 양끝 BCK bead는 실제 linker 내부 bead가 아니라
+    #       backbone에 붙을 자리(stub/anchor)를 나타낸다.
+    #       backbone_1/backbone_2의 between 값이 각 stub의 target backbone을 정한다.
+    #       예: BCK-LNK-LNK-BCK + backbone_1: BB1, backbone_2: BB2
+    #           => 의미상 BB1-LNK-LNK-BB2 junction으로 해석된다.
+    #       BCK stub 질량은 target backbone YAML mass가 ITP stub mass보다 우선한다.
+    #       stub-LNK 내부 bond parameter는 linker ITP의 BCK-LNK 값을 보존한다.
+    #       실제 backbone end와 stub 사이의 external dynamic bond는
+    #       backbone_1/backbone_2의 target별 entry 및 backbone.yaml patch rule로 결정된다.
+    # English: The two BCK beads in linker ITP files are stub/anchor beads, not
+    #          ordinary linker-internal beads. backbone_1/backbone_2 assign the
+    #          target backbone for each stub. For example,
+    #          BCK-LNK-LNK-BCK with backbone_1: BB1 and backbone_2: BB2 is
+    #          treated conceptually as a BB1-LNK-LNK-BB2 junction. The BCK stub
+    #          mass follows the target backbone YAML mass, overriding the ITP
+    #          stub mass. The stub-LNK internal bond keeps the original BCK-LNK
+    #          ITP parameter. The external dynamic bond between the real
+    #          backbone end and the stub is selected from backbone_1/backbone_2
+    #          target-specific entries and can be finalized by backbone.yaml
+    #          patch rules.
     LINKERS:
       - id: SS_linker
         ratio: 1

@@ -6,6 +6,19 @@
 # --- Bonds Definition ---
 # These rules will be applied to update bond parameters (c0, c1).
 # Connectivity is determined by the builder logic.
+# 한글: linker의 BCK stub target은 hydrogel.yaml의 backbone_1/backbone_2에서 먼저 정해진다.
+#       이 파일의 bonds rule은 생성된 topology에서 residue/type이 맞는 결합의
+#       최종 c0/c1을 patch한다. 주로 실제 backbone end와 linker stub 사이의
+#       external junction bond를 target chemistry에 맞추는 데 사용한다.
+#       stub과 linker 내부 bead 사이의 BCK-LNK bond는 linker ITP의 내부 bond이며,
+#       여기에 별도 rule을 쓰지 않는 한 원본 ITP parameter를 유지한다.
+# English: Linker BCK stub targets are assigned first by hydrogel.yaml
+#          backbone_1/backbone_2. The bond rules below patch final c0/c1 values
+#          for generated topology bonds whose residue/type pattern matches.
+#          They are mainly used to finalize external junction bonds between a
+#          real backbone end and a linker stub. The BCK-LNK bond between a stub
+#          and an internal linker bead is a linker-ITP internal bond and keeps
+#          the original ITP parameter unless an explicit rule here matches it.
 bonds:
   # Backbone-Backbone Bonds
   - residue_name: [BS, BS]

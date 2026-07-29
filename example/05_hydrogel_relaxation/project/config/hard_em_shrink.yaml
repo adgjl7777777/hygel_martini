@@ -1,0 +1,24 @@
+workflow:
+  mode: hard_em_shrink
+
+paths:
+  # Start from a builder output. Change this path if you use another project.
+  start_gro: ${CONFIG_DIR}/../../../04_1_example_system/project/output/final_system.gro
+  workdir: ${CONFIG_DIR}/../relax_output/hard_em_shrink
+
+hard_em_shrink:
+  minim_mdp: ${CONFIG_DIR}/minim.mdp
+  nvt_recovery_mdp: ${CONFIG_DIR}/nvt_hard_shrink_recovery_100ps.mdp
+
+  # Replace 20.0 with the target cubic dense-state box for your formulation.
+  # Do not use this mode to expand a box.
+  target_box_nm: 20.0
+  shrink_fraction: 0.01
+  min_shrink_fraction: 0.00125
+  fmax_max: 1000.0
+  max_steps: 300
+  nvt_recovery_enabled: true
+  maxwarn: 2
+
+  # Set true after interruption to resume from last_valid.gro.
+  restart: false

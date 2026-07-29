@@ -1,0 +1,110 @@
+# property_extract.yaml
+# hygel_martini 물성 추출 설정 파일 (템플릿)
+# 실행: bash run_property_extract.sh property_extract.yaml
+
+# ---------------------------------------------------------------------------
+# 시스템 메타데이터 (분석에 직접 사용되지 않음, 기록용)
+# ---------------------------------------------------------------------------
+system:
+  name: peg_m3_validation
+  force_field: martini3
+  temperature_k: 310.15
+  pressure_bar: 1.013
+  reference: "Mercado-Montijo et al., Soft Matter 2022"
+
+# ---------------------------------------------------------------------------
+# 입력 파일 경로 (이 yaml 파일 기준 상대 경로 또는 절대 경로)
+# 실제 경로로 수정 후 사용하세요.
+# ---------------------------------------------------------------------------
+files:
+  top:        /path/to/system.top
+  itp:        /path/to/initial_hydrogel.itp
+  gro:        /path/to/final_optimized_system.gro
+  # --- production MD 완료 후 아래 경로 활성화 ---
+  edr:        null   # production.edr 경로 (미완료 시 null)
+  energy_xvg: energy.xvg   # gmx energy 출력 파일 (이 yaml 기준 상대 경로)
+  traj:       null   # production.xtc (현재 미사용)
+
+# ---------------------------------------------------------------------------
+# GROMACS 실행 파일
+# executable: null → GMX_BIN 환경 변수 → PATH 자동 탐색 (gmx_mpi → gmx)
+# 특정 경로가 필요하면 아래 주석 해제:
+#   executable: /path/to/gmx_mpi
+# ---------------------------------------------------------------------------
+gromacs:
+  executable: null
+
+# ---------------------------------------------------------------------------
+# 구성 성분 정의
+# ---------------------------------------------------------------------------
+components:
+  polymer:
+    molecule_names: [HYDROGEL]   # top [ molecules ] 에서의 이름
+    residue_names:  [PEO]        # gro/itp의 residue 이름
+    atom_names:     [EO]         # itp [ atoms ]의 atom 이름
+    bead_types:     [SN3r]       # itp [ atoms ]의 bead type
+    include_residues: [PEO]      # pore 분석 / ITP 파싱 필터
+    exclude_residues: []
+  solvent:
+    molecule_names: [W]          # top [ molecules ]에서 정확히 일치해야 함. 여러 solvent는 리스트로
+    residue_names:  [W]
+    atom_names:     [W]
+    bead_types:     [W]
+
+# ---------------------------------------------------------------------------
+# bead 질량 (단위: amu)
+# null로 지정하면 오류 발생 — ITP mass 컬럼 읽기는 미구현.
+# FF에 맞는 값을 직접 지정해야 함.
+# ---------------------------------------------------------------------------
+mass:
+  default_polymer_bead_mass: 45.0   # M3 PEO SN3r
+  water_bead_mass: 72.0             # Martini W = 4 × 18
+
+# ---------------------------------------------------------------------------
+# 부피 분율 계산 방법
+# method: bead_volume 인 경우 bead_volume_nm3 는 반드시 지정 (null 불가)
+# ---------------------------------------------------------------------------
+volume_fraction:
+  method: bead_volume
+  bead_volume_nm3: 0.065            # M3 SN3r 추정값 [nm³] (FF 의존, 필요 시 수정)
+  polymer_density_g_cm3: 1.12       # 참고용 (현재 미사용)
+  water_density_g_cm3: 0.993        # 참고용 (현재 미사용)
+
+# ---------------------------------------------------------------------------
+# Pore size grid 분석
+# bead_radius_nm: bead type별 dict 또는 단일 float
+# 주의: Poreblazer와 방법론이 다름 (nearest polymer surface distance 기반)
+# ---------------------------------------------------------------------------
+pore_size:
+  selection_residues: [PEO]
+  grid_spacing_nm: 0.2
+  bead_radius_nm:
+    SN3r: 0.24
+  bins: 50
+  method: nearest_surface_grid    # 참고용 (현재 코드는 항상 이 방법)
+
+# ---------------------------------------------------------------------------
+# 평형 구간 설정
+# ---------------------------------------------------------------------------
+equilibration:
+  start_time_ps: 100000     # 이 시간 이후 데이터만 평균 (100 ns)
+  last_fraction: 0.2        # drift 체크: 마지막 20% 구간
+  drift_threshold: 0.01     # 허용 최대 상대 drift (1%)
+
+# ---------------------------------------------------------------------------
+# 검증 타겟 (Mercado-Montijo 2022, 15 wt%, 310.15 K)
+#
+# 주의: loading_qm 은 count-based initial composition ratio.
+# water가 고정된 NPT 시뮬레이션에서는 equilibrium swelling (실험 Qm=8.2)과
+# 직접 비교할 수 없음. 아래 값은 참고용.
+# ---------------------------------------------------------------------------
+targets:
+  loading_qm:
+    value: 8.2
+    tolerance: 0.3
+  pore_diameter_nm:
+    value: 3.6
+    tolerance: 0.4
+  polymer_volume_fraction:
+    min: 0.10
+    max: 0.11

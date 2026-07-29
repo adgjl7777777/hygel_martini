@@ -2,6 +2,18 @@
 # English-only patch rules for the legacy real_test chemistry.
 # These rules update the generated hydrogel topology after the backbone and
 # side-chain structures have been instantiated.
+# 한글: linker BCK stub의 target backbone은 hydrogel.yaml의 backbone_1/backbone_2가 정한다.
+#       이 파일은 생성된 topology의 residue/type pattern을 보고 최종 bonded parameter를
+#       patch한다. 특히 실제 backbone end와 linker stub 사이의 external junction bond를
+#       BB1/BB2 chemistry에 맞추는 용도이다. stub-LNK 내부 bond는 linker ITP에서 온
+#       내부 bond이므로, 여기에 해당 residue/type rule을 추가하지 않으면 원본 ITP 값을 유지한다.
+# English: The target backbone of a linker BCK stub is assigned by
+#          hydrogel.yaml backbone_1/backbone_2. This file patches final bonded
+#          parameters by matching residue/type patterns in the generated
+#          topology. It is especially useful for external junction bonds between
+#          real backbone ends and linker stubs. A stub-LNK internal bond comes
+#          from the linker ITP and keeps the original ITP parameter unless a
+#          matching residue/type rule is added here.
 
 bonds:
   - residue_name: [BCK1, BCK1]

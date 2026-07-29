@@ -1,0 +1,50 @@
+schema_version: 1
+template: true
+
+# analysis_jobs.yaml의 property별 입력 gate.
+# 절대 경로 대신 analysis_jobs inputs의 key/basename도 사용할 수 있습니다.
+property_requirements:
+  reduced_network_topology_audit:
+    md_required: false
+    validation_role: structural_audit
+    required_inputs: [itp, gro]
+    required_outputs: []
+    required_columns: []
+    required_md_jobs: []
+    notes: bonded graph와 periodic winding 검증; force-field 검증이 아님
+
+  loading_qm:
+    md_required: false
+    validation_role: composition_check_only
+    required_inputs: [top, itp]
+    required_outputs: []
+    required_columns: []
+    required_md_jobs: []
+    notes: imposed composition이며 equilibrium free swelling이 아님
+
+  local_clearance_diameter_p50_nm:
+    md_required: false
+    validation_role: proxy
+    required_inputs: [gro]
+    required_outputs: []
+    required_columns: []
+    required_md_jobs: []
+    notes: local-clearance proxy이며 unique pore 또는 experimental mesh가 아님
+
+  paired_step_finite_rate_apparent_shear_response:
+    md_required: true
+    validation_role: finite_rate
+    required_inputs: [baseline_xvg, positive_xvg, negative_xvg]
+    required_outputs: []
+    required_columns: [Pres-XY]
+    required_md_jobs: [paired_step_baseline_positive_negative]
+    notes: registered finite-rate response; equilibrium/experimental modulus가 아님
+
+  polymer_volume_fraction:
+    md_required: true
+    validation_role: direct
+    required_inputs: [top, itp, energy_xvg]
+    required_outputs: []
+    required_columns: [Volume]
+    required_md_jobs: [swollen_npt_equilibration]
+    notes: box-volume 기반 imposed-state polymer fraction

@@ -1,0 +1,85 @@
+schema_version: 1
+template: true
+
+# analysis_jobs.yaml (템플릿)
+# 이미 존재하는 MD output에서 property를 추출하는 job 정의.
+# 논문 target은 validation_manifest.yaml, MD 요구조건은 md_requirements.yaml 참조.
+# 경로를 실제 프로젝트에 맞게 수정하세요.
+
+analysis_jobs:
+  topology_audit:
+    property: reduced_network_topology_audit
+    extractor: topology.reduced_network
+    inputs:
+      itp: /path/to/initial_hydrogel.itp
+      gro: /path/to/production.gro
+    parameters:
+      junction_residue: BCK
+      expected_junction_count: 64
+      expected_strand_count: 128
+      expected_winding_rank: 3
+    output:
+      report: ./results/property_reports/topology.json
+    validation:
+      compare_to_experiment: false
+
+  composition_check:
+    property: loading_qm
+    extractor: composition.from_top_itp
+    inputs:
+      top: /path/to/system.top
+      itp: /path/to/initial_hydrogel.itp
+    output:
+      report: ./results/property_reports/composition.json
+    validation:
+      compare_to_experiment: false
+
+  periodic_clearance:
+    property: local_clearance_diameter_p50_nm
+    extractor: clearance.periodic_grid
+    inputs:
+      gro: /path/to/final_optimized_system.gro
+    parameters:
+      selection_residues: [PEO, BCK]
+      grid_spacing_nm: 0.2
+      bead_radius_nm: 0.24
+      probe_radius_nm: 0.1657
+      bins: 50
+    output:
+      report: ./results/property_reports/clearance.json
+    validation:
+      compare_to_poreblazer_target: false
+
+  mechanics_xy:
+    property: paired_step_finite_rate_apparent_shear_response
+    extractor: mechanics.paired_step_xvg
+    inputs:
+      baseline_xvg: /path/to/base_xy.xvg
+      positive_xvg: /path/to/plus_xy.xvg
+      negative_xvg: /path/to/minus_xy.xvg
+    parameters:
+      component: Pres-XY
+      gamma: 0.02
+      window_start_ps: 1.0
+      window_end_ps: 5.0
+    output:
+      report: ./results/property_reports/mechanics_xy.json
+    validation:
+      compare_to_experiment: false
+
+  swelling_volume_fraction:
+    property: polymer_volume_fraction
+    extractor: swelling.volume_from_energy
+    requires_md_job: swollen_npt_equilibration
+    inputs:
+      top: /path/to/system.top
+      itp: /path/to/initial_hydrogel.itp
+      energy_xvg: /path/to/energy.xvg
+    parameters:
+      start_time_ps: 100000
+      method: bead_volume
+      bead_volume_nm3: 0.065
+    output:
+      report: ./results/property_reports/volume_fraction.json
+    validation:
+      compare_to_experiment: false
