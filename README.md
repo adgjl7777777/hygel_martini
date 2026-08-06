@@ -314,7 +314,13 @@ BCK1: polymer A -- polymer B
 BCK2: polymer C -- polymer D
 ```
 
-내부 BCK1-BCK2 bond는 linker template/topology가 명시할 때만 존재합니다. Dynamic crosslink 단계는 이미 놓인 BCK 위치에서 nearest backbone end를 고르는 역할만 하며, chain balance를 맞추려고 임의 endpoint를 재배정하지 않습니다. `targets_per_stub > 1`에서는 BCK local junction 의미를 보존하기 위해 PEO/PPO template target 이름을 hard filter로 쓰지 않고, geometry-only endpoint assignment와 global endpoint uniqueness validation을 적용합니다.
+내부 BCK1-BCK2 bond는 linker template/topology가 명시할 때만 존재합니다. `connectivity_aware`
+모드에서 layout planner가 만든 exact endpoint-edge plan은 linker stub metadata로
+이어지고, runtime dynamic-crosslink는 그 edge를 그대로 materialize합니다.
+두 planned edge 중 어느 것을 어느 physical BCK stub에 연결할지만 거리로
+결정하며, nearest search로 planner endpoint를 다른 chain으로 재배선하지
+않습니다. Planned metadata가 없는 layout에서만 geometry-only
+endpoint assignment와 global endpoint uniqueness validation을 사용합니다.
 
 Connectivity-aware BCK 배치는 runtime endpoint repair가 아니라 layout local-matching 문제입니다. 한 local vertex의 네 위치 `(000), (011), (101), (110)`에서는 x/y/z 선택이 아래 세 perfect matching 중 하나를 고릅니다.
 
@@ -337,7 +343,8 @@ simulation_parameters:
   # 2이면 one two-BCK linker = two polymer junctions = four BCK-backbone bonds.
   dynamic_crosslink_targets_per_stub: 2
 
-  # Runtime endpoint assignment의 후보 폭입니다. Loop/component 제한값이 아닙니다.
+  # Explicit planner metadata가 없는 runtime endpoint search의 후보 폭입니다.
+  # Loop/component 제한값이 아닙니다.
   dynamic_crosslink_candidate_limit: 64
 
 # 빌드 후 initial_hydrogel.gro/itp bonded graph를 검사하는 안전장치입니다.

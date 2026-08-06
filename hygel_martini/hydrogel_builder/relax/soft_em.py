@@ -367,6 +367,7 @@ def _grompp_and_run_em(
     gpu_id: Optional[str] = None,
     mpi_np: Optional[int] = None,
     mpi_args: Optional[List[str]] = None,
+    mdrun_args: Optional[List[str]] = None,
 ) -> Tuple[Path, Path, Path, Path]:
     _ensure_dir(outdir)
     tpr = outdir / "em.tpr"
@@ -380,7 +381,7 @@ def _grompp_and_run_em(
         gpu_id,
         mpi_np,
         mpi_args or [],
-        [],
+        mdrun_args or [],
     )
     run_env = dict(env)
     run_env.update(env_extra)
@@ -411,6 +412,7 @@ def run_soft_em(cfg: Dict[str, Any]) -> Path:
     mpi_np_raw = runtime.get("mpi_np")
     mpi_np: Optional[int] = int(mpi_np_raw) if mpi_np_raw is not None else None
     mpi_args: List[str] = [str(a) for a in runtime.get("mpi_args", [])]
+    mdrun_args: List[str] = [str(value) for value in runtime.get("mdrun_args", [])]
 
     for path in (system_top, bonded_itp, start_gro, minim_mdp):
         if not path.exists():
@@ -508,6 +510,7 @@ def run_soft_em(cfg: Dict[str, Any]) -> Path:
             gpu_id=gpu_id,
             mpi_np=mpi_np,
             mpi_args=mpi_args,
+            mdrun_args=mdrun_args,
         )
 
         potential_xvg = em_dir / "em_potential.xvg"
@@ -539,9 +542,6 @@ def run_soft_em(cfg: Dict[str, Any]) -> Path:
             p_target, scale_factor, max_dlen,
             box_mode, cubic_rate, cubic_max_dlen,
         )
-        new_box_x = box_x * (1.0 + d_lx)
-        new_box_y = box_y * (1.0 + d_ly)
-        new_box_z = box_z * (1.0 + d_lz)
 
         L_cube = (box_x * box_y * box_z) ** (1.0 / 3.0)
         cubic_dev_pct = (

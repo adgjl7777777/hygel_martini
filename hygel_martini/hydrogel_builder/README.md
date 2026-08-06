@@ -63,9 +63,11 @@ z: (000-110), (011-101)
 `linker_orientation_strategy: connectivity_aware`는 layout 단계에서
 이 local transition들을 선택합니다. 목표는 axis 사용을 균형 있게
 유지하면서 backbone edge와 junction edge를 합친 graph의 component와
-degree defect를 줄이는 것입니다. Runtime dynamic-crosslink는 이 graph를
-임의 chain reuse로 다시 설계하지 않고, 배치된 BCK와 endpoint 사이의
-materialization 및 uniqueness 검사를 담당합니다.
+degree defect를 줄이는 것입니다. Planner가 선택한 exact endpoint edge는
+linker stub metadata로 전달됩니다. Runtime dynamic-crosslink는 planned edge를
+변경하지 않고 materialize하며, 두 edge와 두 physical BCK stub 사이의
+배정만 거리로 정합니다. 이후 atom-level bonded graph audit로 component와
+largest-component fraction을 다시 검사합니다.
 
 관련 구현:
 
@@ -83,7 +85,7 @@ simulation_parameters:
   # Materialized BCK stub 하나가 받을 backbone end 수입니다.
   dynamic_crosslink_targets_per_stub: 2
 
-  # Runtime endpoint search 후보 폭입니다.
+  # Explicit planner metadata가 없는 runtime endpoint search의 후보 폭입니다.
   # component 수나 loop 수를 직접 지정하는 값이 아닙니다.
   dynamic_crosslink_candidate_limit: 64
 
@@ -168,11 +170,15 @@ python -m hygel_martini.hydrogel_builder.relax maker_soft_md.yaml
 
 | `workflow.mode` | 역할 |
 |---|---|
-| `soft_em` | bonded interaction과 box response를 단계적으로 적용하는 EM |
-| `soft_md` | post-build MD relaxation |
-| `hard_em_shrink` | 큰 희박 box를 guarded affine shrink와 hard EM으로 목표 box에 접근 |
+| `soft_em` | staged minimization: bonded interaction과 box response를 단계적으로 적용 |
+| `soft_md` | settling MD: 보수적인 post-build MD relaxation |
+| `hard_em_shrink` | guarded shrink--minimization: 큰 희박 box를 affine contraction과 full-interaction EM으로 목표 box에 접근 |
 
-### Guarded hard shrink
+`soft_em`, `soft_md`, `hard_em_shrink`는 호환성을 유지하는 API/config key입니다.
+과학적 설명과 새 문서에서는 각각 **staged minimization**, **settling MD**,
+**guarded shrink--minimization**을 사용합니다. 별도의 `hard MD` mode는 없습니다.
+
+### Guarded shrink--minimization
 
 `hard_em_shrink`는 각 후보 단계에서 coordinate와 box를 함께 등방
 scale하고 PBC wrap 뒤 EM을 수행합니다. 유한 coordinate/box/energy와
@@ -180,6 +186,9 @@ scale하고 PBC wrap 뒤 EM을 수행합니다. 유한 coordinate/box/energy와
 
 EM gate가 실패하면 짧은 NVT recovery 뒤 다시 검사합니다. 재검사도
 실패하면 직전 유효 구조로 rollback하고 shrink step을 절반으로 줄입니다.
+주기경계를 관통하는 연결망에서 GROMACS가 펼쳐진 좌표로 bonded range를
+과대평가하면, minimum-image 결합길이를 먼저 감사한 뒤
+`runtime.mdrun_args: ["-rdd", "<audited cutoff>"]`를 사용할 수 있습니다.
 최소 step에서도 통과하지 못하면 실패 상태로 중단하며 다음 파일을
 남깁니다.
 
@@ -190,7 +199,7 @@ EM gate가 실패하면 짧은 NVT recovery 뒤 다시 검사합니다. 재검�
 큰 희박 box에서 바로 aggressive NPT를 시작하거나, 실패한 candidate를
 다음 단계 input으로 승격하지 않기 위한 workflow입니다.
 
-### Soft-EM box mode
+### Staged-minimization box mode (`soft_em`)
 
 `soft_em.box_mode`는 다음 세 가지입니다.
 

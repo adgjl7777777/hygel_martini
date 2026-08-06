@@ -17,11 +17,16 @@ def _ordered_chain_entries(chain_key: Tuple[str, int],
     return entries
 
 
-def _mark_backbone_terminals(hydrogel, atom_ids: List[int]):
+def _mark_backbone_terminals(hydrogel, atom_ids: List[int], metadata: Dict | None = None):
     if not atom_ids:
         return
     head = World.Atoms[atom_ids[0]][0]
     tail = World.Atoms[atom_ids[-1]][0]
+
+    planned_chain_id = (metadata or {}).get('planned_chain_id')
+    if planned_chain_id is not None:
+        head.planned_endpoint_id = (planned_chain_id, 0)
+        tail.planned_endpoint_id = (planned_chain_id, 1)
 
     for atom in (head, tail):
         if atom not in hydrogel.terminals[1]:
@@ -132,6 +137,9 @@ def populate_hydrogel_from_blueprint(hydrogel, blueprint: LayoutBlueprint):
         # Set stub_type and other extra attributes
         if atom_bp.extra:
             atom.stub_type = atom_bp.extra.get('stub_type')
+            planned_edges = chain_meta.get('planned_endpoint_edges')
+            if atom.stub_type in ('backbone_1', 'backbone_2') and planned_edges:
+                atom.planned_endpoint_edges = tuple(tuple(edge) for edge in planned_edges)
             atom.target_backbone = atom_bp.extra.get('target_backbone')
             if atom.target_backbone == 'dummy_id':
                 atom.target_backbone = None
@@ -165,7 +173,7 @@ def populate_hydrogel_from_blueprint(hydrogel, blueprint: LayoutBlueprint):
         entries = _ordered_chain_entries(chain_key, chain_atom_map)
         atom_ids = [atom_id for _, atom_id in entries]
         if chain.chain_type == 'backbone':
-            _mark_backbone_terminals(hydrogel, atom_ids)
+            _mark_backbone_terminals(hydrogel, atom_ids, chain.metadata)
             _create_backbone_bonds(chain, atom_ids)
         elif chain.chain_type == 'linker':
             bead_atom_ids = [atom_id for bead_idx, atom_id in entries if bead_idx >= 0]
