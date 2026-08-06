@@ -6,3 +6,10 @@ includes:
   - config/mdp.yaml
   - config/add_series.yaml
   - config/backbone.yaml
+
+example_metadata:
+  role: YAML construction and graph-contract example
+  random_copolymer: SBMA-DMAPS
+  long_linker_templates: [LDD, LSS, LDS]
+  validated_connected_hydrogel: true
+  property_promotion_allowed: false

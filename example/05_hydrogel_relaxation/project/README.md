@@ -29,9 +29,9 @@ bash run_hydrogel_relaxation.sh --workflow-help
 직접 Python으로 실행할 때:
 
 ```bash
-python3 -m hydrogel_builder.relax maker_soft_em.yaml
-python3 -m hydrogel_builder.relax maker_soft_md.yaml
-python3 -m hydrogel_builder.relax maker_hard_em_shrink.yaml
+python3 -m hygel_martini.hydrogel_builder.relax maker_soft_em.yaml
+python3 -m hygel_martini.hydrogel_builder.relax maker_soft_md.yaml
+python3 -m hygel_martini.hydrogel_builder.relax maker_hard_em_shrink.yaml
 ```
 
 ## 기본 입력 경로
@@ -53,7 +53,7 @@ python3 -m hydrogel_builder.relax maker_hard_em_shrink.yaml
 - `config/`
   공통 path/runtime와 mode별 설정
 - `config/minim.mdp`
-  soft EM에서 쓰는 minimization mdp
+  staged minimization(`soft_em`)에서 쓰는 minimization mdp
 - `config/npt_1ns.mdp`
   soft MD에서 쓰는 mdp
 - `config/hard_em_shrink.yaml`

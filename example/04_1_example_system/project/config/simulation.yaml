@@ -115,7 +115,7 @@ simulation_parameters:
 
   # grompp가 허용할 경고 최대 수 (-maxwarn). 필요 이상으로 높이지 말 것.
   # Max warnings allowed by grompp (-maxwarn). Do not raise unnecessarily.
-  grompp_maxwarn: 4
+  grompp_maxwarn: 0
 
   # 전하가 0인 EM 단계에서 사용할 Coulomb 타입.
   # Cut-off: 빠름, PME 없이 중성계에 적합. null이면 mdp 파일 설정 그대로 사용.
@@ -263,7 +263,7 @@ simulation_parameters:
 hydrogel_topology_connectivity_audit:
   # 네트워크 연결성 감사 및 검증 활성화 여부.
   # Enable or disable the post-build topology connectivity check.
-  enabled: false
+  enabled: true
 
   # 가장 거대한 단일 연결 네트워크(최대 컴포넌트)에 속해야 하는 하이드로젤 전체 원자의 최소 비율 (0.95 = 최소 95% 이상이 하나의 거대 네트워크에 묶여야 함).
   # Minimum fraction of hydrogel atoms that must belong to the largest single bonded component.
@@ -275,4 +275,5 @@ hydrogel_topology_connectivity_audit:
 
   # 위 연결성 기준을 만족하지 못해 위반이 발생했을 때 빌드를 실패(에러) 처리하고 즉시 멈출지 여부.
   # If true, fail the build immediately when connectivity thresholds are violated.
+  # A disconnected result is a failed construction and must not be promoted.
   fail_on_violation: true

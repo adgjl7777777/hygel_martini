@@ -14,6 +14,9 @@ runtime:
   # 예) 8-GPU 멀티노드: omp_threads=6, gpu_id="01234567", mpi_np=8
   mpi_np: null
   mpi_args: []
+  # Optional arguments appended to every mdrun command. Periodically winding
+  # networks may require an audited bonded cutoff, e.g. ["-rdd", "1.0"].
+  mdrun_args: []
 
 paths:
   # Default upstream builder output. Change these if you want to use

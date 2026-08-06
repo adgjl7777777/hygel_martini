@@ -7,9 +7,10 @@ The planner models the user's intended BCK semantics directly:
 * choosing x/y/z at a local vertex chooses one of the three perfect matchings
   of the four nearby polymer endpoints.
 
-It intentionally does not inspect or mutate the runtime World.  Layout code can
-use this module to choose local orientation states first; dynamic crosslinking
-then only has to bond each placed BCK to the nearest compatible ends.
+It intentionally does not inspect or mutate the runtime World.  Layout code
+uses this module to freeze local orientation states and exact endpoint-edge
+pairs.  Dynamic crosslinking then materializes those pairs without endpoint
+substitution.
 """
 
 from __future__ import annotations
