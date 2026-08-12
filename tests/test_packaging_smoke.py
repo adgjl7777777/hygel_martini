@@ -32,6 +32,7 @@ def test_primary_module_clis_expose_help() -> None:
         "hygel_martini.param_opt.opls_to_martini",
         "hygel_martini.param_opt.qm_to_martini",
         "hygel_martini.param_opt.qm_to_martini.analysis.reference_qualification",
+        "hygel_martini.param_opt.qm_to_martini.protocol",
         "hygel_martini.property_extract",
     )
     for module in modules:

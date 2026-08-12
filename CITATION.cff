@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: >-
+  If you use this software, cite the archived software release and the
+  associated methodology paper when its final bibliographic record is available.
+title: hygel_martini
+type: software
+version: 0.1.0
+authors:
+  - family-names: Kim
+    given-names: Daehong
+    orcid: https://orcid.org/0009-0007-1647-9270
+    affiliation: >-
+      School of Chemical and Biological Engineering, Seoul National University,
+      1 Gwanak-ro, Gwanak-gu, Seoul 08826, Republic of Korea
+repository-code: https://github.com/adgjl7777777/hygel_martini
+abstract: >-
+  Research software for graph-first construction, evidence-gated bonded
+  parameter decisions, simulation preparation, and analysis of coarse-grained
+  Martini hydrogel systems.
+

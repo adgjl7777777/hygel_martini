@@ -1,8 +1,11 @@
 include README.md
 include README_detailed_for_llm.md
 include START_HERE_ko.md
+include CITATION.cff
+include LICENSING.md
 include pyproject.toml
 include docs/VALIDATION_HISTORY_AND_DESIGN_RATIONALE.md
+include docs/PARAMETERIZATION_PROTOCOL.md
 
 # Local trajectories, external force fields, and bundled third-party tools are
 # not package sources.  Pruning them also prevents editable/sdist metadata

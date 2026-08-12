@@ -435,7 +435,7 @@ def _optimize_linker_axes(
     cell_vector: np.ndarray,
     base_size: np.ndarray,
     seed: int | None = None
-) -> Dict[Tuple[Tuple[int, int, int], Tuple[int, int, int]], Tuple[str, str]]:
+) -> Dict[Tuple[Tuple[int, int, int], Tuple[int, int, int]], Tuple[Dict, Dict]]:
     """Plan connectivity-aware xyz-balanced linker axes for each cell using local_matching."""
     nx, ny, nz = repeats
     total_box = cell_vector * np.array([nx, ny, nz], dtype=float)
@@ -535,18 +535,20 @@ def _optimize_linker_axes(
         swaps_per_attempt=512
     )
 
-    cell_axes = {}
+    cell_plans = {}
     for choice in plan.choices:
         vid = choice.vertex_id
         cell_idx, medium_idx, type_idx = vid
-        axis = choice.axis
 
         cell_key = (cell_idx, medium_idx)
-        if cell_key not in cell_axes:
-            cell_axes[cell_key] = [None, None]
-        cell_axes[cell_key][type_idx] = axis
+        if cell_key not in cell_plans:
+            cell_plans[cell_key] = [None, None]
+        cell_plans[cell_key][type_idx] = {
+            "axis": choice.axis,
+            "planned_endpoint_edges": choice.edges,
+        }
 
-    return {k: tuple(v) for k, v in cell_axes.items()}
+    return {k: tuple(v) for k, v in cell_plans.items()}
 
 
 def _offset_blueprint(blueprint: LayoutBlueprint, atom_offset: int, chain_offset: int) -> LayoutBlueprint:
@@ -610,12 +612,12 @@ def build_isotropic_blueprint(proto_plan,
     global_linkers = []
 
     strategy = sim_params.get("linker_orientation_strategy", "random")
-    planned_axes = None
+    planned_linkers = None
     if strategy == "connectivity_aware":
         seed = sim_params.get("random_seed")
         if seed is not None:
             seed = int(seed)
-        planned_axes = _optimize_linker_axes(
+        planned_linkers = _optimize_linker_axes(
             repeats=repeats,
             small_edge=small_edge,
             cell_vector=cell_vector,
@@ -631,9 +633,16 @@ def build_isotropic_blueprint(proto_plan,
                 for medium_offset in MEDIUM_ACTIVE_INDICES:
                     medium_idx = tuple(int(v) for v in medium_offset)
                     medium_origin = big_origin + np.array(medium_offset, dtype=float) * base_size
-                    if planned_axes is not None:
+                    planned_endpoint_edges = [None, None]
+                    if planned_linkers is not None:
                         cell_key = ((ix, iy, iz), medium_idx)
-                        primary_axis, secondary_axis = planned_axes[cell_key]
+                        primary_plan, secondary_plan = planned_linkers[cell_key]
+                        primary_axis = primary_plan["axis"]
+                        secondary_axis = secondary_plan["axis"]
+                        planned_endpoint_edges = [
+                            primary_plan["planned_endpoint_edges"],
+                            secondary_plan["planned_endpoint_edges"],
+                        ]
                         axes = [primary_axis, secondary_axis]
                     else:
                         axes = random.choices(["x", "y", "z"], k=2)
@@ -697,7 +706,8 @@ def build_isotropic_blueprint(proto_plan,
                             'mean_sep': mean_sep,
                             'chain_length': chain_length,
                             'chain_length_raw': raw_chain_length,
-                            'local_indices': local_coords
+                            'local_indices': local_coords,
+                            'planned_chain_id': ((ix, iy, iz), medium_idx, local_coords),
                         }
                         if proto_positions is not None:
                             metadata['proto_positions'] = np.array(proto_positions, dtype=np.float64)
@@ -740,8 +750,10 @@ def build_isotropic_blueprint(proto_plan,
                             'length_scale': scale,
                             'local_linker_index': spec_idx,
                             'linker_axis': axis_choice,
-                            'backbone_residue_names': backbone_names or []
+                            'backbone_residue_names': backbone_names or [],
                         }
+                        if planned_endpoint_edges[spec_idx] is not None:
+                            metadata['planned_endpoint_edges'] = planned_endpoint_edges[spec_idx]
                         if template_record:
                             metadata.update({
                                 'linker_template_id': template_record.template.id,

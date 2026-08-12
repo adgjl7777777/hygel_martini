@@ -1,16 +1,17 @@
-"""Helpers for assigning placed linker stubs to nearby backbone ends.
+"""Materialize planned linker edges or assign ends for unplanned layouts.
 
-This module is intentionally geometry-only.  It does not choose linker
-directions, rotate already-built linkers, or repair a global graph by assigning
-arbitrary chain pairs.  Layout code must choose the local x/y/z matching state
-first; once the BCK positions exist, each BCK bonds to the nearest compatible
-backbone end(s).
+Connectivity-aware layouts carry exact endpoint-edge pairs into this module.
+Runtime geometry may choose only the two-edge/two-stub permutation and cannot
+substitute another endpoint.  Layouts without explicit edge metadata use the
+geometry/backtracking assignment path with global endpoint-uniqueness checks.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 from itertools import combinations
+import json
 from typing import Dict, Iterable, List, Tuple
 
 import numpy as np
@@ -25,6 +26,39 @@ class StubAssignment:
     backbone_atom: object
     chain_index: int
     distance: float
+
+
+def _jsonable_identifier(value):
+    """Convert nested endpoint identifiers into deterministic JSON values."""
+    if isinstance(value, tuple):
+        return [_jsonable_identifier(item) for item in value]
+    if isinstance(value, list):
+        return [_jsonable_identifier(item) for item in value]
+    if isinstance(value, dict):
+        return {
+            str(key): _jsonable_identifier(value[key])
+            for key in sorted(value, key=str)
+        }
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    return repr(value)
+
+
+def _edge_plan_sha256(edges_by_linker) -> str:
+    """Hash an unordered endpoint-edge set for each linker deterministically."""
+    payload = []
+    for linker_index in sorted(edges_by_linker):
+        canonical_edges = []
+        for edge in edges_by_linker[linker_index]:
+            endpoints = [_jsonable_identifier(endpoint) for endpoint in edge]
+            endpoints.sort(key=lambda item: json.dumps(item, sort_keys=True, separators=(",", ":")))
+            canonical_edges.append(endpoints)
+        canonical_edges.sort(
+            key=lambda item: json.dumps(item, sort_keys=True, separators=(",", ":"))
+        )
+        payload.append({"linker_index": int(linker_index), "edges": canonical_edges})
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def normalize_box_vector(box_vec) -> np.ndarray | None:
@@ -169,6 +203,134 @@ def _pick_stub_targets(
     return picked
 
 
+def _plan_explicit_graph_crosslinks(
+    linker_stubs: Dict[int, List[object]],
+    backbone_ends: Dict[int, List[object]],
+    box_size: np.ndarray | None,
+):
+    """Materialize the endpoint edges selected by the layout graph planner.
+
+    The two planned edges of one local vertex may be assigned to the two
+    physical linker stubs in either order.  Choose only that two-way
+    permutation by distance; never replace a planned endpoint or edge.
+    """
+
+    endpoint_lookup = {}
+    for ends in backbone_ends.values():
+        for end_atom in ends:
+            endpoint_id = getattr(end_atom, "planned_endpoint_id", None)
+            if endpoint_id is None:
+                continue
+            if endpoint_id in endpoint_lookup:
+                raise ValueError(f"Duplicate planned endpoint id: {endpoint_id!r}")
+            endpoint_lookup[endpoint_id] = end_atom
+
+    assignments = {}
+    notes = [
+        "Using explicit layout-planner endpoint edges; nearest search may only choose the two-stub edge permutation."
+    ]
+    used_endpoint_ids = set()
+    planned_edges_by_linker = {}
+
+    for linker_index, stubs in sorted(linker_stubs.items()):
+        if len(stubs) != 2:
+            raise ValueError(
+                f"Linker {linker_index}: expected 2 stubs for planned graph materialization, found {len(stubs)}"
+            )
+        planned_values = [getattr(stub, "planned_endpoint_edges", None) for stub in stubs]
+        if not all(planned_values):
+            raise ValueError(
+                f"Linker {linker_index}: incomplete planned endpoint metadata on linker stubs"
+            )
+        if planned_values[0] != planned_values[1]:
+            raise ValueError(
+                f"Linker {linker_index}: linker stubs carry inconsistent planned endpoint edges"
+            )
+
+        planned_edges = planned_values[0]
+        if len(planned_edges) != 2 or any(len(edge) != 2 for edge in planned_edges):
+            raise ValueError(
+                f"Linker {linker_index}: expected two planned two-endpoint edges, got {planned_edges!r}"
+            )
+        planned_edges_by_linker[linker_index] = tuple(tuple(edge) for edge in planned_edges)
+
+        resolved_edges = []
+        for edge in planned_edges:
+            resolved = []
+            for endpoint_id in edge:
+                if endpoint_id not in endpoint_lookup:
+                    raise ValueError(
+                        f"Linker {linker_index}: planned endpoint {endpoint_id!r} was not materialized"
+                    )
+                if endpoint_id in used_endpoint_ids:
+                    raise ValueError(
+                        f"Linker {linker_index}: planned endpoint {endpoint_id!r} is reused"
+                    )
+                resolved.append((endpoint_id, endpoint_lookup[endpoint_id]))
+            resolved_edges.append(resolved)
+
+        def permutation_cost(edge_order) -> float:
+            return sum(
+                pbc_distance(stub.position, endpoint_atom.position, box_size)
+                for stub, edge_index in zip(stubs, edge_order)
+                for _, endpoint_atom in resolved_edges[edge_index]
+            )
+
+        edge_order = min(((0, 1), (1, 0)), key=permutation_cost)
+        chosen = []
+        for stub, edge_index in zip(stubs, edge_order):
+            for endpoint_id, endpoint_atom in resolved_edges[edge_index]:
+                chosen.append(
+                    StubAssignment(
+                        linker_index=linker_index,
+                        stub_atom=stub,
+                        backbone_atom=endpoint_atom,
+                        chain_index=int(getattr(endpoint_atom, "chain_index")),
+                        distance=pbc_distance(stub.position, endpoint_atom.position, box_size),
+                    )
+                )
+                used_endpoint_ids.add(endpoint_id)
+        assignments[linker_index] = tuple(chosen)
+
+    planned_endpoint_count = sum(
+        len(edge)
+        for stubs in linker_stubs.values()
+        for edge in (getattr(stubs[0], "planned_endpoint_edges", None) or ())
+    )
+    if len(used_endpoint_ids) != planned_endpoint_count:
+        raise ValueError(
+            "Planned endpoint accounting mismatch: "
+            f"used={len(used_endpoint_ids)} expected={planned_endpoint_count}"
+        )
+
+    materialized_edges_by_linker = {}
+    for linker_index, chosen in assignments.items():
+        by_stub = {}
+        for assignment in chosen:
+            stub_id = getattr(assignment.stub_atom, "atom_id", None)
+            endpoint_id = getattr(assignment.backbone_atom, "planned_endpoint_id", None)
+            by_stub.setdefault(stub_id, []).append(endpoint_id)
+        materialized_edges_by_linker[linker_index] = tuple(
+            tuple(by_stub[stub_id]) for stub_id in sorted(by_stub, key=str)
+        )
+
+    planned_hash = _edge_plan_sha256(planned_edges_by_linker)
+    materialized_hash = _edge_plan_sha256(materialized_edges_by_linker)
+    if planned_hash != materialized_hash:
+        raise ValueError(
+            "Planned/materialized endpoint-edge hash mismatch: "
+            f"planned={planned_hash} materialized={materialized_hash}"
+        )
+    notes.append(f"Materialized {len(used_endpoint_ids)} unique planned backbone endpoints.")
+    notes.append(
+        "planned_edge_sha256={} materialized_edge_sha256={} exact_match=true".format(
+            planned_hash,
+            materialized_hash,
+        )
+    )
+    return assignments, notes
+
+
 def plan_dynamic_crosslinks(
     linker_stubs: Dict[int, List[object]],
     backbone_ends: Dict[int, List[object]],
@@ -189,6 +351,20 @@ def plan_dynamic_crosslinks(
     targets_per_stub = max(int(targets_per_stub), 1)
     pairing_options = []
     notes: List[str] = []
+
+    planned_stub_count = sum(
+        bool(getattr(stub, "planned_endpoint_edges", None))
+        for stubs in linker_stubs.values()
+        for stub in stubs
+    )
+    if planned_stub_count:
+        expected_stub_count = sum(len(stubs) for stubs in linker_stubs.values())
+        if planned_stub_count != expected_stub_count:
+            raise ValueError(
+                "Partial layout-planner endpoint metadata: "
+                f"planned stubs={planned_stub_count}, total stubs={expected_stub_count}"
+            )
+        return _plan_explicit_graph_crosslinks(linker_stubs, backbone_ends, box_size)
 
     if targets_per_stub > 1:
         linker_state_candidates = {}
