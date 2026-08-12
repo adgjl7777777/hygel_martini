@@ -1,0 +1,4 @@
+[submodule "tools/PoreBlazer/PoreBlazer"]
+	path = tools/PoreBlazer/PoreBlazer
+	url = https://github.com/SarkisovGroup/PoreBlazer.git
+	ignore = untracked
