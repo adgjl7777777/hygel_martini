@@ -7,6 +7,13 @@ QM/OPLS 기반 파라미터 준비, post-build relaxation, topology audit,
 
 현재 배포 단계는 `0.1.0` alpha입니다.
 
+**Author:** Daehong Kim
+
+**Affiliation:** School of Chemical and Biological Engineering, Seoul National
+University, 1 Gwanak-ro, Gwanak-gu, Seoul 08826, Republic of Korea
+
+**ORCID:** [0009-0007-1647-9270](https://orcid.org/0009-0007-1647-9270)
+
 - `param_opt`: QM, OPLS, xTB 입력과 Martini 파라미터 준비
 - `hydrogel_builder`: hydrogel network 생성과 post-build relaxation
 - `property_extract`: state, structure, transport, finite-rate mechanics 분석
@@ -59,6 +66,7 @@ pytest
 | `hygel-qm-to-opls` | Stage 01 | `python -m hygel_martini.param_opt.qm_to_opls` |
 | `hygel-opls-to-martini` | Stage 02 | `python -m hygel_martini.param_opt.opls_to_martini` |
 | `hygel-qm-to-martini` | Stage 03 | `python -m hygel_martini.param_opt.qm_to_martini` |
+| `hygel-parameter-protocol` | E0--E6 bonded-parameter decision protocol | `python -m hygel_martini.param_opt.qm_to_martini.protocol` |
 | `hygel-qm-reference-audit` | xTB/고수준 참조 적합성 gate | `python -m hygel_martini.param_opt.qm_to_martini.analysis.reference_qualification` |
 | `hygel-audit-topology` | bonded graph audit | `python -m hygel_martini.tools.audit_hydrogel_topology` |
 
@@ -113,6 +121,35 @@ bash postprocess.sh
 ```
 
 C/D/S 반복 실행은 `example/03_qm_to_martini/project/run_cds_iteration.sh`를 봅니다.
+
+#### 후보에서 tested-domain parameter까지
+
+`hygel-parameter-protocol`은 후보 생성을 최종 파라미터 확정과 분리합니다.
+mapping, bead/nonbonded parent, 후보 함수, 데이터 역할, 독립 grouping,
+목적함수와 threshold를 먼저 checksum 동결한 뒤 다음 누적 증거단계를
+순서대로 판정합니다.
+
+```text
+E0 provenance -> E1 analytic eligibility -> E2 grouped selection
+-> E3 numerical realization -> E4 target + upstream non-regression
+-> E5 unopened one-shot confirmation -> E6 transfer qualification
+```
+
+한 criterion이라도 통과하지 못하면 그 iteration의 뒤 단계는 열리지
+않습니다. E5까지 통과한 값만 sealed tested-domain release가 되며, E6의
+length/single-chain/dilute-solution/hydrogel 결과를 같은 version의 계수
+튜닝으로 되돌려 보내지 않습니다.
+
+완전한 합성 예제는 다음 한 줄로 재생할 수 있습니다.
+
+```bash
+bash example/03_qm_to_martini/protocol_project/run_demo.sh
+```
+
+실제 연구에 적용할 때는 예제의 숫자가 아니라 schema와 순서를
+재사용해야 합니다. 상세 설명은
+[`docs/PARAMETERIZATION_PROTOCOL.md`](docs/PARAMETERIZATION_PROTOCOL.md)에
+있습니다.
 
 #### xTB ensemble의 고수준 참조 적합성 검사
 
@@ -201,6 +238,20 @@ realization-level 통계 primitive가 포함되어 있습니다.
 `docs/VALIDATION_HISTORY_AND_DESIGN_RATIONALE.md`에 정리되어 있습니다.
 특히 fixed-water/free-swelling, pore/clearance, finite-rate/equilibrium
 mechanics의 경계를 먼저 확인하는 것을 권장합니다.
+
+## 인용, 연구비, 라이선스
+
+소프트웨어 인용 정보는 [`CITATION.cff`](CITATION.cff)에 있습니다. 관련
+방법론 논문의 최종 서지정보가 확정되면 software release와 논문을 함께
+인용하도록 갱신합니다.
+
+This work supported by the National Research Foundation of Korea (NRF) grant
+funded by the Korea government (MSIT) (RS-2025-25424498).
+
+현재 저장소에는 임의의 오픈소스 라이선스를 붙이지 않았습니다. 연구과제
+계약 및 서울대학교 산학협력단 적용 여부를 확인한 뒤 승인된 라이선스를
+선택해야 합니다. 그 전의 정확한 사용 경계는
+[`LICENSING.md`](LICENSING.md)를 따릅니다.
 
 ## 공용 서버에서의 주의사항
 

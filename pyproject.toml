@@ -54,6 +54,7 @@ dev = [
 Homepage = "https://github.com/adgjl7777777/hygel_martini"
 Repository = "https://github.com/adgjl7777777/hygel_martini"
 Issues = "https://github.com/adgjl7777777/hygel_martini/issues"
+Documentation = "https://github.com/adgjl7777777/hygel_martini/blob/master/README.md"
 
 [project.scripts]
 hygel-builder = "hygel_martini.hydrogel_builder.cli:main"
@@ -63,6 +64,7 @@ hygel-qm-to-opls = "hygel_martini.param_opt.qm_to_opls.cli:main"
 hygel-opls-to-martini = "hygel_martini.param_opt.opls_to_martini.cli:main"
 hygel-qm-to-martini = "hygel_martini.param_opt.qm_to_martini.cli:main"
 hygel-qm-reference-audit = "hygel_martini.param_opt.qm_to_martini.analysis.reference_qualification:main"
+hygel-parameter-protocol = "hygel_martini.param_opt.qm_to_martini.protocol.cli:main"
 hygel-bead-selector = "hygel_martini.param_opt.bead_generator.cli:main"
 hygel-audit-topology = "hygel_martini.tools.audit_hydrogel_topology:main"
 hygel-xtb-traj-to-pdb = "hygel_martini.tools.xtb_traj_to_pdb:main"
@@ -94,6 +96,7 @@ packages = [
   "hygel_martini.param_opt.polymer_maker",
   "hygel_martini.param_opt.qm_to_martini",
   "hygel_martini.param_opt.qm_to_martini.analysis",
+  "hygel_martini.param_opt.qm_to_martini.protocol",
   "hygel_martini.param_opt.qm_to_martini.tools",
   "hygel_martini.param_opt.qm_to_martini.workflow_logic",
   "hygel_martini.param_opt.qm_to_opls",

@@ -61,6 +61,7 @@ def _run_nvt_recovery(
     gpu_id: Optional[str],
     mpi_np: Optional[int],
     mpi_args: List[str],
+    mdrun_args: List[str],
 ) -> Path:
     _ensure_dir(outdir)
     tpr = outdir / "nvt.tpr"
@@ -76,7 +77,7 @@ def _run_nvt_recovery(
         gpu_id,
         mpi_np,
         mpi_args,
-        [],
+        mdrun_args,
     )
     run_env = dict(env)
     run_env.update(extra_env)
@@ -122,6 +123,7 @@ def run_hard_em_shrink(cfg: Dict[str, Any]) -> Path:
     mpi_np_raw = runtime.get("mpi_np")
     mpi_np: Optional[int] = int(mpi_np_raw) if mpi_np_raw is not None else None
     mpi_args: List[str] = [str(value) for value in runtime.get("mpi_args", [])]
+    mdrun_args: List[str] = [str(value) for value in runtime.get("mdrun_args", [])]
 
     if not 0.0 < shrink_fraction < 1.0:
         raise ValueError("hard_em_shrink.shrink_fraction must lie in (0, 1)")
@@ -201,6 +203,7 @@ def run_hard_em_shrink(cfg: Dict[str, Any]) -> Path:
                         gpu_id=gpu_id,
                         mpi_np=mpi_np,
                         mpi_args=mpi_args,
+                        mdrun_args=mdrun_args,
                     )
                     finite_energy, potential = _energy_is_finite(gmx, edr, em_dir / "potential.xvg", env)
                     fmax = _parse_em_fmax(log)
@@ -229,6 +232,7 @@ def run_hard_em_shrink(cfg: Dict[str, Any]) -> Path:
                         gpu_id=gpu_id,
                         mpi_np=mpi_np,
                         mpi_args=mpi_args,
+                        mdrun_args=mdrun_args,
                     )
                     valid, em_gro, fmax, potential, error = em_check(recovered, "em_after_nvt")
                 except Exception as exc:
