@@ -44,10 +44,20 @@ xTB, ORCA, Bartender 및 Martini force-field 파일은 라이선스와 설치
 Python 3.9 이상이 필요합니다.
 
 ```bash
-git clone https://github.com/adgjl7777777/hygel_martini.git
+git clone --recurse-submodules https://github.com/adgjl7777777/hygel_martini.git
 cd /path/to/hygel_martini
 python -m pip install -e .
 ```
+
+For an existing clone, register the external PoreBlazer source with:
+
+```bash
+git submodule update --init --recursive
+```
+
+PoreBlazer remains an independently maintained external program and is not
+included in the `hygel-martini` Python wheel. Its own source and usage terms
+apply separately.
 
 개발 및 packaging test 도구까지 설치하려면 다음을 사용합니다.
 
