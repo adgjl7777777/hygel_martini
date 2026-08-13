@@ -85,7 +85,7 @@ if [ ! -f "$CONFIG_PATH" ]; then
 fi
 
 cat >&2 <<'EOF'
-[CONSTRUCTION AUDIT] This example checks YAML-controlled random SBMA-DMAPS
+[CONSTRUCTION AUDIT] This example checks YAML-controlled random DMAPS-SBMA
 copolymer and long-linker materialization. Acceptance requires matching planned
 and materialized edge hashes plus a passing connectivity_audit.log; it does not
 by itself establish a sampled material property.

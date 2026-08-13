@@ -4,16 +4,18 @@
 
 monomer_definitions:
   MONOMERS:
-    - id: SB          # 모노머 ID / monomer id
+    # Current nomenclature is used throughout this example. BS and BD below
+    # are neutral internal backbone-site identifiers, not chemical names.
+    - id: DMAPS       # 모노머 ID / monomer id
       ratio: 1        # 혼합 비율 / mixing ratio
       backbone_id: BS # 연결될 backbone id
-      gro: ${CONFIG_DIR}/structure/SBMA.gro
-      itp: ${CONFIG_DIR}/structure/SBMA.itp
-    - id: DM
+      gro: ${CONFIG_DIR}/structure/DMAPS.gro
+      itp: ${CONFIG_DIR}/structure/DMAPS.itp
+    - id: SBMA
       ratio: 1
       backbone_id: BD
-      gro: ${CONFIG_DIR}/structure/DMAAPS.gro
-      itp: ${CONFIG_DIR}/structure/DMAAPS.itp
+      gro: ${CONFIG_DIR}/structure/SBMA.gro
+      itp: ${CONFIG_DIR}/structure/SBMA.itp
   SEQUENCE_STRATEGY:
     strategy: random  # random | block | alternating | long_random
 

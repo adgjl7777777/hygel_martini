@@ -1,6 +1,6 @@
 # 04_1 Example System
 
-이 디렉터리는 YAML로 random SBMA--DMAPS copolymer와 10--12-bead LDD/LSS/LDS
+이 디렉터리는 YAML로 random DMAPS--SBMA copolymer와 10--12-bead LDD/LSS/LDS
 linker template을 조합하는 construction 예시입니다. 현재 설정은
 `connectivity_aware` endpoint-edge plan을 runtime까지 전달하고, 생성된 topology가
 단일 bonded component가 아니면 build를 실패시킵니다. 실행 후에는
