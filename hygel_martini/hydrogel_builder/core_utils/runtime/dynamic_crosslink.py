@@ -16,6 +16,8 @@ from typing import Dict, Iterable, List, Tuple
 
 import numpy as np
 
+from hygel_martini.core.pbc import minimum_image_distance, normalize_cell
+
 
 @dataclass(frozen=True)
 class StubAssignment:
@@ -62,26 +64,24 @@ def _edge_plan_sha256(edges_by_linker) -> str:
 
 
 def normalize_box_vector(box_vec) -> np.ndarray | None:
-    """Return a 3-vector box size or ``None`` when PBC is disabled."""
+    """Return a 3x3 cell (rows are cell vectors), or ``None`` without PBC.
+
+    This used to reduce a 3x3 box with ``np.diag``, discarding exactly the
+    off-diagonal terms that make a cell triclinic and understating nothing
+    while overstating separations by up to a factor of three.  The full cell is
+    now kept and :mod:`hygel_martini.core.pbc` applies the correct convention.
+    """
     if box_vec is None:
         return None
     try:
-        arr = np.asarray(box_vec, dtype=float)
+        return normalize_cell(box_vec)
     except Exception:
         return None
-    if arr.shape == (3,):
-        return arr
-    if arr.shape == (3, 3):
-        return np.diag(arr)
-    return None
 
 
 def pbc_distance(first, second, box_size: np.ndarray | None) -> float:
-    """Compute the minimum-image distance between two coordinates."""
-    delta = np.asarray(first, dtype=float) - np.asarray(second, dtype=float)
-    if box_size is not None:
-        delta -= box_size * np.round(delta / box_size)
-    return float(np.linalg.norm(delta))
+    """Minimum-image distance between two coordinates."""
+    return minimum_image_distance(first, second, box_size)
 
 
 def group_linker_stubs(atoms: Iterable[object]) -> Dict[int, List[object]]:

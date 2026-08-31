@@ -8,6 +8,7 @@ import json
 import random
 import numpy as np
 
+from hygel_martini.core.pbc import minimum_image
 from hygel_martini.hydrogel_builder.core_utils.common.collisions import require_unique
 from hygel_martini.hydrogel_builder.core_utils.io.gro_parser import read_gro_atoms
 from hygel_martini.hydrogel_builder.core_utils.io.writer import write_to_gro, write_combined_itp
@@ -425,9 +426,7 @@ def _run_medium_cell_em(blueprint: LayoutBlueprint,
 
 
 def pbc_diff(pos1, pos2, box):
-    diff = pos1 - pos2
-    diff -= box * np.round(diff / box)
-    return diff
+    return minimum_image(pos1 - pos2, box)
 
 
 def _optimize_linker_axes(
@@ -859,8 +858,7 @@ def build_isotropic_blueprint(proto_plan,
                 apply_shift = True
                 if global_linkers:
                     def _pbc_distance_sq(center):
-                        delta = far_end_global - center
-                        delta -= total_box * np.round(delta / total_box)
+                        delta = minimum_image(far_end_global - center, total_box)
                         return float(np.dot(delta, delta))
                     nearest_axis = min(
                         global_linkers,
@@ -891,9 +889,7 @@ def build_isotropic_blueprint(proto_plan,
                 })
 
     def _pbc_delta(vec):
-        delta = vec.copy()
-        delta -= total_box * np.round(delta / total_box)
-        return delta
+        return minimum_image(vec, total_box)
 
     for record in per_cell_records:
         medium_origin = record["medium_origin"]

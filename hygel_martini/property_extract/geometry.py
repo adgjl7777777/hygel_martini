@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from hygel_martini.core.pbc import minimum_image as core_minimum_image
+
 
 def orthorhombic_box_lengths(box: np.ndarray) -> np.ndarray:
     """Normalize a 3-vector or diagonal 3x3 box to positive lengths."""
@@ -23,12 +25,15 @@ def orthorhombic_box_lengths(box: np.ndarray) -> np.ndarray:
 
 
 def minimum_image_displacement(delta: np.ndarray, box: np.ndarray) -> np.ndarray:
-    """Apply the orthorhombic minimum-image convention to displacement(s)."""
+    """Apply the orthorhombic minimum-image convention to displacement(s).
+
+    The orthorhombic contract is kept deliberately: trajectory analysis here
+    assumes rectangular boxes and validates that. The convention itself lives
+    in :mod:`hygel_martini.core.pbc` so there is one implementation to be
+    right, and that one also handles triclinic cells for the builder.
+    """
     lengths = orthorhombic_box_lengths(box)
-    d = np.asarray(delta, dtype=float)
-    if d.shape[-1] != 3:
-        raise ValueError("displacement last dimension must be 3")
-    return d - lengths * np.round(d / lengths)
+    return core_minimum_image(delta, lengths)
 
 
 def wrap_positions(positions: np.ndarray, box: np.ndarray) -> np.ndarray:

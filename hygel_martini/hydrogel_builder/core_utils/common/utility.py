@@ -44,6 +44,9 @@ def rij(position_i, position_j, L):
     Returns:
         np.array: PBC를 고려한 i에서 j로의 벡터
     '''
+    # NOTE: L is a single scalar, so this is the CUBIC minimum image only.
+    # It stays hand-rolled because numba compiles it in the inner overlap loop;
+    # anything that can take a general cell must use hygel_martini.core.pbc.
     r_ij = np.zeros(3)
     for t in range(3): # x, y, z 각 축에 대해 계산
         sij = (position_j[t] - position_i[t]) / L
