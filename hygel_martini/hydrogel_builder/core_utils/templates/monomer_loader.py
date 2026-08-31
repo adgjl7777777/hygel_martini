@@ -11,6 +11,11 @@ import numpy as np
 from hygel_martini.hydrogel_builder.core_utils.io.gro_parser import read_gro_atoms
 from hygel_martini.hydrogel_builder.core_utils.io.martini_parser import read_itp_definitions
 from hygel_martini.hydrogel_builder.config_params.config import Config
+from hygel_martini.hydrogel_builder.core_utils.common.collisions import (
+    DuplicateDeclaration,
+    require_consistent,
+    require_unique,
+)
 
 
 @dataclass
@@ -101,15 +106,17 @@ def _match_backbone(beads: List[Dict],
         bb["id"]: bb["definition"].get("residue_name") for bb in backbone_defs
     }
     
-    residue_to_backbone = {}
+    residue_pairs = []
     for bb in backbone_defs:
         res_name = bb["definition"].get("residue_name")
         bb_id = bb["id"]
-        if isinstance(res_name, list):
-            for name in res_name:
-                residue_to_backbone[name] = bb_id
-        else:
-            residue_to_backbone[res_name] = bb_id
+        names = res_name if isinstance(res_name, list) else [res_name]
+        residue_pairs.extend((name, bb_id) for name in names)
+    # Two backbones claiming one residue name make monomer-to-backbone
+    # matching ambiguous, and the loser is never selected.
+    residue_to_backbone = require_unique(
+        residue_pairs, "backbone", "residue_name", source="BACKBONES"
+    )
 
     if override_id:
         residue_name = id_to_residue.get(override_id)
@@ -329,6 +336,11 @@ def load_monomer_templates(monomer_entries: List[Dict], backbone_defs: List[Dict
         record = TemplateRecord(template=template, ratio=ratio)
         records.append(record)
         by_backbone.setdefault(template.backbone_id, []).append(record)
+        if template.id in lookup:
+            raise DuplicateDeclaration(
+                f"Duplicate monomer id {template.id!r} in MONOMERS; one of the "
+                "definitions would be discarded silently."
+            )
         lookup[template.id] = template
 
     return MonomerTemplateLibrary(records=records, by_backbone=by_backbone, lookup=lookup)

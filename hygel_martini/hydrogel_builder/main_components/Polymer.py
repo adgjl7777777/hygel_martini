@@ -9,6 +9,7 @@ import numpy as np
 import random
 from random import Random
 from collections import deque
+from hygel_martini.hydrogel_builder.core_utils.common.collisions import require_unique
 from hygel_martini.hydrogel_builder.main_components import Attributes
 from hygel_martini.hydrogel_builder.core_utils.common.utility import interp3D, dij_sq, normal_tetrahedral_vector, not_self, is_overlap, random_normal_vector, rij
 from hygel_martini.hydrogel_builder.config_params import read_json as p
@@ -22,16 +23,21 @@ def _build_polymer_bond_lookup(bond_rules, fallback_length):
     lookup = {}
     if not bond_rules:
         return lookup
-    for rule in bond_rules:
-        between = rule.get('between', [])
-        if len(between) != 2:
-            continue
-        key = tuple(sorted(between))
-        lookup[key] = {
-            'bond_funct': rule.get('bond_funct', rule.get('funct', 1)),
-            'bond_c0': rule.get('bond_c0', rule.get('length', fallback_length)),
-            'bond_c1': rule.get('bond_c1', rule.get('fc', 56000.0))
-        }
+    pairs = [
+        (
+            tuple(sorted(rule.get('between', []))),
+            {
+                'bond_funct': rule.get('bond_funct', rule.get('funct', 1)),
+                'bond_c0': rule.get('bond_c0', rule.get('length', fallback_length)),
+                'bond_c1': rule.get('bond_c1', rule.get('fc', 56000.0)),
+            },
+        )
+        for rule in bond_rules
+        if len(rule.get('between', [])) == 2
+    ]
+    lookup.update(
+        require_unique(pairs, 'bond rule', "'between' pair", source='BONDS')
+    )
     return lookup
 
 class Polymer():
@@ -99,7 +105,10 @@ class Polymer():
 
         backbone_defs = config.get('BACKBONES', [])
         cls._backbone_defs = backbone_defs
-        cls._backbone_lookup = {bb.get('id'): bb for bb in backbone_defs if bb.get('id')}
+        cls._backbone_lookup = require_unique(
+            ((bb.get('id'), bb) for bb in backbone_defs if bb.get('id')),
+            'backbone', 'id', source='BACKBONES',
+        )
         backbone_records = [
             StrategyRecord(
                 template=bb,

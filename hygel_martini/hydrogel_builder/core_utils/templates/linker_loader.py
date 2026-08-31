@@ -12,6 +12,11 @@ from hygel_martini.hydrogel_builder.core_utils.io.gro_parser import read_gro_ato
 from hygel_martini.hydrogel_builder.core_utils.io.martini_parser import read_itp_definitions
 from hygel_martini.hydrogel_builder.core_utils.templates.monomer_loader import BeadTemplate
 from hygel_martini.hydrogel_builder.config_params.config import Config
+from hygel_martini.hydrogel_builder.core_utils.common.collisions import (
+    DuplicateDeclaration,
+    require_consistent,
+    require_unique,
+)
 
 
 @dataclass
@@ -535,5 +540,10 @@ def load_linker_templates(linker_entries: List[Dict], backbone_defs: List[Dict])
         template = _load_single_linker(entry, backbone_defs)
         record = LinkerTemplateRecord(template=template, ratio=entry.get('ratio', 1.0))
         records.append(record)
+        if template.id in lookup:
+            raise DuplicateDeclaration(
+                f"Duplicate linker id {template.id!r} in LINKERS; one of the "
+                "definitions would be discarded silently."
+            )
         lookup[template.id] = template
     return LinkerTemplateLibrary(records=records, lookup=lookup)

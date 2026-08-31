@@ -8,6 +8,7 @@ import json
 import random
 import numpy as np
 
+from hygel_martini.hydrogel_builder.core_utils.common.collisions import require_unique
 from hygel_martini.hydrogel_builder.core_utils.io.gro_parser import read_gro_atoms
 from hygel_martini.hydrogel_builder.core_utils.io.writer import write_to_gro, write_combined_itp
 from hygel_martini.hydrogel_builder.core_utils.layout.layout_executor import LayoutBlueprint, build_atom_blueprint
@@ -588,7 +589,10 @@ def build_isotropic_blueprint(proto_plan,
     else:
         linker_weights = [entry.get('ratio', 1) for entry in linker_defs] if linker_defs else [1]
     
-    linker_def_lookup = {entry.get('id'): entry for entry in linker_defs}
+    linker_def_lookup = require_unique(
+        ((entry.get('id'), entry) for entry in linker_defs),
+        'linker', 'id', source='LINKERS',
+    )
     sequence_factory = getattr(proto_plan, 'sequence_factory', None)
     bond_lookup = getattr(proto_plan, 'bond_lookup', {})
     mean_sep = getattr(proto_plan, 'mean_sep', 0.24)

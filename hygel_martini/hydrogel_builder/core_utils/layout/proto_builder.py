@@ -6,6 +6,7 @@ from typing import List, Dict, Any, Sequence, Tuple, Optional
 import random
 
 import numpy as np
+from hygel_martini.hydrogel_builder.core_utils.common.collisions import require_unique
 from hygel_martini.hydrogel_builder.core_utils.templates.linker_loader import LinkerTemplateLibrary
 CHAIN_AXIS = np.array([1.0, 1.0, 1.0]) / np.sqrt(3.0)
 LINKER_AXIS = np.array([1.0, 0.0, 0.0])
@@ -79,13 +80,16 @@ def _build_bond_lookup(bond_rules: Optional[List[Dict[str, Any]]],
                        fallback: float) -> Dict[Tuple[str, str], Dict[str, Any]]:
     if not bond_rules:
         return {}
-    lookup: Dict[Tuple[str, str], Dict[str, Any]] = {}
-    for rule in bond_rules:
-        between = rule.get("between", [])
-        if len(between) != 2:
-            continue
-        key = tuple(sorted(between))
-        lookup[key] = rule
+    pairs = [
+        (tuple(sorted(rule.get("between", []))), rule)
+        for rule in bond_rules
+        if len(rule.get("between", [])) == 2
+    ]
+    # Declaring one backbone pair twice throws away one set of bond parameters
+    # without a word.
+    lookup: Dict[Tuple[str, str], Dict[str, Any]] = require_unique(
+        pairs, "bond rule", "'between' pair", source="BONDS"
+    )
     return lookup
 
 
@@ -99,7 +103,10 @@ def _next_backbone_entry(strategy: Dict[str, Any],
     elif strat == 'block':
         sequence: List[Dict[str, Any]] = []
         blocks = (strategy or {}).get('blocks', [])
-        index = {entry.get('id'): entry for entry in backbones}
+        index = require_unique(
+            ((entry.get('id'), entry) for entry in backbones),
+            'backbone', 'id', source='BACKBONES',
+        )
         for block in blocks:
             entry = index.get(block.get('id'))
             if entry:
@@ -170,7 +177,10 @@ def _resolve_block_pattern(strategy: Dict[str, Any],
     blocks = (strategy or {}).get('blocks', [])
     if not blocks:
         return backbones
-    index = {entry.get('id'): entry for entry in backbones}
+    index = require_unique(
+        ((entry.get('id'), entry) for entry in backbones),
+        'backbone', 'id', source='BACKBONES',
+    )
     pattern: List[Dict[str, Any]] = []
     for block in blocks:
         entry = index.get(block.get('id'))
@@ -389,7 +399,10 @@ def prepare_proto_plan(segment_length: int,
             base_size[2] += effective_linker_len
     medium_size = base_size
     cell_vector = medium_size * 2.0
-    id_lookup = {entry.get('id'): entry for entry in backbone_defs}
+    id_lookup = require_unique(
+        ((entry.get('id'), entry) for entry in backbone_defs),
+        'backbone', 'id', source='BACKBONES',
+    )
     proto_sequence = []
     for bead_id, _ in proto_backbone.types:
         entry = id_lookup.get(bead_id)
