@@ -570,7 +570,13 @@ def _compute_total_charge(itp_files_list, molecule_counts_dict):
     for itp_path in itp_files_list:
         try:
             defs = read_itp_definitions(itp_path, atom_type_masses=mass_map)
-        except Exception:
+        except Exception as exc:
+            # Skipping a file here quietly understates the system charge, which
+            # then understates the neutralizing ion count.
+            print(
+                f"[WARN] System-charge estimate ignores '{itp_path}': {exc}",
+                file=sys.stderr,
+            )
             continue
         definitions.update(defs)
 

@@ -6,6 +6,8 @@ construction, so object creation has side effects and immediately mutates the
 global topology registry.
 """
 
+import sys
+
 import numpy as np
 
 def initialize():
@@ -131,7 +133,34 @@ class Bond():
             i, j = j, i
 
         # Check if this bond already exists
-        if World.Bonds.get((i, j)):
+        existing = World.Bonds.get((i, j))
+        if existing:
+            # Dropping the duplicate is intended, but dropping a duplicate that
+            # asks for DIFFERENT parameters silently discards a bonded-topology
+            # decision.  Say so: patch rules and template bonds can collide here.
+            first = existing[0]
+            incoming_c0 = kwargs.get('c0', kwargs.get('length'))
+            incoming_c1 = kwargs.get('c1', kwargs.get('fc'))
+            incoming_funct = kwargs.get('funct')
+            conflict = [
+                (name, kept, asked)
+                for name, kept, asked in (
+                    ('funct', first.bond_funct, incoming_funct),
+                    ('c0', first.bond_c0, incoming_c0),
+                    ('c1', first.bond_c1, incoming_c1),
+                )
+                if asked is not None and kept != asked
+            ]
+            if conflict:
+                detail = ', '.join(
+                    f"{name}: kept {kept!r}, discarded {asked!r}"
+                    for name, kept, asked in conflict
+                )
+                print(
+                    f"[WARN] Bond ({i}, {j}) redefined with different parameters; "
+                    f"the first definition wins. {detail}",
+                    file=sys.stderr,
+                )
             return
 
         # 고유한 결합 ID를 부여합니다.

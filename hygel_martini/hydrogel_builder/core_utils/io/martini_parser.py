@@ -1,5 +1,6 @@
 
 import re
+import sys
 
 def read_atom_types(itp_file_path):
     """
@@ -8,6 +9,7 @@ def read_atom_types(itp_file_path):
     """
     atom_types = {}
     section = None
+    saw_atomtypes_section = False
     if not itp_file_path or not isinstance(itp_file_path, str):
         return {}
     try:
@@ -23,6 +25,7 @@ def read_atom_types(itp_file_path):
                 match = re.match(r'\[\s*(\w+)\s*\]', line)
                 if match:
                     section = match.group(1).lower()
+                    saw_atomtypes_section = saw_atomtypes_section or section == 'atomtypes'
                     continue
                 if section == 'atomtypes':
                     parts = line.split()
@@ -35,7 +38,25 @@ def read_atom_types(itp_file_path):
                             # Ignore lines that are not valid atomtype definitions
                             pass
     except FileNotFoundError:
-        print(f"Warning: Atom types file not found at {itp_file_path}. Masses will not be loaded from here.")
+        print(
+            f"Warning: Atom types file not found at {itp_file_path}. "
+            "Masses will not be loaded from here.",
+            file=sys.stderr,
+        )
+        return atom_types
+    if saw_atomtypes_section and not atom_types:
+        # Martini writes 'name mass charge ptype c6 c12', so mass is column 2.
+        # OPLS-AA ffnonbonded.itp writes 'name btype at.num mass charge ptype
+        # sigma eps', so column 2 is a bonded-type string and every row is
+        # discarded, leaving an empty map.  Downstream that surfaces much later
+        # as an unrelated mass error, so name it here.
+        print(
+            f"Warning: '{itp_file_path}' has an [ atomtypes ] section but no row "
+            "exposed a numeric mass in column 2. This parser expects the Martini "
+            "column layout; an OPLS-AA style file carries the mass in column 4 "
+            "and needs a force-field-specific reader.",
+            file=sys.stderr,
+        )
     return atom_types
 
 def read_itp_definitions(itp_file_path, atom_type_masses=None, prefer_explicit_masses=False):
