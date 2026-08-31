@@ -1,0 +1,342 @@
+"""GROMACS topology (ITP) parsing for the whole package.
+
+This is not Martini-specific despite where it used to live: it reads the
+``[ moleculetype ]``, ``[ atoms ]`` and bonded sections of any GROMACS include
+topology.  It moved out of ``hydrogel_builder/core_utils/io/martini_parser.py``
+for two reasons.  The analysis package carried a second, partial parser of the
+same format, and a force-field generalization cannot start from a module whose
+name asserts one force field.
+
+One force-field assumption does remain, and is now explicit rather than
+implied: :func:`read_atom_types` reads the mass from the second column of
+``[ atomtypes ]``, which is the Martini layout.  OPLS-AA puts a bonded type and
+an atomic number there and the mass in the fourth, so an OPLS file yields no
+masses at all.  The function says so rather than returning an empty table in
+silence; replacing it with a layout-aware reader is the first step of the
+force-field generalization.
+
+Mass resolution is optional.  A caller that needs only connectivity -- the
+topology audit, for instance -- passes ``require_mass=False`` instead of being
+made to supply an atom-type table it has no use for.
+"""
+
+import re
+import sys
+
+from hygel_martini.hydrogel_builder.core_utils.common.collisions import (
+    DuplicateDeclaration,
+    require_consistent,
+    require_unique,
+)
+
+def read_atom_types(itp_file_path):
+    """
+    Parses an .itp file and extracts only the [ atomtypes ] section.
+    Returns a dictionary mapping atom type names to their mass.
+    """
+    atom_types = {}
+    section = None
+    saw_atomtypes_section = False
+    if not itp_file_path or not isinstance(itp_file_path, str):
+        return {}
+    try:
+        with open(itp_file_path, 'r', encoding='utf-8-sig') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith(';'):
+                    continue
+                if ';' in line:
+                    line = line.split(';', 1)[0].rstrip()
+                    if not line:
+                        continue
+                match = re.match(r'\[\s*(\w+)\s*\]', line)
+                if match:
+                    section = match.group(1).lower()
+                    saw_atomtypes_section = saw_atomtypes_section or section == 'atomtypes'
+                    continue
+                if section == 'atomtypes':
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        atom_type_name = parts[0]
+                        try:
+                            mass = float(parts[1])
+                        except (ValueError, IndexError):
+                            # Not a valid atomtype row in this column layout.
+                            continue
+                        # Raised outside the try above on purpose:
+                        # DuplicateDeclaration subclasses ValueError, so a
+                        # check inside it would be swallowed by the same
+                        # except that skips malformed rows.
+                        previous = atom_types.get(atom_type_name)
+                        if previous is not None and previous['mass'] != mass:
+                            raise DuplicateDeclaration(
+                                f"Atom type {atom_type_name!r} in "
+                                f"'{itp_file_path}' is declared with mass "
+                                f"{previous['mass']} and again with {mass}; "
+                                "the second row would silently win."
+                            )
+                        atom_types[atom_type_name] = {'mass': mass}
+    except FileNotFoundError:
+        print(
+            f"Warning: Atom types file not found at {itp_file_path}. "
+            "Masses will not be loaded from here.",
+            file=sys.stderr,
+        )
+        return atom_types
+    if saw_atomtypes_section and not atom_types:
+        # Martini writes 'name mass charge ptype c6 c12', so mass is column 2.
+        # OPLS-AA ffnonbonded.itp writes 'name btype at.num mass charge ptype
+        # sigma eps', so column 2 is a bonded-type string and every row is
+        # discarded, leaving an empty map.  Downstream that surfaces much later
+        # as an unrelated mass error, so name it here.
+        print(
+            f"Warning: '{itp_file_path}' has an [ atomtypes ] section but no row "
+            "exposed a numeric mass in column 2. This parser expects the Martini "
+            "column layout; an OPLS-AA style file carries the mass in column 4 "
+            "and needs a force-field-specific reader.",
+            file=sys.stderr,
+        )
+    return atom_types
+
+def read_itp_definitions(itp_file_path, atom_type_masses=None,
+                         prefer_explicit_masses=False, require_mass=True):
+    """
+    Parses a Martini .itp file and extracts molecule definitions.
+
+    Args:
+        itp_file_path (str): The path to the .itp file.
+        atom_type_masses (dict, optional): A lookup table for atom type masses.
+        require_mass (bool): Raise when a mass cannot be resolved. Callers that
+            need only connectivity pass False.
+        prefer_explicit_masses (bool): If true, the mass column in the
+            molecule's [ atoms ] section takes precedence over atomtype mass.
+
+    Returns:
+        dict: A dictionary where keys are molecule names and values are their
+              definitions (including beads, bonds, angles, etc.). Sections that
+              are not explicitly parsed are collected under 'other_sections'
+              as raw lines for future use.
+    """
+    definitions = {}
+    current_molecule = None
+    section = None
+    # Helper to stash unknown/raw lines for later use.
+    # NOTE: known/parsed rich sections should NOT be stashed, otherwise they
+    # will be duplicated when emitted via OtherSections.
+    KNOWN_SECTIONS = {
+        "moleculetype","atoms","bonds","angles","dihedrals","impropers",
+        "constraints","pairs","exclusions","cmaptypes","polarization",
+        "position_restraints","distance_restraints","angle_restraints",
+        "dihedral_restraints","orientation_restraints",
+    }
+    def stash_raw(sec_name, line):
+        if not current_molecule or not sec_name:
+            return
+        sec_lower = sec_name.lower()
+        if sec_lower in KNOWN_SECTIONS:
+            return
+        if sec_lower.startswith("virtual_sites"):
+            return
+        if sec_lower.endswith("_restraints") or "restraint" in sec_lower:
+            return
+        other = current_molecule.setdefault('other_sections', {})
+        other.setdefault(sec_lower, []).append(line)
+
+    with open(itp_file_path, 'r', encoding='utf-8-sig') as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith(';'):
+                continue
+            if ';' in line:
+                line = line.split(';', 1)[0].rstrip()
+                if not line:
+                    continue
+
+            match = re.match(r'\[\s*(\w+)\s*\]', line)
+            if match:
+                section = match.group(1).lower()
+                if section == 'moleculetype':
+                    current_molecule = None
+                continue
+
+            if section == 'moleculetype':
+                parts = line.split()
+                if len(parts) >= 1:
+                    molecule_name = parts[0]
+                    if molecule_name in definitions:
+                        raise DuplicateDeclaration(
+                            f"Molecule type {molecule_name!r} is defined twice in "
+                            f"'{itp_file_path}'; the second definition would "
+                            "silently replace the first."
+                        )
+                    current_molecule = {
+                        'name': molecule_name,
+                        'beads': [],
+                        'bonds': [],
+                        'angles': [],
+                        'dihedrals': [],
+                        'impropers': [],
+                        'constraints': [],
+                        'pairs': [],
+                        'exclusions': [],
+                        'virtual_sites': [],
+                        'restraints': [],
+                        'cmaptypes': [],
+                        'polarization': []
+                    }
+                    definitions[molecule_name] = current_molecule
+
+            elif section == 'atoms' and current_molecule:
+                parts = line.split()
+                if len(parts) >= 5:
+                    atom_type = parts[1]
+                    mass = 0.0
+                    if prefer_explicit_masses and len(parts) > 7:
+                        mass = float(parts[7]) # Fallback for itp files with explicit mass
+                    elif atom_type_masses and atom_type in atom_type_masses:
+                        mass = atom_type_masses[atom_type]['mass']
+                    elif len(parts) > 7:
+                        mass = float(parts[7]) # Fallback for itp files with explicit mass
+                    
+                    if mass == 0.0 and require_mass:
+                        raise ValueError(
+                            f"Mass for atom type '{atom_type}' in molecule '{current_molecule['name']}' "
+                            f"from file '{itp_file_path}' could not be determined. "
+                            "Please ensure it is defined in the base_itp_file or explicitly in the molecule's ITP."
+                        )
+
+                    bead = {
+                        'nr': int(parts[0]),
+                        'type': atom_type,
+                        'resnr': int(parts[2]),
+                        'residue': parts[3],
+                        'atom': parts[4],
+                        'cgnr': int(parts[5]),
+                        'charge': float(parts[6]) if len(parts) > 6 else 0.0,
+                        'mass': mass
+                    }
+                    current_molecule['beads'].append(bead)
+
+            elif section == 'bonds' and current_molecule:
+                parts = line.split()
+                # 'i j funct' is a complete bond; parameters may come from
+                # [ bondtypes ] instead of being written inline, which is the
+                # norm for OPLS-AA topologies. Demanding a fourth field here
+                # discarded every such entry without a word.
+                if len(parts) >= 3:
+                    bond = {
+                        'from': int(parts[0]),
+                        'to': int(parts[1]),
+                        'funct': int(parts[2]),
+                        'params': [float(p) for p in parts[3:]]
+                    }
+                    current_molecule['bonds'].append(bond)
+            
+            elif section == 'angles' and current_molecule:
+                parts = line.split()
+                if len(parts) >= 4:
+                    angle = {
+                        'from': int(parts[0]),
+                        'center': int(parts[1]),
+                        'to': int(parts[2]),
+                        'funct': int(parts[3]),
+                        'params': [float(p) for p in parts[4:]]
+                    }
+                    current_molecule['angles'].append(angle)
+
+            elif section == 'dihedrals' and current_molecule:
+                parts = line.split()
+                if len(parts) >= 5:
+                    dihedral = {
+                        'i': int(parts[0]),
+                        'j': int(parts[1]),
+                        'k': int(parts[2]),
+                        'l': int(parts[3]),
+                        'funct': int(parts[4]),
+                        'params': [float(p) for p in parts[5:]]
+                    }
+                    current_molecule['dihedrals'].append(dihedral)
+
+            elif section == 'impropers' and current_molecule:
+                parts = line.split()
+                if len(parts) >= 5:
+                    improper = {
+                        'i': int(parts[0]),
+                        'j': int(parts[1]),
+                        'k': int(parts[2]),
+                        'l': int(parts[3]),
+                        'funct': int(parts[4]),
+                        'params': [float(p) for p in parts[5:]]
+                    }
+                    current_molecule['impropers'].append(improper)
+            elif section == 'constraints' and current_molecule:
+                parts = line.split()
+                if len(parts) >= 3:
+                    constraint = {
+                        'i': int(parts[0]),
+                        'j': int(parts[1]),
+                        'funct': int(parts[2]),
+                        'params': [float(p) for p in parts[3:]]
+                    }
+                    current_molecule['constraints'].append(constraint)
+            elif section == 'pairs' and current_molecule:
+                parts = line.split()
+                if len(parts) >= 3:
+                    pair = {
+                        'i': int(parts[0]),
+                        'j': int(parts[1]),
+                        'funct': int(parts[2]),
+                        'params': [float(p) for p in parts[3:]]
+                    }
+                    current_molecule['pairs'].append(pair)
+            elif section == 'exclusions' and current_molecule:
+                parts = line.split()
+                if len(parts) >= 2:
+                    try:
+                        atom = int(parts[0])
+                        excluded = [int(x) for x in parts[1:]]
+                        current_molecule['exclusions'].append({'atom': atom, 'exclude': excluded})
+                    except ValueError:
+                        stash_raw(section, line)
+            elif section and section.startswith('virtual_sites') and current_molecule:
+                # Capture any virtual site definition; store raw + parsed ints if possible
+                parts = line.split()
+                try:
+                    entry = {'section': section, 'line': line, 'parts': parts}
+                    current_molecule['virtual_sites'].append(entry)
+                except ValueError:
+                    stash_raw(section, line)
+            elif section in ('position_restraints', 'distance_restraints',
+                             'angle_restraints', 'dihedral_restraints',
+                             'orientation_restraints') and current_molecule:
+                # Keep raw; optional parse to ints/floats
+                stash_raw(section, line)
+                parts = line.split()
+                try:
+                    nums = [float(x) if '.' in x or 'e' in x.lower() else int(x) for x in parts]
+                    current_molecule['restraints'].append({'section': section, 'values': nums})
+                except ValueError:
+                    pass
+            elif section == 'cmaptypes' and current_molecule:
+                stash_raw(section, line)
+                parts = line.split()
+                if len(parts) >= 7:
+                    current_molecule['cmaptypes'].append(parts)
+            elif section == 'polarization' and current_molecule:
+                parts = line.split()
+                if len(parts) >= 2:
+                    try:
+                        atom = int(parts[0])
+                        pol_values = [float(p) if '.' in p or 'e' in p.lower() else int(p) for p in parts[1:]]
+                        current_molecule['polarization'].append({'atom': atom, 'params': pol_values})
+                    except ValueError:
+                        stash_raw(section, line)
+            else:
+                # Keep unknown sections raw for later debugging/extension
+                if section and current_molecule:
+                    stash_raw(section, line)
+
+    return definitions
+
+
+__all__ = ["read_atom_types", "read_itp_definitions"]
