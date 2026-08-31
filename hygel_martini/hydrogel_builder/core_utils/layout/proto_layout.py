@@ -12,6 +12,7 @@ try:
 except Exception:  # pragma: no cover - config may be unavailable in some contexts
     Config = None
 
+from hygel_martini.hydrogel_builder.core_utils.common.collisions import require_unique
 from hygel_martini.hydrogel_builder.core_utils.layout.proto_builder import ProtoPlan
 from hygel_martini.hydrogel_builder.core_utils.templates.linker_loader import LinkerTemplateLibrary
 
@@ -175,7 +176,10 @@ def generate_layout_plan(proto_plan: ProtoPlan,
         linker_weights = [max(float(record.ratio), 0.0) for record in linker_records]
     else:
         linker_weights = [entry.get('ratio', 1) for entry in linker_defs] if linker_defs else [1]
-    linker_def_lookup = {entry.get('id'): entry for entry in linker_defs}
+    linker_def_lookup = require_unique(
+        ((entry.get('id'), entry) for entry in linker_defs),
+        'linker', 'id', source='LINKERS',
+    )
     linker_len = proto_linker_length
     sequence_factory = getattr(proto_plan, 'sequence_factory', None)
     bond_lookup = getattr(proto_plan, 'bond_lookup', {})

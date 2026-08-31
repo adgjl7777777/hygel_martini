@@ -2,6 +2,12 @@
 import re
 import sys
 
+from hygel_martini.hydrogel_builder.core_utils.common.collisions import (
+    DuplicateDeclaration,
+    require_consistent,
+    require_unique,
+)
+
 def read_atom_types(itp_file_path):
     """
     Parses an .itp file and extracts only the [ atomtypes ] section.
@@ -33,10 +39,22 @@ def read_atom_types(itp_file_path):
                         atom_type_name = parts[0]
                         try:
                             mass = float(parts[1])
-                            atom_types[atom_type_name] = {'mass': mass}
                         except (ValueError, IndexError):
-                            # Ignore lines that are not valid atomtype definitions
-                            pass
+                            # Not a valid atomtype row in this column layout.
+                            continue
+                        # Raised outside the try above on purpose:
+                        # DuplicateDeclaration subclasses ValueError, so a
+                        # check inside it would be swallowed by the same
+                        # except that skips malformed rows.
+                        previous = atom_types.get(atom_type_name)
+                        if previous is not None and previous['mass'] != mass:
+                            raise DuplicateDeclaration(
+                                f"Atom type {atom_type_name!r} in "
+                                f"'{itp_file_path}' is declared with mass "
+                                f"{previous['mass']} and again with {mass}; "
+                                "the second row would silently win."
+                            )
+                        atom_types[atom_type_name] = {'mass': mass}
     except FileNotFoundError:
         print(
             f"Warning: Atom types file not found at {itp_file_path}. "
@@ -121,6 +139,12 @@ def read_itp_definitions(itp_file_path, atom_type_masses=None, prefer_explicit_m
                 parts = line.split()
                 if len(parts) >= 1:
                     molecule_name = parts[0]
+                    if molecule_name in definitions:
+                        raise DuplicateDeclaration(
+                            f"Molecule type {molecule_name!r} is defined twice in "
+                            f"'{itp_file_path}'; the second definition would "
+                            "silently replace the first."
+                        )
                     current_molecule = {
                         'name': molecule_name,
                         'beads': [],

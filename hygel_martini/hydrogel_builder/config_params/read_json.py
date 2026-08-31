@@ -22,6 +22,7 @@ import sys
 import numpy as np
 
 from hygel_martini.hydrogel_builder.add_series import add_small_ion
+from hygel_martini.hydrogel_builder.core_utils.common.collisions import DuplicateDeclaration
 from hygel_martini.hydrogel_builder.core_utils.io.martini_parser import read_atom_types, read_itp_definitions
 from hygel_martini.hydrogel_builder.core_utils.io.writer import write_to_gro, write_combined_itp
 from hygel_martini.hydrogel_builder.core_utils.runtime import packer, topology_updater
@@ -578,6 +579,14 @@ def _compute_total_charge(itp_files_list, molecule_counts_dict):
                 file=sys.stderr,
             )
             continue
+        clash = set(defs) & set(definitions)
+        if clash:
+            raise DuplicateDeclaration(
+                f"Molecule type(s) {sorted(clash)} are defined in more than one "
+                f"topology file, most recently '{itp_path}'. The later file "
+                "would silently win and the system charge would be computed "
+                "from whichever definition happened to load last."
+            )
         definitions.update(defs)
 
     total_charge = 0.0
