@@ -192,12 +192,8 @@ def convert_xyz_to_gro(xyz_path, gro_path, gmx_path, molecule_name="MOL"):
 
 def _read_gro_atom_names(gro_path):
     try:
-        with open(gro_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-        atom_count = int(lines[1].strip())
-        atom_lines = lines[2:2 + atom_count]
-        names = [line[10:15].strip() for line in atom_lines]
-        return names
+        from hygel_martini.core.gro import read_gro_atom_names
+        return read_gro_atom_names(gro_path)
     except Exception as exc:
         print(f"[WARN] Failed to read atom names from {gro_path}: {exc}", file=sys.stderr)
         Config.debug_log(f"[WARN] Failed to read atom names from {gro_path}: {exc}")

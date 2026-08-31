@@ -20,6 +20,8 @@ from collections import Counter, defaultdict, deque
 from pathlib import Path
 from typing import Iterable
 
+from hygel_martini.core.gro import read_gro
+
 import numpy as np
 
 
@@ -200,40 +202,11 @@ def _shortest_path(
 
 
 def _read_gro(path: str | Path) -> tuple[np.ndarray, np.ndarray]:
-    lines = Path(path).read_text().splitlines()
-    if len(lines) < 3:
-        raise ValueError(f"{path}: GRO file is too short")
-    atom_count = int(lines[1].strip())
-    if len(lines) != atom_count + 3:
-        raise ValueError(
-            f"{path}: expected {atom_count + 3} lines, found {len(lines)}"
-        )
-    coordinates = np.empty((atom_count, 3), dtype=float)
-    for index, line in enumerate(lines[2:-1]):
-        if len(line) < 44:
-            raise ValueError(f"{path}: atom line {index + 3} is shorter than 44 columns")
-        coordinates[index] = (
-            float(line[20:28]),
-            float(line[28:36]),
-            float(line[36:44]),
-        )
-    values = [float(value) for value in lines[-1].split()]
-    if len(values) == 3:
-        box = np.diag(values)
-    elif len(values) == 9:
-        box = np.array(
-            [
-                [values[0], values[3], values[4]],
-                [values[5], values[1], values[6]],
-                [values[7], values[8], values[2]],
-            ],
-            dtype=float,
-        )
-    else:
-        raise ValueError(f"{path}: GRO box must contain 3 or 9 values")
-    if np.linalg.det(box) <= 0:
-        raise ValueError(f"{path}: periodic box must have positive volume")
-    return coordinates, box
+    """Coordinates and periodic cell, via the shared reader."""
+    frame = read_gro(path)
+    if frame.box is None:
+        raise ValueError(f"{path}: GRO file has no box line")
+    return frame.positions, frame.box
 
 
 def _canonical_winding(vector: np.ndarray) -> tuple[int, int, int]:
