@@ -49,6 +49,9 @@ from typing import Dict, Hashable, List, Mapping, Sequence, Tuple
 
 import numpy as np
 
+from hygel_martini.core.pbc import minimum_image as _minimum_image
+from hygel_martini.core.pbc import normalize_cell as _normalize_box
+
 __all__ = [
     "RewiringResult",
     "reduced_edges",
@@ -140,40 +143,6 @@ def total_variation_distance(
     """Half the L1 distance between two normalized loop-order distributions."""
     orders = set(left) | set(right)
     return 0.5 * sum(abs(left.get(order, 0.0) - right.get(order, 0.0)) for order in orders)
-
-
-_IMAGE_SHIFTS = np.array(
-    [(i, j, k) for i in (-1, 0, 1) for j in (-1, 0, 1) for k in (-1, 0, 1)],
-    dtype=float,
-)
-
-
-def _normalize_box(box) -> np.ndarray | None:
-    """Accept a 3-vector (orthorhombic) or a 3x3 matrix of cell vectors."""
-    if box is None:
-        return None
-    array = np.asarray(box, dtype=float)
-    if array.shape == (3,):
-        return np.diag(array)
-    if array.shape == (3, 3):
-        return array
-    raise ValueError(f"box must be a 3-vector or a 3x3 matrix, got shape {array.shape}")
-
-
-def _minimum_image(delta: np.ndarray, cell: np.ndarray | None) -> np.ndarray:
-    """Shortest periodic image of ``delta``.
-
-    Rows of ``cell`` are the supercell vectors.  Fractional rounding alone is
-    not exact for a strongly non-orthogonal cell -- the diamond seed uses FCC
-    primitive vectors at 60 degrees -- so the 27 neighbouring images are
-    checked and the shortest taken.
-    """
-    if cell is None:
-        return delta
-    fractional = np.linalg.solve(cell.T, delta)
-    fractional -= np.round(fractional)
-    candidates = (fractional + _IMAGE_SHIFTS) @ cell
-    return candidates[np.argmin(np.einsum("ij,ij->i", candidates, candidates))]
 
 
 def span_constrained_rewire(
