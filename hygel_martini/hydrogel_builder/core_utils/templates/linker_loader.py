@@ -206,18 +206,62 @@ def _backbone_mass_lookup(backbone_defs: List[Dict]) -> Dict[str, float]:
     return masses
 
 
-def _resolve_stub_target(backbone_bonds: List[Dict], linker_id: str, side_name: str) -> str:
-    targets = {
-        str(bond.get("between"))
-        for bond in backbone_bonds
-        if bond.get("between") is not None
-    }
-    if len(targets) != 1:
+def _resolve_stub_targets(
+    backbone_bonds: List[Dict],
+    linker_id: str,
+    side_name: str,
+) -> Tuple[str, ...]:
+    """Backbone identifiers a stub may bond to.
+
+    The configuration lists one entry per admissible partner backbone, each
+    carrying its own bond parameters, so a stub that can reach either of two
+    backbone chemistries legitimately declares two entries.  Requiring exactly
+    one target here rejected that, which made the tracked ``04_full_builder``
+    example fail to load.  Only an empty declaration is an error.
+    """
+    targets = sorted(
+        {
+            str(bond.get("between"))
+            for bond in backbone_bonds
+            if bond.get("between") is not None
+        }
+    )
+    if not targets:
         raise ValueError(
-            f"링커 '{linker_id}'의 {side_name}에는 정확히 하나의 backbone target이 필요합니다: "
-            f"{sorted(targets)}"
+            f"링커 '{linker_id}'의 {side_name}에 backbone target이 하나도 없습니다. "
+            f"'between' 값을 가진 entry가 최소 하나 필요합니다."
         )
-    return next(iter(targets))
+    return tuple(targets)
+
+
+def _stub_mass_for_targets(
+    targets: Tuple[str, ...],
+    backbone_masses: Dict[str, float],
+    linker_id: str,
+    side_name: str,
+) -> float:
+    """Mass of a stub that stands in for one of ``targets``.
+
+    A stub bead is a placeholder for the backbone end it will bond to, so its
+    mass comes from that backbone.  When several partners are admissible the
+    mass is only well defined if they agree; disagreeing masses are refused
+    rather than silently resolved to whichever target happens to sort first.
+    """
+    try:
+        masses = {target: float(backbone_masses[target]) for target in targets}
+    except KeyError as exc:
+        raise ValueError(
+            f"링커 '{linker_id}'의 {side_name} target '{exc.args[0]}'을 "
+            f"backbone definition에서 찾을 수 없습니다."
+        ) from exc
+    distinct = set(masses.values())
+    if len(distinct) > 1:
+        raise ValueError(
+            f"링커 '{linker_id}'의 {side_name}는 질량이 서로 다른 backbone "
+            f"{masses}에 결합할 수 있습니다. stub 질량이 결정되지 않으므로 "
+            f"stub을 분리하거나 backbone 질량을 맞추십시오."
+        )
+    return next(iter(distinct))
 
 
 def _orthonormal_basis(span_vec: np.ndarray, ref: np.ndarray = np.array([0.0, 0.0, 1.0])) -> np.ndarray:
@@ -275,18 +319,18 @@ def _load_single_linker(entry: Dict, backbone_defs: List[Dict]) -> LinkerTemplat
         raise ValueError(f"링커 '{linker_id}' 템플릿에는 stub 지점을 위해 정확히 2개의 'BCK' 잔기 원자가 있어야 합니다.")
     left_idx, right_idx = stub_indices
     backbone_masses = _backbone_mass_lookup(backbone_defs)
-    left_backbone_id = _resolve_stub_target(backbone_1_bonds, linker_id, "backbone_1")
-    right_backbone_id = _resolve_stub_target(backbone_2_bonds, linker_id, "backbone_2")
-    try:
-        stub_masses = {
-            left_idx: backbone_masses[left_backbone_id],
-            right_idx: backbone_masses[right_backbone_id],
-        }
-    except KeyError as exc:
-        raise ValueError(
-            f"링커 '{linker_id}'의 BCK stub mass를 backbone definition에서 찾을 수 없습니다: "
-            f"{exc.args[0]}"
-        ) from exc
+    left_targets = _resolve_stub_targets(backbone_1_bonds, linker_id, "backbone_1")
+    right_targets = _resolve_stub_targets(backbone_2_bonds, linker_id, "backbone_2")
+    left_backbone_id = left_targets[0]
+    right_backbone_id = right_targets[0]
+    stub_masses = {
+        left_idx: _stub_mass_for_targets(
+            left_targets, backbone_masses, linker_id, "backbone_1"
+        ),
+        right_idx: _stub_mass_for_targets(
+            right_targets, backbone_masses, linker_id, "backbone_2"
+        ),
+    }
 
     stub_definitions = []
     # Perform dynamic renaming and collect stub definitions
