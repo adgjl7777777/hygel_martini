@@ -170,39 +170,6 @@ def _candidate_end_options(
     return options
 
 
-def _pick_stub_targets(
-    linker_index: int,
-    stub: object,
-    options: List[Tuple[float, int, object]],
-    targets_per_stub: int,
-    used_end_atoms: set,
-    local_used_atoms: set,
-    linker_used_chains: set,
-) -> List[StubAssignment]:
-    picked: List[StubAssignment] = []
-    for distance, chain_index, end_atom in options:
-        end_id = getattr(end_atom, "atom_id", None)
-        if end_id in used_end_atoms or end_id in local_used_atoms:
-            continue
-        if chain_index in linker_used_chains:
-            continue
-        picked.append(
-            StubAssignment(
-                linker_index=linker_index,
-                stub_atom=stub,
-                backbone_atom=end_atom,
-                chain_index=chain_index,
-                distance=distance,
-            )
-        )
-        used_end_atoms.add(end_id)
-        local_used_atoms.add(end_id)
-        linker_used_chains.add(chain_index)
-        if len(picked) >= targets_per_stub:
-            break
-    return picked
-
-
 def _plan_explicit_graph_crosslinks(
     linker_stubs: Dict[int, List[object]],
     backbone_ends: Dict[int, List[object]],

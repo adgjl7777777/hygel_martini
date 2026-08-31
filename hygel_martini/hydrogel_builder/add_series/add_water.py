@@ -7,6 +7,7 @@ lets the user specify the desired gel weight fraction directly in the config.
 
 import math
 import os
+import sys
 
 from hygel_martini.hydrogel_builder.config_params.config import Config
 from hygel_martini.hydrogel_builder.add_series.add_small_ion import resolve_effective_ion_plan
@@ -187,11 +188,25 @@ def calculate_water_molecules(mode):
             world_mass = sum(float(atom[0].mass) for atom in World.Atoms.values())
             if world_mass > 0:
                 total_gel_mass = world_mass
-        except Exception:
-            pass
+        except Exception as exc:
+            print(
+                f"[WARN] Could not read dry mass from the generated World: {exc}",
+                file=sys.stderr,
+            )
 
     if not (0 < gel_wt < 1):
         raise ValueError("Error: gel_weight_fraction must be between 0 and 1.")
+
+    # A zero dry mass silently propagates to zero added water, i.e. a dry
+    # system that still builds and still runs.  Fail here instead.
+    if total_gel_mass <= 0:
+        raise ValueError(
+            "Dry gel mass resolved to {!r}, so the requested "
+            "gel_weight_fraction cannot be applied. Neither the monomer "
+            "definitions nor the generated World supplied a mass; check that "
+            "the hydrogel was built before add_water and that monomer ITPs "
+            "carry masses.".format(total_gel_mass)
+        )
 
     target_added_mass = (total_gel_mass / gel_wt) - total_gel_mass
     water_mass = target_added_mass
