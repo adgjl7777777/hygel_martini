@@ -140,3 +140,81 @@ def test_the_builder_module_re_exports_the_shared_reader() -> None:
     )
 
     assert builder_reader is core_reader
+
+
+# --------------------------------------------------------------------------
+# ITP: bonded entries may omit their parameters
+# --------------------------------------------------------------------------
+
+PARAMETERLESS = """\
+[ moleculetype ]
+MOL 3
+
+[ atoms ]
+1 opls_135 1 MOL C1 1 -0.18 12.011
+2 opls_140 1 MOL H1 1  0.06  1.008
+3 opls_140 1 MOL H2 1  0.06  1.008
+4 opls_140 1 MOL H3 1  0.06  1.008
+
+[ bonds ]
+1 2 1
+1 3 1
+1 4 1
+
+[ angles ]
+2 1 3 1
+2 1 4 1
+
+[ dihedrals ]
+2 1 3 4 3
+"""
+
+
+def test_bonded_entries_without_inline_parameters_are_kept(tmp_path) -> None:
+    # 'i j funct' is a complete bond; the parameters come from [ bondtypes ].
+    # This is the normal shape of an OPLS-AA topology, and the parser used to
+    # require a fourth field and drop every such entry in silence.
+    from hygel_martini.core.itp import read_itp_definitions
+
+    path = tmp_path / "mol.itp"
+    path.write_text(PARAMETERLESS)
+
+    definition = read_itp_definitions(str(path), require_mass=False)["MOL"]
+
+    assert len(definition["beads"]) == 4
+    assert [(b["from"], b["to"]) for b in definition["bonds"]] == [(1, 2), (1, 3), (1, 4)]
+    assert all(b["params"] == [] for b in definition["bonds"])
+    assert len(definition["angles"]) == 2
+    assert definition["angles"][0]["center"] == 1
+    assert len(definition["dihedrals"]) == 1
+    assert definition["dihedrals"][0]["funct"] == 3
+
+
+def test_connectivity_can_be_read_without_an_atom_type_table(tmp_path) -> None:
+    # A topology audit needs bonds, not masses; requiring a mass table made it
+    # fail on files it had no reason to reject.  This fixture omits the
+    # optional mass column, so the mass is only resolvable from an atom-type
+    # table -- which the audit has no use for.
+    from hygel_martini.core.itp import read_itp_definitions
+
+    path = tmp_path / "nomass.itp"
+    path.write_text(
+        "[ moleculetype ]\nMOL 3\n\n"
+        "[ atoms ]\n1 opls_135 1 MOL C1 1 -0.18\n2 opls_140 1 MOL H1 1 0.06\n\n"
+        "[ bonds ]\n1 2 1\n"
+    )
+
+    definition = read_itp_definitions(str(path), require_mass=False)["MOL"]
+    assert [(b["from"], b["to"]) for b in definition["bonds"]] == [(1, 2)]
+
+    with pytest.raises(ValueError, match="[Mm]ass"):
+        read_itp_definitions(str(path), require_mass=True)
+
+
+def test_the_builder_module_re_exports_the_shared_itp_parser() -> None:
+    from hygel_martini.core.itp import read_itp_definitions as core_reader
+    from hygel_martini.hydrogel_builder.core_utils.io.martini_parser import (
+        read_itp_definitions as builder_reader,
+    )
+
+    assert builder_reader is core_reader

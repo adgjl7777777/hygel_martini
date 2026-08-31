@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Iterable
 
 from hygel_martini.core.gro import read_gro
+from hygel_martini.core.itp import read_itp_definitions
 
 import numpy as np
 
@@ -28,35 +29,38 @@ import numpy as np
 def _read_itp_atoms_bonds(
     path: str | Path,
 ) -> tuple[dict[int, dict[str, str]], list[tuple[int, int]]]:
-    """Read the ``[ atoms ]`` and ``[ bonds ]`` sections of a standalone ITP."""
-    atoms: dict[int, dict[str, str]] = {}
-    bonds: list[tuple[int, int]] = []
-    section = ""
-    for line_number, raw in enumerate(Path(path).read_text().splitlines(), start=1):
-        line = raw.split(";", 1)[0].strip()
-        if not line or line.startswith("#"):
-            continue
-        if line.startswith("[") and "]" in line:
-            section = line[1 : line.index("]")].strip().lower()
-            continue
-        fields = line.split()
-        try:
-            if section == "atoms":
-                if len(fields) < 5:
-                    raise ValueError("fewer than five atom fields")
-                atom_id = int(fields[0])
-                atoms[atom_id] = {
-                    "type": fields[1],
-                    "resnr": fields[2],
-                    "residue": fields[3],
-                    "name": fields[4],
-                }
-            elif section == "bonds":
-                if len(fields) < 2:
-                    raise ValueError("fewer than two bond fields")
-                bonds.append((int(fields[0]), int(fields[1])))
-        except ValueError as exc:
-            raise ValueError(f"{path}:{line_number}: malformed {section} line") from exc
+    """Atoms and bonds of a single-molecule ITP, via the shared parser.
+
+    This module used to carry its own parser of the same format.  Connectivity
+    is all that is needed here, so masses are not required: a topology audit
+    should not fail because an atom-type table was unavailable.
+    """
+    definitions = read_itp_definitions(str(path), require_mass=False)
+    if not definitions:
+        raise ValueError(f"{path}: no [ moleculetype ] entries")
+    if len(definitions) > 1:
+        raise ValueError(
+            f"{path}: holds {len(definitions)} molecule types "
+            f"({', '.join(sorted(definitions))}); the reduced-network audit "
+            "expects a single hydrogel molecule"
+        )
+    definition = next(iter(definitions.values()))
+
+    atoms: dict[int, dict[str, str]] = {
+        bead["nr"]: {
+            "type": bead["type"],
+            "resnr": str(bead["resnr"]),
+            "residue": bead["residue"],
+            "name": bead["atom"],
+        }
+        for bead in definition.get("beads", [])
+    }
+    bonds: list[tuple[int, int]] = [
+        (bond["from"], bond["to"])
+        for bond in definition.get("bonds", [])
+        if bond.get("from") is not None and bond.get("to") is not None
+    ]
+
     if not atoms:
         raise ValueError(f"{path}: no [ atoms ] entries")
     if not bonds:
