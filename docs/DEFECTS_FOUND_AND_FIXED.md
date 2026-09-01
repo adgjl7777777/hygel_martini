@@ -358,7 +358,7 @@ geometric pairwise fallback genuinely pairs two stubs and now raises for a
 multi-arm junction instead of skipping it, which would have left its arms
 unbonded without a word.
 
-*Fixed in `8e20d85`.*
+*Fixed in `9830385`.*
 
 ## Still open
 
