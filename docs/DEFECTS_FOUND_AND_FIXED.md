@@ -3,7 +3,7 @@
 Record of every defect found while extending the builder toward general force
 fields and general junction functionality, on branch `omni/general-ff-and-f6`.
 
-Baseline: `d02a821` (Series-01 frozen tree). Tests at baseline: 48. Now: 164.
+Baseline: `d02a821` (Series-01 frozen tree). Tests at baseline: 48. Now: 170.
 
 **The common shape.** Almost every defect below produced a *plausible but
 wrong* result rather than an error. A build succeeded, a topology was written,
@@ -328,13 +328,44 @@ Not code defects; statements in the theory document that measurement changed.
 6. **Measurement artifacts read as physics.** #14 and the box-limited peak in
    Part 3. Both would have been reported as findings.
 
+### 17. Junction functionality was assumed to be four throughout the router
+
+The crosslink router required exactly two stubs in three places and its
+caller derived the expected assignment count as `2 * targets_per_stub`. That
+is not a parameter that happened to be two; it is the diamond convention
+written into the runtime.
+
+Generalizing it surfaced a distinction the diamond builder never had to make,
+because it only ever had one case. A junction attaches
+`stubs x targets_per_stub` backbone ends and the planner supplies
+`2 x planned_edges` endpoints. *How* those agree decides what geometry is
+still allowed to choose:
+
+| regime | meaning | geometry chooses |
+|---|---|---|
+| one planned edge per stub | the stub is itself a two-way junction, as on the diamond linker | which stub takes which edge |
+| one endpoint per stub | the stub is a single attachment, as on a six-arm crosslinker | which stub takes which endpoint |
+
+In the second regime the planned pairing is a *traversal through* the junction,
+not a grouping *of* stubs, so it cannot be reconstructed from stub groupings.
+The exact planned/materialized edge-hash check therefore applies only to the
+first regime; the second is verified by comparing the consumed endpoint set
+against the planned set. Both are exact — the difference is what there is to
+be exact about.
+
+Anything matching neither regime is refused with both counts. The purely
+geometric pairwise fallback genuinely pairs two stubs and now raises for a
+multi-arm junction instead of skipping it, which would have left its arms
+unbonded without a word.
+
+*Fixed in `8e20d85`.*
+
 ## Still open
 
-- The stub/junction model is still fixed at two stubs in the runtime router
-  and its caller (`dynamic_crosslink.py:203,349,492`, `read_json.py:831`), so a
-  six-arm crosslinker loads but cannot yet be materialized. The template loader
-  is general (`97b0a0b`) and the diamond layout now refuses a
-  multi-arm template rather than truncating it.
+- The coordinate layout is the remaining blocker for a six-arm build. The
+  template loader (`97b0a0b`), the crosslink router and its audit are general;
+  the diamond layout refuses a multi-arm template rather than truncating it,
+  but nothing yet places one.
 - The coordinate layout still uses the hard-coded diamond constants in
   `proto_layout.py`; `nets.py` and `rewire.py` are not yet wired into it.
 - `read_atom_types()` still assumes the Martini column layout (#2 makes it
