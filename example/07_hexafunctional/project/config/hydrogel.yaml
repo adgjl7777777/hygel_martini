@@ -1,30 +1,38 @@
 # hydrogel.yaml
 # 한글: f=6 hexafunctional crosslinker + 단일 backbone strand 정의.
 # English: an f=6 crosslinker and one backbone strand chemistry.
+# maker.yaml의 includes로 병합된다. Merged in via maker.yaml's includes list.
 
 monomer_definitions:
+  # 이 예제는 side-chain monomer가 없다 (backbone bead만으로 strand 구성).
+  # No side-chain monomers here; strands are bare backbone beads.
   MONOMERS: []
   SEQUENCE_STRATEGY:
-    strategy: random
+    strategy: random  # random | block | alternating | long_random
 
 hydrogel_components:
   backbone_definitions:
     BACKBONES:
+      # strand를 이루는 단일 CG bead 종. The single CG bead species forming strands.
       - id: BB1
-        ratio: 1
+        ratio: 1                  # 혼합 비율 (단일 종이므로 무의미) / mixing ratio (moot for one species)
         definition:
-          atom_type: C1
-          residue_name: BCK1
-          atom_name: B1
-          charge_group_number: 1
-          mass: 56
-          charge: 0.0
+          atom_type: C1           # Martini bead type ([atomtypes]에 있어야 함 / must exist in [atomtypes])
+          residue_name: BCK1      # 출력 ITP/GRO의 residue 이름 / residue name in the output topology
+          atom_name: B1           # bead(atom) 이름 / bead (atom) name
+          charge_group_number: 1  # charge group 번호 / charge group index
+          mass: 56                # bead 질량 (amu). linker stub도 이 값을 상속 / bead mass (amu); linker stubs inherit it
+          charge: 0.0             # 전하 (e) / charge (e)
     BONDS:
+      # backbone bead 사이 결합. c0 = 평형 길이 (nm), c1 = 힘 상수 (kJ/mol/nm²).
+      # Backbone-backbone bond; c0 = length (nm), c1 = force constant.
       - between: [BB1, BB1]
         bond_funct: 1
         bond_c0: 0.47
         bond_c1: 1250
     angles:
+      # backbone 각도 기본값 (도, kJ/mol/rad²). 180 = 직선 사슬 선호.
+      # Default backbone angle (degrees, kJ/mol/rad²); 180 favors straight chains.
       default_angle:
         angle_funct: 1
         angle_c0: 180
@@ -44,10 +52,15 @@ hydrogel_components:
     LINKERS:
       - id: HEX_linker
         ratio: 1
+        # 가교제 템플릿 좌표/토폴로지. ${CONFIG_DIR}는 최상위 maker.yaml 기준.
+        # Crosslinker template files; ${CONFIG_DIR} = the TOP maker.yaml's dir.
         gro: ${CONFIG_DIR}/structure/HEX.gro
         itp: ${CONFIG_DIR}/structure/HEX.itp
-        linker_residue_name: HEX
-        backbone_residue_name: HB
+        linker_residue_name: HEX   # 링커 내부 bead의 residue 이름 / residue of internal linker beads
+        backbone_residue_name: HB  # stub bead가 출력에서 받는 residue 이름 / residue stubs take in the output
+        # stub당 entry 하나: 허용 target backbone과 external 가교 bond 파라미터
+        # (c0 nm, c1 kJ/mol/nm²). One entry per stub: admissible target
+        # backbone plus the external crosslink bond parameters.
         stubs:
           - [{between: BB1, bond_funct: 1, bond_c0: 0.47, bond_c1: 1250}]
           - [{between: BB1, bond_funct: 1, bond_c0: 0.47, bond_c1: 1250}]

@@ -1,4 +1,21 @@
-"""Guarded, fixed-increment box compression for hydrated network structures."""
+"""Guarded, fixed-increment box compression for hydrated network structures.
+
+Owns the ``workflow.mode=hard_em_shrink`` stage of the post-build
+relaxation: it compresses the box toward ``target_box_nm`` in small
+multiplicative steps (default 1% per accepted step), and accepts each
+step only after the structure passes guards — finite coordinates,
+finite potential energy, and an EM Fmax below ``fmax_max`` (kJ/mol/nm).
+A failing step optionally runs a short NVT recovery MD and retries; if
+still failing, the shrink increment is halved down to
+``min_shrink_fraction`` before giving up.  Only compression is allowed;
+a target larger than the current box is rejected.
+
+Called by ``generator.run_relax_workflow``; reuses the GROMACS helpers
+from ``soft_em``.  State lives in ``paths.workdir``: ``last_valid.gro``
+(latest accepted structure), ``state.json`` (restart point),
+``history.jsonl`` (one record per attempt), and ``final.gro`` on
+success.  Box lengths are in nm throughout.
+"""
 
 from __future__ import annotations
 
@@ -23,6 +40,12 @@ from .soft_em import (
 
 
 def _finite_gro(path: Path) -> bool:
+    """Check a .gro file is structurally sane with finite numbers.
+
+    Verifies the atom count matches, all fixed-column coordinates are
+    finite, and the box line holds three finite positive lengths.  Any
+    parse problem counts as not finite (returns False, never raises).
+    """
     try:
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
         atom_count = int(lines[1].strip())
@@ -39,6 +62,11 @@ def _finite_gro(path: Path) -> bool:
 
 
 def _energy_is_finite(gmx: str, edr: Path, out_xvg: Path, env: Dict[str, str]) -> Tuple[bool, float | None]:
+    """Extract the last Potential (kJ/mol) from an .edr and check finiteness.
+
+    Returns:
+        (is_finite, potential); (False, None) on any extraction failure.
+    """
     try:
         _extract_xvg(gmx, edr, out_xvg, ["Potential"], env)
         rows = _read_xvg_rows(out_xvg)
@@ -63,6 +91,15 @@ def _run_nvt_recovery(
     mpi_args: List[str],
     mdrun_args: List[str],
 ) -> Path:
+    """Run a short NVT recovery MD to relax a structure that failed EM guards.
+
+    Returns:
+        The resulting nvt.gro path.
+
+    Raises:
+        RuntimeError: If the run produces no output or a non-finite
+            structure.
+    """
     _ensure_dir(outdir)
     tpr = outdir / "nvt.tpr"
     deffnm = outdir / "nvt"
@@ -89,6 +126,11 @@ def _run_nvt_recovery(
 
 
 def _target_box(config: Dict[str, Any]) -> Tuple[float, float, float]:
+    """Normalize target_box_nm (scalar or 3-list, in nm) to an (x, y, z) tuple.
+
+    Raises:
+        ValueError: For any other shape.
+    """
     target = config.get("target_box_nm")
     if isinstance(target, (int, float)):
         return float(target), float(target), float(target)
@@ -98,6 +140,35 @@ def _target_box(config: Dict[str, Any]) -> Tuple[float, float, float]:
 
 
 def run_hard_em_shrink(cfg: Dict[str, Any]) -> Path:
+    """Compress the box stepwise to the target, guarding every step with EM.
+
+    Loop per accepted step: scale coordinates+box down by the attempt
+    fraction (never below the per-axis target), wrap atoms back into the
+    box, run EM, and accept only if structure/energy/Fmax guards pass —
+    optionally after one NVT recovery.  A rejected attempt halves the
+    fraction (down to ``min_shrink_fraction``); every attempt is
+    appended to history.jsonl and the accepted state saved to
+    state.json, enabling ``restart: true`` resumption.  Without restart
+    an existing workdir is moved aside to ``<name>_bak``.
+
+    Args:
+        cfg: Normalized relax config; uses paths/tools/runtime plus the
+            ``hard_em_shrink`` section (target_box_nm [nm],
+            shrink_fraction, min_shrink_fraction, fmax_max [kJ/mol/nm],
+            max_steps, nvt_recovery_enabled, minim_mdp,
+            nvt_recovery_mdp, maxwarn, restart).
+
+    Returns:
+        ``<workdir>/final.gro`` once every axis is at (or within 1e-6
+        relative of) the target.
+
+    Raises:
+        ValueError: For invalid fractions or an expanding target box.
+        FileNotFoundError: For missing input files.
+        RuntimeError: For a non-finite start structure, guards that
+            cannot be passed even at the minimum fraction, or reaching
+            max_steps before the target.
+    """
     tools = cfg.get("tools", {})
     runtime = cfg.get("runtime", {})
     paths = cfg.get("paths", {})
@@ -189,6 +260,12 @@ def run_hard_em_shrink(cfg: Dict[str, Any]) -> Path:
             recovery_used = False
 
             def em_check(input_gro: Path, label: str) -> Tuple[bool, Path | None, float | None, float | None, str | None]:
+                """EM the candidate and evaluate the acceptance guards.
+
+                Returns:
+                    (valid, em_gro, fmax, potential, error); exceptions
+                    are captured into ``error`` instead of propagating.
+                """
                 try:
                     em_dir = attempt_dir / label
                     _, edr, log, em_gro = _grompp_and_run_em(

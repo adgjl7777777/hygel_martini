@@ -1,28 +1,51 @@
+# 스키마 버전 (로더 호환성 표시). Schema version tag for the loader.
 schema_version: 1
+# template: true인 파일은 로더가 실행을 거부한다 — placeholder 경로가 조용히
+# 분석되는 것을 막기 위함. 실제 사용 시 false로 바꾸거나 키를 지울 것.
+# A file marked template: true is refused at load so placeholder paths can
+# never be analyzed silently; set false / remove it for a real run.
 template: true
 
 # analysis_jobs.yaml (템플릿)
 # 이미 존재하는 MD output에서 property를 추출하는 job 정의.
 # 논문 target은 validation_manifest.yaml, MD 요구조건은 md_requirements.yaml 참조.
 # 경로를 실제 프로젝트에 맞게 수정하세요.
+# English: manifest of property-extraction jobs run against existing MD
+# output (hygel_martini.property_extract.analysis_jobs). Each job declares:
+#   property:   추출을 주장하는 관측량 이름 (md_requirements의 gate 키)
+#               canonical observable name, gated via md_requirements.yaml
+#   extractor:  플러그인 registry 키 / extractor plugin registry key
+#   inputs:     입력 파일 경로 (이 yaml 기준 상대 또는 절대)
+#               input name -> file path (relative to this yaml, or absolute)
+#   parameters: extractor 전용 인자, 그대로 전달 / passed through verbatim
+#   output.report: 결과 JSON 경로 / where the PropertyResult JSON is written
+#   validation: 해석용 플래그, runner는 해석하지 않음 / free-form, not
+#               interpreted by the runner
 
 analysis_jobs:
+  # 축약(junction-strand) 그래프의 구조 감사 — force field 검증이 아님.
+  # Structural audit of the reduced junction-strand graph, not a FF claim.
   topology_audit:
     property: reduced_network_topology_audit
     extractor: topology.reduced_network
     inputs:
       itp: /path/to/initial_hydrogel.itp
-      gro: /path/to/production.gro
+      gro: /path/to/production.gro   # expected_winding_rank 검사에 필수 / required for the winding audit
     parameters:
+      # junction bead의 residue 이름 / residue name marking junction beads
       junction_residue: BCK
+      # 기대 junction/strand 수 (불일치 시 감사 실패) / expected counts; mismatch fails the audit
       expected_junction_count: 64
       expected_strand_count: 128
+      # 주기 winding rank 기대값 (3 = 세 축 모두 관통) / expected periodic winding rank
       expected_winding_rank: 3
     output:
       report: ./results/property_reports/topology.json
     validation:
       compare_to_experiment: false
 
+  # 조성(투입) 검사 — equilibrium swelling이 아니라 imposed composition.
+  # Composition check; an imposed ratio, not equilibrium swelling.
   composition_check:
     property: loading_qm
     extractor: composition.from_top_itp
@@ -34,32 +57,49 @@ analysis_jobs:
     validation:
       compare_to_experiment: false
 
+  # 단일 frame 주기 격자 기반 local clearance — pore/mesh proxy이며
+  # Poreblazer 결과나 실험 mesh size와 같은 양이 아니다.
+  # Single-frame periodic-grid local clearance; a proxy, not Poreblazer
+  # output nor an experimental mesh size.
   periodic_clearance:
     property: local_clearance_diameter_p50_nm
     extractor: clearance.periodic_grid
     inputs:
-      gro: /path/to/final_optimized_system.gro
+      gro: /path/to/final_optimized_system.gro   # box를 포함한 단일 frame / one frame with box
     parameters:
+      # 장애물로 볼 residue 목록 / residues treated as obstacles
       selection_residues: [PEO, BCK]
+      # 격자 간격 (nm) — 작을수록 정밀·느림 / grid spacing (nm)
       grid_spacing_nm: 0.2
+      # 장애물 bead 반경 (nm) / obstacle bead radius (nm)
       bead_radius_nm: 0.24
+      # 탐침 반경 (nm; 0.1657 = 물 분자급) / probe radius (nm)
       probe_radius_nm: 0.1657
+      # 분포 히스토그램 bin 수 / histogram bin count
       bins: 50
     output:
       report: ./results/property_reports/clearance.json
     validation:
       compare_to_poreblazer_target: false
 
+  # 대칭 ±step 전단 응답 — 유한 속도(finite-rate) 겉보기 응답이며
+  # 평형/실험 modulus가 아니다. Paired ±gamma step shear response;
+  # a finite-rate apparent response, not an equilibrium modulus.
   mechanics_xy:
     property: paired_step_finite_rate_apparent_shear_response
     extractor: mechanics.paired_step_xvg
     inputs:
+      # 무변형/+gamma/-gamma 세 run의 압력 성분 시계열 (gmx energy 출력).
+      # Pressure-component time series of the baseline/+gamma/-gamma runs.
       baseline_xvg: /path/to/base_xy.xvg
       positive_xvg: /path/to/plus_xy.xvg
       negative_xvg: /path/to/minus_xy.xvg
     parameters:
+      # 읽을 압력 텐서 성분 / pressure tensor component to read
       component: Pres-XY
+      # 가한 전단 변형률 (무차원) / applied shear strain (dimensionless)
       gamma: 0.02
+      # 응답 평균 구간 (ps) / averaging window (ps)
       window_start_ps: 1.0
       window_end_ps: 5.0
     output:
@@ -67,17 +107,26 @@ analysis_jobs:
     validation:
       compare_to_experiment: false
 
+  # NPT 박스 부피 기반 고분자 부피 분율 — imposed-state 값 (물 고정),
+  # equilibrium free swelling이 아니다. Polymer volume fraction from the
+  # NPT box volume; an imposed-state number, not equilibrium swelling.
   swelling_volume_fraction:
     property: polymer_volume_fraction
     extractor: swelling.volume_from_energy
+    # 선행 MD job 선언 (md_requirements.yaml로 gate됨).
+    # Declares the prerequisite MD job, gated via md_requirements.yaml.
     requires_md_job: swollen_npt_equilibration
     inputs:
       top: /path/to/system.top
       itp: /path/to/initial_hydrogel.itp
+      # gmx energy의 Volume 컬럼을 담은 xvg / xvg carrying the Volume column
       energy_xvg: /path/to/energy.xvg
     parameters:
+      # 이 시각(ps) 이전 frame은 평형 전으로 버림 / discard frames before this time (ps)
       start_time_ps: 100000
+      # 현재 bead_volume만 구현됨 / only bead_volume is implemented
       method: bead_volume
+      # 고분자 bead 하나의 부피 (nm³) / volume per polymer bead (nm^3)
       bead_volume_nm3: 0.065
     output:
       report: ./results/property_reports/volume_fraction.json

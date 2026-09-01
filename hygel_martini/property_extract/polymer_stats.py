@@ -1,24 +1,59 @@
+"""Chain-level conformation statistics via MDAnalysis.
+
+Owns :class:`PolymerStats`, which loads a structure (and optional
+trajectory) into an MDAnalysis Universe and reports radius of
+gyration, per-chain end-to-end distance, and a nearest-neighbor
+bond-correlation persistence-length estimate.  Distances are in the
+Universe's native units (Angstrom for .gro input).
+
+Unlike the gated extractors, this module returns raw numpy values, not
+PropertyResult objects, and degrades with warnings instead of refusal
+statuses: without bond information (bare .gro input) chains fall back
+to residue-based splitting and the persistence length degrades to 0.0
+with a UserWarning.
+"""
 import warnings
 import numpy as np
 import MDAnalysis as mda
 try:
+    # Older/newer MDAnalysis layouts may not expose NoDataError; fall
+    # back to Exception so the except clauses below stay valid.
     from MDAnalysis.exceptions import NoDataError
 except ImportError:
     NoDataError = Exception
 
 class PolymerStats:
+    """Conformation statistics for the selected polymer atoms.
+
+    Wraps one MDAnalysis Universe; every method iterates the loaded
+    trajectory (or the single frame when only a structure file was
+    given).
+    """
+
     def __init__(self, gro_file, traj_file=None,
                  selection="resname PEO or resname HYDROGEL"):
-        """
-        selection: MDAnalysis selection string for polymer atoms.
-                   기본값은 'resname PEO or resname HYDROGEL'.
-                   시스템에 맞게 명시적으로 지정할 것 (예: "resname PEO and name EO").
+        """Load the system and select the polymer atoms.
+
+        Args:
+            gro_file: Structure/topology file for the Universe.
+            traj_file: Optional trajectory; omitted means single-frame
+                analysis on ``gro_file``.
+            selection: MDAnalysis selection string for polymer atoms.
+                Default ``'resname PEO or resname HYDROGEL'`` — set it
+                explicitly for your system (e.g.
+                ``"resname PEO and name EO"``).
         """
         self.u = mda.Universe(gro_file, traj_file) if traj_file else mda.Universe(gro_file)
         self.polymer = self.u.select_atoms(selection)
 
     def calculate_rg(self):
-        """Calculate Radius of Gyration over the trajectory."""
+        """Calculate the radius of gyration of the whole selection.
+
+        Returns:
+            1-D array with one Rg value per trajectory frame (a single
+            value for structure-only input), in the Universe's distance
+            unit.
+        """
         rg_list = []
         if hasattr(self.u.trajectory, 'ts'):
             for ts in self.u.trajectory:
@@ -28,7 +63,21 @@ class PolymerStats:
         return np.array(rg_list)
 
     def calculate_end_to_end(self):
-        """Calculate end-to-end distance for individual chains."""
+        """Calculate the mean per-chain end-to-end distance per frame.
+
+        Chains are the bonded fragments of the selection.  When bond
+        information is absent or the selection is one giant fragment
+        (typical for bare .gro input or a fully crosslinked network),
+        it warns and splits by residue instead — inaccurate for
+        crosslinked networks.  End-to-end uses the first and last atom
+        of each chain in file order; chains shorter than 2 atoms are
+        skipped.
+
+        Returns:
+            1-D array of frame-wise mean end-to-end distances (frames
+            with no valid chain are omitted), in the Universe's
+            distance unit.
+        """
         try:
             chains = self.polymer.fragments
             if len(chains) == 0 or len(chains[0]) == len(self.polymer):
@@ -56,9 +105,18 @@ class PolymerStats:
         return np.array(results)
 
     def estimate_persistence_length(self):
-        """
-        Estimate Persistence Length (Lp) from bond-bond correlation.
-        <cos(theta)> = exp(-s/Lp) where s is distance along contour.
+        """Estimate the persistence length from bond-bond correlation.
+
+        Uses the worm-like-chain relation ``<cos(theta)> = exp(-s/Lp)``
+        evaluated only at nearest-neighbor bond pairs of the current
+        frame:  ``Lp = -<l_bond> / ln(<cos theta>)`` per fragment,
+        averaged over fragments.  Fragments with ``<cos theta> <= 0``
+        contribute nothing (the log would be undefined).
+
+        Returns:
+            Mean Lp over fragments in the Universe's distance unit, or
+            0.0 (with a UserWarning) when bond information is missing
+            or no fragment yields a positive correlation.
         """
         # Simplified version: Lp = <R^2> / (2 * L_contour) for worm-like chain in limit
         # Or direct correlation:

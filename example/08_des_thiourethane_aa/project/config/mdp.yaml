@@ -2,15 +2,23 @@
 # placed folded strand conformers start with real contacts to relax.
 simulation_parameters:
   geo_opt:
+    # Suffix for the EM work directory / common prefix for its output files.
     output_dir_suffix: _geo_opt
     deffnm_prefix: em
+    # Overrides applied to the generated minim.mdp defaults.
     mdp:
+      # Steepest-descent energy minimization.
       integrator: steep
+      # More steps than the CG examples: AA contacts relax slowly.
       nsteps: 20000
+      # Convergence force threshold (kJ/mol/nm).
       emtol: 500.0
+      # Initial step size (nm); deliberately small, see the header.
       emstep: 0.002
+      # Electrostatics method and Coulomb cutoff (nm).
       coulombtype: PME
       rcoulomb: 1.1
+      # Van der Waals treatment and cutoff (nm).
       vdw_type: cutoff
       rvdw: 1.1
       # The covalent network threads the periodic boundary.

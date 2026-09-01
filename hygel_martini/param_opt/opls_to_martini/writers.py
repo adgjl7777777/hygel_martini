@@ -1,3 +1,12 @@
+"""File writers for stage-02 constructor cases.
+
+Owns every template written by ``builder.build_cases``: packmol inputs,
+GROMACS .mdp files (EM/NVT/NPT/MD), the topol.top stub, and the
+per-replica ``run_pipeline.sh`` driver.  Pure text generation from the
+merged config; nothing is executed here.  Units in the templates follow
+GROMACS conventions (nm, ps, bar, K) and packmol conventions (Angstrom).
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -5,6 +14,7 @@ from typing import Any, Dict, Sequence
 
 
 def write_text(path: Path, text: str) -> None:
+    """Write UTF-8 text to path, creating parent directories as needed."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
 
@@ -18,6 +28,21 @@ def write_packmol_input(
     seed: int,
     cfg: Dict[str, Any],
 ) -> None:
+    """Write a packmol input placing one fixed polymer plus n_waters waters.
+
+    The polymer is referenced as ``../<polymer.xyz>`` because the input
+    lives inside a replica subdirectory of the case dir.  Box bounds and
+    packmol tolerance are in Angstrom.
+
+    Args:
+        path: Destination packmol.inp path.
+        polymer_xyz: Case-level polymer XYZ (only its name is used).
+        output_xyz: Filename packmol should produce.
+        box_ang: Box edge lengths [x, y, z] in Angstrom.
+        n_waters: Number of water molecules to insert.
+        seed: Packmol random seed (per replica).
+        cfg: Merged config; reads the ``water`` section.
+    """
     polymer_ref = Path("..") / polymer_xyz.name
     wcfg = cfg["water"]
     text = f"""tolerance {wcfg['packmol_tolerance']}
@@ -39,6 +64,15 @@ end structure
 
 
 def write_gromacs_mdp_templates(case_dir: Path, cfg: Dict[str, Any]) -> None:
+    """Write em/nvt/npt/md .mdp files under ``<case_dir>/mdp/``.
+
+    All four stages share the cutoff/electrostatics settings from
+    ``cfg["mdp"]``; the reference temperature is ``temperature_c``
+    converted to K.  NVT generates velocities (gen-seed patched per
+    replica by run_pipeline.sh), NPT adds Parrinello-Rahman pressure
+    coupling at ``ref_p_bar``, and the production MD stage runs NVT-like
+    (pcoupl = no) for ``sampling.sample_nsteps`` steps of ``dt_ps`` ps.
+    """
     temp_k = cfg["system"]["temperature_c"] + 273.15
     mdp_cfg = cfg["mdp"]
     sampling_cfg = cfg["sampling"]
@@ -120,6 +154,13 @@ pbc         = {mdp_cfg['pbc']}
 
 
 def write_topol_stub(path: Path, cfg: Dict[str, Any]) -> None:
+    """Write a topol.top stub with includes and a [ molecules ] block.
+
+    Includes the force field, optional water itp, and the polymer itp
+    from ``cfg["topology"]``.  In gromacs-solvate mode with zero
+    configured waters the SOL line is omitted so ``gmx solvate -p`` can
+    append the real count itself.
+    """
     top_cfg = cfg["topology"]
     water_include = top_cfg.get("water_include", "")
     water_name = top_cfg.get("water_molecule_name", "SOL")
@@ -154,6 +195,16 @@ def write_topol_stub(path: Path, cfg: Dict[str, Any]) -> None:
 
 
 def write_pipeline_script(replica_dir: Path, box_nm: Sequence[float], cfg: Dict[str, Any]) -> None:
+    """Write the executable per-replica ``run_pipeline.sh`` (chmod 755).
+
+    The generated bash script sources GMXRC if gmx/gmx_mpi is not on
+    PATH, applies a random (or SEED-derived) rigid rotation to the
+    polymer, builds a cubic box of edge ``box_nm[0]`` nm, solvates with
+    ``gmx solvate``, then (unless RUN_MODE=none) runs the EM -> NVT ->
+    NPT -> MD chain via grompp/mdrun.  RUN_MODE / OMP_THREADS / GPU_ID /
+    NTMPI_GPU / SEED environment variables override the config defaults
+    at execution time; per-replica GPU ids default to replica_number-1.
+    """
     lbox = f"{box_nm[0]:.4f}"
     runtime_cfg = cfg["runtime"]
     water_cfg = cfg["water"]

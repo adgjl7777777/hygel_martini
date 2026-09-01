@@ -1,3 +1,37 @@
+"""Stage-03 pipeline orchestration: polymer build -> QM/xTB -> Bartender.
+
+This module owns the end-to-end driver of the ``qm_to_martini`` workflow.
+For every requested monomer sequence it builds the polymer XYZ (via
+``polymer_maker``), assembles the Bartender ``.inp`` (via
+``workflow_logic.builder``), writes and optionally executes the
+relaxation/MD shell script (xTB or ORCA) and the Bartender fitting shell
+script, and records everything into a per-case ``case.json`` plus a global
+``summary.json``.
+
+Callers: ``cli.main`` (console script ``hygel-qm-to-martini``) invokes
+``run_pipeline`` / ``run_postprocess_only``; ``collect_results`` /
+``merge_results`` back the ``collect`` and ``merge`` CLI subcommands.
+
+Inputs: the resolved YAML config dict (see ``config.resolve_*`` helpers)
+and monomer XYZ / Bartender init-template files referenced by it.
+Outputs (under ``paths.out_root``): one directory per sequence containing
+the polymer XYZ, base/augmented Bartender ``.inp``, ``relax_workdir``/
+``bartender_job`` run scripts, ``case.json``, and the top-level
+``summary.json`` (optionally screening postprocess outputs).
+
+Invariants and gotchas:
+
+- Work is script-generation first: every external tool runs through a
+  generated ``run_*.sh`` so a case can be re-run or submitted to SLURM
+  independently of this process.
+- Workflow modes come from ``config.resolve_pipeline_modes``; the ``md``
+  mode decides who produces the trajectory (Bartender's internal xTB, our
+  own xTB MD, or a pre-existing trajectory) and whether frames are trimmed.
+- Trajectory trimming happens only when Bartender will consume the frames;
+  ``*_notrim`` and inspection-only modes keep every frame.
+- xTB MD settings use ps/fs/K; connection detection distances are Angstrom.
+"""
+
 from __future__ import annotations
 
 import json
@@ -54,6 +88,22 @@ from .workflow_logic.merger import (
 _XTB_TRAJ_TO_PDB_SRC = Path(__file__).resolve().parents[2] / "tools" / "xtb_traj_to_pdb.py"
 
 def _srun_reentry_lines(exec_cfg: Dict[str, Any], cpu_fallback_var: str) -> List[str]:
+    """Build shell lines that re-exec a run script under ``srun`` on SLURM.
+
+    The generated guard fires only inside a SLURM allocation that has not
+    yet started a job step (``SLURM_JOB_ID`` set, ``SLURM_STEP_ID`` unset),
+    so scripts stay runnable both interactively and via ``sbatch``.
+
+    Args:
+        exec_cfg: resolved ``execution`` settings; both ``slurm`` and
+            ``use_srun`` must be truthy for the guard to be emitted.
+        cpu_fallback_var: shell variable name used for ``--cpus-per-task``
+            when ``SLURM_CPUS_PER_TASK`` is not set.
+
+    Returns:
+        Shell script lines (no trailing newline), or an empty list when
+        srun re-entry is disabled.
+    """
     if not (parse_bool(exec_cfg.get("slurm", False), False) and parse_bool(exec_cfg.get("use_srun", False), False)):
         return []
     return [
@@ -74,7 +124,28 @@ def _bartender_mode_args(
     trajectory: Optional[Path],
     outdir: Path,
 ) -> List[str]:
-    """md 모드에 따른 Bartender CLI 인자 목록 반환 (quoting 없이 raw 값)."""
+    """md 모드에 따른 Bartender CLI 인자 목록 반환 (quoting 없이 raw 값).
+
+    Build the raw (unquoted) Bartender CLI argument list for the selected
+    MD mode: ``bartender`` runs Bartender's internal GFN2 MD (time in ps,
+    temperature in K), while ``xtb`` / ``existing`` / ``existing_notrim``
+    reuse an existing trajectory via ``-owntraj``/``-refit``.
+
+    Args:
+        flow: resolved workflow modes; only ``flow["md"]`` is consulted.
+        bartender_cfg: raw ``bartender_pipeline.bartender`` mapping.
+        bartender_charge: total molecular charge passed as ``-charge``.
+        skip: frame subsampling stride; emitted as ``-skip`` only when >1.
+        trajectory: trajectory file for the reuse modes (required there),
+            referenced relative to ``outdir``.
+        outdir: Bartender job directory the script will run from.
+
+    Returns:
+        Argument tokens in Bartender CLI order (caller quotes them).
+
+    Raises:
+        ValueError: trajectory missing in a reuse mode, or unknown md mode.
+    """
     args: List[str] = ["-charge", str(int(bartender_charge))]
     if flow["md"] == "bartender":
         args += ["-method", "gfn2",
@@ -107,6 +178,35 @@ def prepare_relaxation_job(
     base_dir: Path,
     exec_cfg: Dict[str, Any],
 ) -> Optional[Path]:
+    """Write the per-case relaxation/MD work directory and run script.
+
+    Creates ``<case_dir>/<workdir_name>`` with a local copy of the input
+    XYZ, the ``run_relax.sh`` script (xTB geometry optimization, ORCA
+    optimization, and/or xTB NVT MD depending on the workflow modes), and
+    input files such as ``relax.inp`` / ``gochem.inp``. The script also
+    handles xTB MD restart (``xtbrestart`` + trajectory concatenation) and
+    trajectory-to-PDB conversion with optional equilibration trimming.
+    Records the outcome under ``case["relaxation"]``.
+
+    Args:
+        case_dir: sequence case directory.
+        case: mutable case record; ``artifacts`` and ``electronic_state``
+            are read, ``relaxation`` metadata is written.
+        flow: resolved workflow modes (``relaxation``, ``md``,
+            ``workdir_name``).
+        pipeline_cfg: raw ``bartender_pipeline`` mapping.
+        base_dir: base directory for resolving relative binary/template
+            paths.
+        exec_cfg: resolved execution settings (SLURM/srun/CPU counts).
+
+    Returns:
+        The created work directory, or None when neither relaxation nor
+        our own xTB MD is requested (metadata is still recorded).
+
+    Raises:
+        TypeError: ``case["electronic_state"]`` is not a mapping.
+        ValueError: unsupported relaxation mode.
+    """
     if flow["relaxation"] == "off" and flow["md"] not in {"xtb", "xtb_nobartender", "xtb_nobartender_notrim"}:
         case["relaxation"] = {
             "mode": flow["relaxation"],
@@ -318,6 +418,40 @@ def prepare_bartender_job(
     base_dir: Path,
     exec_cfg: Dict[str, Any],
 ) -> Optional[Path]:
+    """Write the per-case Bartender (or trim-only) job directory and script.
+
+    Depending on ``flow["md"]``:
+
+    - ``off`` / ``xtb_nobartender*``: record trajectory metadata only,
+      create nothing.
+    - ``trim``: create ``<case_dir>/trim`` with a ``run_trim.sh`` that
+      converts/trims an existing ``md_traj`` and copies the results back
+      next to the source trajectory.
+    - otherwise: create the Bartender job directory with a local copy of
+      the ``.inp``, a ``run_bartender.sh`` (including optional trajectory
+      pre-processing for the ``existing``/``existing_notrim`` modes), and
+      a ``bartender_job.json`` manifest.
+
+    Records the outcome under ``case["bartender"]``.
+
+    Args:
+        case_dir: sequence case directory.
+        case: mutable case record; artifacts/relaxation metadata are read,
+            ``bartender`` metadata is written.
+        flow: resolved workflow modes.
+        pipeline_cfg: raw ``bartender_pipeline`` mapping.
+        base_dir: base directory for resolving relative paths/binaries.
+        exec_cfg: resolved execution settings (SLURM/CPU counts).
+
+    Returns:
+        The created job directory, or None when no job is needed
+        (Bartender disabled, or a metadata-only md mode).
+
+    Raises:
+        TypeError: ``bartender_pipeline.bartender`` is not a mapping.
+        ValueError: required trajectory/geometry metadata is missing.
+        FileNotFoundError: the case's Bartender ``.inp`` does not exist.
+    """
     bartender_cfg = pipeline_cfg.get("bartender", {})
     if not isinstance(bartender_cfg, dict):
         raise TypeError("bartender_pipeline.bartender must be a mapping")
@@ -576,6 +710,17 @@ def prepare_bartender_job(
     return outdir
 
 def find_case_json(start: Path) -> Optional[Path]:
+    """Locate the nearest ``case.json`` at or above ``start``.
+
+    Walks up at most 6 directory levels (enough to reach the case root
+    from any nested job directory) and stops at the filesystem root.
+
+    Args:
+        start: directory to start from (typically an ITP's parent).
+
+    Returns:
+        Path to the first ``case.json`` found, or None.
+    """
     current = start.resolve()
     for _ in range(6):
         candidate = current / "case.json"
@@ -590,6 +735,30 @@ def build_bead_maps(
     case: Dict[str, object],
     overrides: Dict[str, Dict[str, List[str]]],
 ) -> tuple[Dict[int, str], Dict[int, str], set[int]]:
+    """Derive global bead label/type maps and backbone-bead set for a case.
+
+    Walks the case's sequence tokens in order, offsetting each monomer's
+    local (1-based) bead indices into the global polymer numbering, and
+    resolves per-bead labels/types via ``config.normalize_label_spec``
+    (CLI/file overrides take precedence over specs stored in the case).
+    Backbone beads come from case-level ``backbone_beads`` (fallback:
+    ``connection_beads``); only when both are absent are per-monomer
+    ``backbone_beads`` / ``left_connection_bead`` entries offset instead.
+
+    Args:
+        case: parsed ``case.json`` payload (needs ``monomers`` and
+            ``sequence_tokens``).
+        overrides: per-token label/type override specs (e.g. from a
+            label-map YAML), keyed by monomer token.
+
+    Returns:
+        Tuple of (global bead index -> label, global bead index -> Martini
+        type, set of global backbone bead indices).
+
+    Raises:
+        ValueError: required case keys are missing or mistyped.
+        KeyError: a sequence token has no ``monomers`` entry.
+    """
     from .config import normalize_label_spec
     monomers = case.get("monomers")
     tokens = case.get("sequence_tokens")
@@ -628,6 +797,19 @@ def build_bead_maps(
     return label_map, type_map, backbone_beads
 
 def collect_results(root: Path, output: Path) -> Dict[str, Any]:
+    """Summarize every Bartender ``gmx_out.itp`` under ``root`` into JSON.
+
+    Each ITP is summarized via ``workflow_logic.merger.summarize_itp`` and
+    tagged with its owning case (sequence stem/tokens) when a ``case.json``
+    is found in the parent chain.
+
+    Args:
+        root: directory tree to scan recursively.
+        output: JSON file to write the collected payload to.
+
+    Returns:
+        The written payload: ``{"root", "count", "records"}``.
+    """
     records = []
     for itp_path in sorted(root.rglob("gmx_out.itp")):
         summary = summarize_itp(itp_path)
@@ -645,6 +827,24 @@ def collect_results(root: Path, output: Path) -> Dict[str, Any]:
     return payload
 
 def merge_results(root: Path, output_itp: Path, output_json: Path, label_map_path: Optional[Path]) -> Dict[str, Any]:
+    """Merge all Bartender ITPs under ``root`` into one typed force field.
+
+    Converts each ``gmx_out.itp`` (plus its ``case.json``) into typed
+    bonded-term records, deduplicates/aggregates them across cases via
+    ``workflow_logic.merger.merge_records``, and writes both the merged
+    ITP and a JSON summary. Results whose case cannot be found or parsed
+    are skipped and reported, not fatal.
+
+    Args:
+        root: directory tree containing per-case Bartender outputs.
+        output_itp: merged force-field ITP destination.
+        output_json: merged summary JSON destination.
+        label_map_path: optional YAML with per-token bead label/type
+            overrides applied during typing.
+
+    Returns:
+        The merged-summary payload written to ``output_json``.
+    """
     from .config import load_label_map
     label_overrides = load_label_map(label_map_path) if label_map_path else {}
     records: List[Any] = []
@@ -666,6 +866,22 @@ def merge_results(root: Path, output_itp: Path, output_json: Path, label_map_pat
     return payload
 
 def run_postprocess_only(cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """Run only the screening postprocess stage on existing pipeline output.
+
+    Used when cases have already been generated/run and only the RMSD/
+    plausibility screening plus merged-ITP production should be repeated.
+
+    Args:
+        cfg: full resolved config; requires
+            ``bartender_pipeline.postprocess.screening.enabled=true``.
+
+    Returns:
+        Summary payload (also written to ``postprocess_summary.json`` under
+        ``paths.postprocess_output_root``/``out_root``/``base_dir``).
+
+    Raises:
+        ValueError: screening postprocess is not enabled in the config.
+    """
     base_dir = Path(cfg["paths"]["base_dir"]).resolve()
     pipeline_cfg = cfg["bartender_pipeline"]
     post_cfg = pipeline_cfg["postprocess"]
@@ -687,6 +903,31 @@ def run_postprocess_only(cfg: Dict[str, Any]) -> Dict[str, Any]:
     return summary
 
 def run_pipeline(cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """Run the full stage-03 preparation pipeline for every sequence.
+
+    For each sequence job from ``config.build_sequence_jobs``: build the
+    polymer XYZ, parse/validate the per-monomer Bartender init templates
+    (cached per token), assemble the augmented Bartender ``.inp`` with
+    candidate bonded terms, prepare (and, when ``execution.run_*`` is set,
+    execute) the relaxation and Bartender jobs, and write ``case.json``.
+    In the ``md=trim`` mode all structure/template work is skipped and
+    only trim jobs are prepared. Optionally runs screening postprocess at
+    the end.
+
+    Args:
+        cfg: full resolved config dict (``paths``, ``system``,
+            ``monomers``, ``bartender_pipeline`` sections).
+
+    Returns:
+        Summary payload (also written to ``<out_root>/summary.json``)
+        containing every case record and the input config.
+
+    Raises:
+        KeyError: a sequence references an unknown monomer token or a
+            token without an init template.
+        ValueError: a supplied ``initial_geometry_xyz`` does not match the
+            built polymer's atom ordering.
+    """
     base_dir = Path(cfg["paths"]["base_dir"]).resolve()
     out_root = Path(cfg["paths"]["out_root"]).resolve()
     out_root.mkdir(parents=True, exist_ok=True)

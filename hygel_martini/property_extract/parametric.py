@@ -1,3 +1,17 @@
+"""Sweep-level analysis across state points (T, P, wt%).
+
+Owns :class:`ParametricAnalyzer`, which runs one
+:class:`.analyzer.HydrogelAnalyzer` per registered state-point
+directory and gathers the flattened results for cross-point plots.
+Points share a fixed file-naming convention inside each directory
+(top/itp/gro/edr filenames set at construction).
+
+Failure handling is collect-and-report rather than raise: a point with
+a missing top file lands in ``missing_files``, a point whose analysis
+throws lands in ``failed_points``, and only clean points enter
+``results`` — so one broken directory never aborts a sweep.  Plots are
+saved as PNGs into ``workspace_dir``.
+"""
 import numpy as np
 import os
 import matplotlib.pyplot as plt
@@ -6,12 +20,20 @@ from .result import PropertyResult
 
 
 def _property_value(value):
+    """Return the scalar payload of a PropertyResult, else pass through."""
     if isinstance(value, PropertyResult):
         return value.value
     return value
 
 
 def _flatten_property_results(results):
+    """Flatten a name->PropertyResult mapping into plain plot-ready values.
+
+    Each PropertyResult contributes its bare ``value`` under its name;
+    the full serialized results are preserved side-by-side under the
+    ``_property_results`` key so status/metadata survive flattening.
+    Non-PropertyResult entries pass through unchanged.
+    """
     flat = {}
     raw = {}
     for name, result in results.items():
@@ -39,13 +61,19 @@ class ParametricAnalyzer:
         edr_filename='production.edr',
         start_time_ps=100000,
     ):
-        """
-        workspace_dir  : 결과 그래프를 저장할 디렉터리
-        top_filename   : 각 point 디렉터리 내의 top 파일 이름
-        itp_filename   : 각 point 디렉터리 내의 itp 파일 이름
-        gro_filename   : 각 point 디렉터리 내의 gro 파일 이름
-        edr_filename   : 각 point 디렉터리 내의 edr 파일 이름
-        start_time_ps  : 평형 구간 시작 시간 [ps]
+        """Configure the sweep's file conventions and output location.
+
+        Args:
+            workspace_dir: Directory where plots are saved.
+            top_filename: Topology filename inside each point directory.
+            itp_filename: Polymer itp filename inside each point
+                directory.
+            gro_filename: Structure filename inside each point
+                directory.
+            edr_filename: Energy-file name inside each point directory
+                (optional per point; enables energy extraction).
+            start_time_ps: Equilibrated-window start time (ps) passed
+                to every per-point analysis.
         """
         self.workspace_dir = workspace_dir
         self.top_filename = top_filename
@@ -56,12 +84,24 @@ class ParametricAnalyzer:
         self.points = []
 
     def add_point(self, temp, press, wt, dir_path):
+        """Register one state point (T in K, P, wt%) and its directory."""
         self.points.append({'T': temp, 'P': press, 'wt': wt, 'path': dir_path})
 
     def collect_properties(self):
-        """
-        등록된 모든 point에 대해 분석을 실행한다.
-        반환값: {'results': [...], 'missing_files': [...], 'failed_points': [...]}
+        """Run the full analysis on every registered point.
+
+        Per point: refuse (record under ``missing_files``) when the top
+        file is absent; otherwise build a HydrogelAnalyzer, extract
+        ``energy.xvg`` from the edr when one exists, run ``analyze``,
+        flatten the results, and merge in the state-point labels.  Any
+        exception is caught and recorded under ``failed_points`` so the
+        sweep continues.
+
+        Returns:
+            Dict with ``results`` (flattened per-point property dicts),
+            ``missing_files`` (points skipped for a missing top), and
+            ``failed_points`` (points whose analysis raised, with the
+            error string).
         """
         results = []
         missing_files = []
@@ -98,7 +138,20 @@ class ParametricAnalyzer:
         }
 
     def plot_temperature_sensitivity(self, results, target_property='loading_qm'):
-        """Plots a property vs Temperature."""
+        """Plot one property against temperature and save the PNG.
+
+        Points lacking the property or carrying non-finite/non-numeric
+        values are dropped before plotting; the figure is saved as
+        ``<target_property>_vs_T.png`` in ``workspace_dir``.
+
+        Args:
+            results: Flattened per-point dicts from
+                :meth:`collect_properties`.
+            target_property: Property key to plot on the y axis.
+
+        Raises:
+            ValueError: No point provides a plottable numeric value.
+        """
         data = sorted(
             [r for r in results if target_property in r],
             key=lambda x: x['T'],
@@ -123,5 +176,10 @@ class ParametricAnalyzer:
         plt.savefig(os.path.join(self.workspace_dir, f"{target_property}_vs_T.png"))
 
     def plot_phase_diagram(self, results, prop='loading_qm'):
-        """Plots 2D heatmap if multiple T and wt% exist."""
+        """Placeholder: 2-D property heatmap over T and wt%.
+
+        Raises:
+            NotImplementedError: Always — the interpolation scheme is
+                undecided, so no diagram is produced silently.
+        """
         raise NotImplementedError("2D phase diagram 미구현. interpolation 방식 결정 후 구현 필요.")

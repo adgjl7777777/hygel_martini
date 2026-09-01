@@ -1,3 +1,14 @@
+"""Settling MD stage of the post-build relaxation (workflow.mode=soft_md).
+
+Owns the single grompp+mdrun pass that lets the soft-EM-relaxed
+structure settle under MD with a user-supplied .mdp.  Called by
+``generator.run_relax_workflow``; inputs (topology, start .gro, .mdp)
+come from the normalized relax config and must already exist.  Runs
+GROMACS synchronously in ``paths.workdir`` and returns the final
+``<deffnm>.gro``.  CPU/GPU/MPI launch behavior follows the shared
+``runtime`` section (see :func:`_build_mdrun_cmd`).
+"""
+
 from __future__ import annotations
 
 import os
@@ -8,6 +19,12 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 
 def _run(cmd: List[str], *, cwd: Path, env: Dict[str, str]) -> None:
+    """Run a command with merged stdout/stderr; echo output on success.
+
+    Raises:
+        RuntimeError: With the captured output when the command fails,
+            so GROMACS diagnostics survive into the traceback.
+    """
     process = subprocess.run(
         cmd,
         cwd=str(cwd),
@@ -27,6 +44,7 @@ def _run(cmd: List[str], *, cwd: Path, env: Dict[str, str]) -> None:
 
 
 def _string_list(value: Iterable[Any]) -> List[str]:
+    """Stringify config list entries for use as CLI arguments."""
     return [str(item) for item in value]
 
 
@@ -63,6 +81,23 @@ def _build_mdrun_cmd(
 
 
 def run_soft_md(cfg: Dict[str, Any]) -> Path:
+    """Run one settling MD (grompp + mdrun) in the configured workdir.
+
+    Reads ``tools.gmx``, ``paths`` (system_top, start_gro, workdir),
+    ``soft_md`` (mdp, deffnm, maxwarn, grompp_extra/mdrun_extra) and
+    ``runtime`` (omp_threads, gpu_id, mpi_np, mpi_args).  OMP thread
+    env vars are pinned to ``-ntomp`` so GROMACS cannot oversubscribe.
+
+    Args:
+        cfg: Normalized relax config (absolute paths).
+
+    Returns:
+        Path of ``<workdir>/<deffnm>.gro`` produced by mdrun.
+
+    Raises:
+        FileNotFoundError: If topology, start structure, or mdp is missing.
+        RuntimeError: If grompp or mdrun fails.
+    """
     tools = cfg.get("tools", {})
     runtime = cfg.get("runtime", {})
     paths = cfg.get("paths", {})

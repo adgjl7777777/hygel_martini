@@ -1,14 +1,37 @@
+"""Time-series stability gate for equilibration judgment.
+
+Owns :func:`check_stability`, which decides whether a scalar MD time
+series (volume, energy, ...) has stopped drifting by fitting a line to
+its final window, and the still-unimplemented
+:func:`find_equilibration_time` placeholder.  Reports through
+:class:`.result.PropertyResult` (property ``volume_stability``, no
+experimental comparison): fewer than 10 points refuses with
+``insufficient_data`` instead of guessing, and the verdict plus drift
+diagnostics always land in metadata.
+"""
 import numpy as np
 from .result import PropertyResult
 
 
 def check_stability(data, threshold=0.01, window=0.2) -> PropertyResult:
-    """
-    마지막 window 구간의 linear drift 로 안정성 판단.
+    """Judge stability from the linear drift of the trailing window.
 
-    data      : 1D array (예: volume, energy)
-    threshold : 허용 최대 상대 drift (기본 1%)
-    window    : drift 계산에 사용할 끝 구간 비율 (기본 20%)
+    Fits a straight line to the last ``window`` fraction of ``data``
+    and compares the total drift over that segment (slope times
+    segment length), relative to the segment mean, against
+    ``threshold``.  A zero segment mean is treated as trivially stable
+    (relative drift undefined but no signal to drift).
+
+    Args:
+        data: 1-D series (e.g. volume in nm^3, energy in kJ/mol);
+            units cancel in the relative drift.
+        threshold: Maximum allowed |relative drift| (default 1%).
+        window: Trailing fraction of the series to fit (default 20%).
+
+    Returns:
+        PropertyResult ``volume_stability`` — computed with a boolean
+        value and mean/std/drift metadata, or ``insufficient_data``
+        when the series has fewer than 10 points.
     """
     if len(data) < 10:
         return PropertyResult.insufficient_data(
@@ -63,6 +86,12 @@ def check_stability(data, threshold=0.01, window=0.2) -> PropertyResult:
 
 
 def find_equilibration_time(times, data, threshold=0.01, window_size=100):
+    """Placeholder: automatic equilibration-time detection.
+
+    Raises:
+        NotImplementedError: Always — a rolling mean/std implementation
+            is still needed; nothing is estimated silently.
+    """
     raise NotImplementedError(
         "equilibration time 자동 탐색 미구현. rolling mean/std 기반 구현 필요."
     )

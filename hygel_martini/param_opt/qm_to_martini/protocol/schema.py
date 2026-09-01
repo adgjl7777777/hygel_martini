@@ -1,4 +1,30 @@
-"""Schema and frozen-criterion validation for parameterization contracts."""
+"""Schema and frozen-criterion validation for parameterization contracts.
+
+This module owns the structural rules of the E0-E6 decision protocol:
+what a valid ``protocol.yaml`` and iteration ``contract.yaml`` look like
+(schema version, policy flags, scientific-identity artifacts, data
+groups/roles, design block, gates with frozen criteria, repair lists),
+and how a single frozen criterion is evaluated against an observation.
+
+Callers: ``protocol.engine`` uses these validators before sealing,
+evaluating, or validating a project; ``protocol.cli`` reaches them
+through the engine. Everything is pure validation/evaluation — the only
+filesystem access is reading artifact files for existence/checksum
+checks (``check_files``) and ``load_project_documents``.
+
+Invariants enforced here:
+
+- Gates must appear exactly once each, in ``GATE_ORDER``; criterion ids
+  are globally unique within a contract.
+- Only confirmation-role data groups may be ``sealed``, at least one
+  sealed group must exist (for E5), and the same (path, sha256) source
+  may not be registered under two group ids.
+- Artifact paths must stay inside the project root (via
+  ``io.safe_project_path``) and carry lowercase SHA-256 digests.
+- Thresholds live only in the contract: ``evaluate_rule`` takes the
+  frozen rule plus the observation and never accepts an external
+  threshold.
+"""
 
 from __future__ import annotations
 
@@ -29,10 +55,16 @@ REQUIRED_IDENTITY_KEYS = (
 
 
 def _error(errors: List[str], location: str, message: str) -> None:
+    """Append a "location: message" finding to the error list."""
     errors.append(f"{location}: {message}")
 
 
 def _require_mapping(value: Any, errors: List[str], location: str) -> Mapping[str, Any]:
+    """Record an error and return {} unless the value is a mapping.
+
+    Returning an empty mapping lets callers keep validating nested keys
+    without cascading type errors.
+    """
     if not isinstance(value, Mapping):
         _error(errors, location, "must be a mapping")
         return {}
@@ -42,6 +74,7 @@ def _require_mapping(value: Any, errors: List[str], location: str) -> Mapping[st
 def _require_nonempty_string(
     value: Any, errors: List[str], location: str
 ) -> str:
+    """Record an error and return "" unless the value is a non-blank str."""
     if not isinstance(value, str) or not value.strip():
         _error(errors, location, "must be a non-empty string")
         return ""
@@ -49,6 +82,7 @@ def _require_nonempty_string(
 
 
 def _validate_identifier(value: Any, errors: List[str], location: str) -> str:
+    """Validate an id token against ``ID_RE`` (alnum start, [-._] allowed)."""
     normalized = _require_nonempty_string(value, errors, location)
     if normalized and not ID_RE.fullmatch(normalized):
         _error(errors, location, "must contain only letters, digits, dot, underscore, or hyphen")
@@ -64,6 +98,21 @@ def _validate_artifact_spec(
     *,
     check_files: bool,
 ) -> None:
+    """Validate one artifact spec (id, path, sha256, placeholder flag).
+
+    A ``placeholder: true`` spec only warns (drafts are allowed until
+    sealing). With ``check_files`` the path is resolved safely inside
+    the project root, must exist, and — unless it is a placeholder —
+    must match its recorded SHA-256.
+
+    Args:
+        spec: the artifact mapping to validate.
+        root: project root for safe path resolution.
+        errors: fatal findings, appended in place.
+        warnings: non-fatal findings, appended in place.
+        location: dotted path used in messages.
+        check_files: also verify file existence and checksum.
+    """
     artifact = _require_mapping(spec, errors, location)
     _require_nonempty_string(artifact.get("id"), errors, f"{location}.id")
     relative = _require_nonempty_string(artifact.get("path"), errors, f"{location}.path")
@@ -93,6 +142,19 @@ def _validate_artifact_spec(
 
 
 def validate_protocol_document(payload: Any) -> List[str]:
+    """Validate the top-level ``protocol.yaml`` document.
+
+    Checks the schema version, project id/title/claim domain, active
+    iteration id, and the policy block: the exact E0-E6 gate order,
+    ``strict_sequence``/``weakest_link`` both true, E6 parameter feedback
+    prohibited, and a positive per-mechanism correction cap.
+
+    Args:
+        payload: parsed YAML document.
+
+    Returns:
+        List of "location: message" errors (empty when valid).
+    """
     errors: List[str] = []
     document = _require_mapping(payload, errors, "protocol")
     if document.get("schema_version") != SCHEMA_VERSION:
@@ -132,6 +194,28 @@ def validate_contract_document(
     *,
     check_files: bool = True,
 ) -> Tuple[List[str], List[str]]:
+    """Validate one iteration's ``contract.yaml`` against the protocol.
+
+    Covers: schema version and project/iteration identity, iteration
+    class and parent linkage, the five scientific-identity artifacts
+    (exact key set, each artifact spec checked), data groups (unique ids,
+    valid roles, sealed-only-confirmation, unique sources, at least one
+    sealed group), the design block (required strings, non-empty
+    candidate ladder, complexity >= 0), the gate list (exact E0-E6 order,
+    unique criterion ids, operator/expected shape rules, E6 not allowed
+    to revoke an E5 release), and non-empty repair/prohibition lists.
+
+    Args:
+        payload: parsed contract YAML.
+        protocol: parsed (already validated) protocol document.
+        project_root: project root for artifact path/checksum checks.
+        expected_iteration: iteration directory name the contract must
+            declare.
+        check_files: also verify artifact existence and checksums.
+
+    Returns:
+        (errors, warnings) as "location: message" lists.
+    """
     errors: List[str] = []
     warnings: List[str] = []
     contract = _require_mapping(payload, errors, "contract")
@@ -316,6 +400,12 @@ def validate_contract_document(
 
 
 def contract_artifacts(contract: Mapping[str, Any]) -> Iterable[Mapping[str, Any]]:
+    """Yield every artifact spec a contract references.
+
+    Order: the five scientific-identity artifacts (in
+    ``REQUIRED_IDENTITY_KEYS`` order), then each data group. Used by the
+    engine when hashing inputs and verifying the seal.
+    """
     identity = contract.get("scientific_identity", {})
     for key in REQUIRED_IDENTITY_KEYS:
         artifact = identity.get(key)
@@ -327,11 +417,32 @@ def contract_artifacts(contract: Mapping[str, Any]) -> Iterable[Mapping[str, Any
 
 
 def scientific_identity_hash(contract: Mapping[str, Any]) -> str:
+    """SHA-256 of the canonical-JSON scientific-identity block.
+
+    This is the seal component that detects any post-seal change to the
+    mapping/topology/bead/nonbonded/exclusions identity.
+    """
     return sha256_bytes(canonical_json_bytes(contract.get("scientific_identity", {})))
 
 
 def evaluate_rule(rule: Mapping[str, Any], observed: Any) -> str:
-    """Evaluate one frozen criterion without importing a post-result threshold."""
+    """Evaluate one frozen criterion without importing a post-result threshold.
+
+    The string "INCONCLUSIVE" (any case) short-circuits every operator.
+    "status" requires PASS/FAIL/INCONCLUSIVE; "truthy" requires a real
+    boolean; the numeric operators (lt/le/gt/ge/between) require a finite
+    number; eq/ne/in compare against the frozen ``expected`` value.
+
+    Args:
+        rule: frozen criterion mapping (operator, optional expected).
+        observed: the evidence observation for this criterion.
+
+    Returns:
+        "PASS", "FAIL", or "INCONCLUSIVE".
+
+    Raises:
+        ValueError: the observation's type is invalid for the operator.
+    """
 
     if isinstance(observed, str) and observed.strip().upper() == "INCONCLUSIVE":
         return "INCONCLUSIVE"
@@ -377,6 +488,18 @@ def evaluate_rule(rule: Mapping[str, Any], observed: Any) -> str:
 def load_project_documents(
     project_root: Path, iteration_id: str
 ) -> Tuple[Mapping[str, Any], Mapping[str, Any]]:
+    """Load a project's protocol.yaml and one iteration's contract.yaml.
+
+    Args:
+        project_root: protocol project directory.
+        iteration_id: iteration directory name under ``iterations/``.
+
+    Returns:
+        (protocol document, contract document).
+
+    Raises:
+        ValueError: either document is not a YAML mapping.
+    """
     protocol = load_yaml(project_root / "protocol.yaml")
     contract = load_yaml(project_root / "iterations" / iteration_id / "contract.yaml")
     if not isinstance(protocol, Mapping) or not isinstance(contract, Mapping):

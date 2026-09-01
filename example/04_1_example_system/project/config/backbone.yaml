@@ -19,6 +19,9 @@
 #          real backbone end and a linker stub. The BCK-LNK bond between a stub
 #          and an internal linker bead is a linker-ITP internal bond and keeps
 #          the original ITP parameter unless an explicit rule here matches it.
+# 각 규칙: residue_name/bead_type 패턴이 일치하는 결합의 funct/c0/c1을
+# 덮어쓴다. c0 = 평형 길이 (nm), c1 = 힘 상수 (kJ/mol/nm²).
+# Each rule overwrites funct/c0/c1 of matching bonds; c0 in nm, c1 in kJ/mol/nm².
 bonds:
   # Backbone-Backbone Bonds
   - residue_name: [BS, BS]
@@ -106,6 +109,11 @@ bonds:
     c0: 0.281
     c1: 15000
 
+# 각도 patch 규칙. c0 = 평형 각도 (도), c1 = 힘 상수 (kJ/mol/rad²).
+# funct 2 = Gromos96 harmonic cosine. '-' 항목은 연결성으로만 세고 각도 정의에서
+# 건너뛰는 자리 표시자 (파일 상단 Special markers 참조).
+# Angle patch rules; c0 in degrees, c1 in kJ/mol/rad². funct 2 = G96 cosine.
+# '-' skips a bead in the angle definition while keeping connectivity.
 angles:
   - residue_name: [BD, BD, "*"]
     bead_type: [TC1, TC1, SP3d]
@@ -118,6 +126,10 @@ angles:
     c0: 120.0
     c1: 50.0
 
+# 이면각 patch 규칙. funct 1 = proper periodic; c0 = 위상 (도),
+# c1 = 힘 상수 (kJ/mol), multiplicity = 주기성 n.
+# Dihedral patch rules; funct 1 = proper periodic: c0 phase (degrees),
+# c1 force constant (kJ/mol), multiplicity = periodicity n.
 dihedrals:
   - residue_name: [BD, BD, BD, BD]
     bead_type: [TC1, TC1, TC1, TC1]

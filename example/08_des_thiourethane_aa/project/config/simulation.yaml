@@ -1,70 +1,131 @@
 # simulation.yaml -- example 08 (all-atom thiourethane network)
+#
+# Included from maker.yaml / maker_partial.yaml. ${CONFIG_DIR} resolves
+# against the TOP maker.yaml's directory, not this file's location, so
+# including this file from another project would re-point every relative
+# path below into that project.
 simulation_parameters:
+  # GROMACS executable: gmx_mpi for MPI builds, gmx for a single binary.
   gromacs_executable_path: gmx_mpi
+  # Packmol executable; just the name if on PATH, else an absolute path.
   packmol_path: packmol
+  # Directory grompp searches for included ITPs. Here the project's own
+  # structure/ directory: this build uses LigParGen OPLS-AA files, not Martini.
   gromacs_include_path: ${CONFIG_DIR}/structure
+  # Base ITP with the [atomtypes] tables (OPLS-style layout is accepted).
   base_itp_file: ${CONFIG_DIR}/structure/forcefield.itp
+  # Build artifact directory (maker_partial.yaml overrides to output_partial).
   output_dir: ${CONFIG_DIR}/output
 
+  # Legacy diamond-path key; the net path takes repeats from network.yaml
+  # instead, so this stays pinned at the minimum.
   number_of_cells: 1
+  # CG-path beads-per-chain count. The whole-strand template path takes the
+  # strand from structure/STR.itp, so this does not shape the strand here.
   segment_length: 20
+  # How gel wt% counts mass: exclude_ions = polymer + water only.
   gel_weight_fraction_mode: exclude_ions
+  # Whether to apply periodic boundary conditions.
   pbc_true_or_false: true
+  # Mean bead separation (nm); used for water packing and bond fallbacks.
   mean_sep: 0.24
 
   # --- all-atom mode ---------------------------------------------------
+  # GROMACS exclusion depth. Martini convention is 1; OPLS-AA needs 3
+  # (1-4 neighbours excluded from plain nonbonded, handled via [pairs]).
   topology_nrexcl: 3
+  # What to generate across builder-created crosslink bonds, beyond the
+  # always-enumerated angles. Off by default; Martini builds leave it out.
   junction_bonded_generation:
+    # Emit parameterless proper dihedrals along three-bond paths that cross
+    # a builder-created bond; grompp resolves them from [dihedraltypes].
     dihedrals: true
+    # Emit the 1-4 [pairs] those crossing paths' endpoints lose to nrexcl=3.
     pairs: true
+    # funct for the emitted dihedrals: 3 = Ryckaert-Bellemans (OPLS-AA torsions).
     dihedral_funct: 3
 
+  # Default angle when no specific rule matches (degrees, kJ/mol/rad^2).
+  # In all-atom mode, angles crossing a builder bond are emitted
+  # parameterless instead, so this mostly serves the CG code paths.
   default_angle:
     angle_funct: 1
     angle_c0: 180
     angle_c1: 25
 
+  # null = CPU-only (safe on shared machines), N = pin to GPU N.
   gpu_id: null
+  # OpenMP threads for build-stage mdrun (-ntomp). null = auto-detect.
   omp_threads: 4
+  # Max warnings grompp may absorb (-maxwarn).
   grompp_maxwarn: 2
+  # Coulomb type and cutoffs (nm) used for neutral (zero-charge) EM stages;
+  # null would keep the mdp values.
   neutral_em_coulombtype: Cut-off
   neutral_em_rcoulomb: 1.1
   neutral_em_rvdw: 1.1
+  # Random seed for reproducible placement.
   random_seed: 2020
+  # true -> write a verbose execution log to output/debug.txt.
   debug_mode: true
+  # true -> carry rich ITP sections through (exclusions, pairs, constraints,
+  # full RB dihedral coefficient lists) -- required for a faithful AA topology.
   emit_rich_itp_sections: true
 
+  # Packmol minimum inter-atom distance (Angstrom).
   packmol_threshold: 3
+  # Max iterations of the internal overlap-check loop.
   overlap_check_limit: 10
+  # Skip the min-distance report above this atom count.
   min_distance_report_max_atoms: 3000
+  # Side-chain placement tuning; inert here (whole-strand templates place
+  # rigidly, no per-monomer side-chain placement runs).
   sidechain_num_candidates: 72
   sidechain_overlap_threshold_factor: 0.8
   sidechain_search_radius_factor: 10.0
   sidechain_nearby_atom_limit: 800
   sidechain_auto_threshold: 20000
 
+  # Fallback crosslink bond when the linker declares no target-specific one.
+  # Values match the S-C(=O) thiourethane bond the stubs declare inline:
+  # c0 in nm, c1 in kJ/mol/nm^2.
   default_dynamic_crosslink_bond:
     bond_funct: 1
     bond_c0: 0.1715
     bond_c1: 187443.2
 
+  # Each of the six stubs takes exactly one strand end (f=6 junction).
   dynamic_crosslink_targets_per_stub: 1
+  # Block-copolymer-specific controls, all inactive in this example.
   respect_target_backbone: false
   linker_terminal_compensation:
     enabled: false
     target_backbone: null
     compensation_beads: 0
+  # Chain orientation policy: random | one_direction | graph_directed.
   chain_orientation_policy: random
+  # Candidate backbone ends retained per stub (search width).
   dynamic_crosslink_candidate_limit: 64
+  # Runtime matching strategy; nearest = bond the geometrically closest end.
   dynamic_crosslink_assignment_strategy: nearest
+  # Layout-time linker orientation; connectivity_aware maximizes connectivity.
   linker_orientation_strategy: connectivity_aware
+  # Soft-bond EM right after crosslinking, with a temporary force constant
+  # (kJ/mol/nm^2), so fresh crosslink bonds relax before the main EM stages.
   dynamic_crosslink_relax_enabled: true
   dynamic_crosslink_relax_fc: 50.0
 
+# No extra ion ITPs in this system.
 additional_itp_files: []
 
+# Post-build covalent-graph connectivity audit; gating for the full build.
+# maker_partial.yaml relaxes it to report-only -- at SH conversion 1/6 the
+# covalent system is below the gel point and fragments are the physics.
 hydrogel_topology_connectivity_audit:
   enabled: true
+  # Minimum fraction of hydrogel atoms in the largest bonded component.
   min_largest_component_fraction: 0.95
+  # Max allowed components; 1 = the whole network must be one piece.
   max_components: 1
+  # Whether a violation fails the build immediately.
   fail_on_violation: true

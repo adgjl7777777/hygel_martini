@@ -1,5 +1,27 @@
 #!/usr/bin/env python3
-"""Energy-based trim sensitivity analysis for C/D/S xTB trajectories."""
+"""Energy-based trim sensitivity analysis for C/D/S xTB trajectories.
+
+This script owns the diagnostic study of how the equilibration-trim
+choice affects retained-energy statistics for the three monomer
+trajectories labeled C, D, and S. For each trajectory it reads the
+per-frame energies (Hartree) from the xTB ``.trj`` comment lines,
+computes tail-reference statistics, tail-mean threshold detection t0
+over a (ref_fraction x sigma) sweep, rolling-mean band diagnostics,
+retained statistics for a fixed set of candidate trim starts, and an
+energy-autocorrelation summary.
+
+Callers: run as a standalone CLI against a stage-03 project directory
+whose C/D/S run layout matches the ``TRAJECTORIES``/``*_INFO`` path
+templates (the pymbar and threshold trim info JSONs are read when
+present). Outputs go to ``<project>/sensitivity``: summary/sweep CSVs,
+``summary.md`` (with a fixed interpretation section written from a past
+C/D/S study), ``sensitivity_results.json``, and two PNG quick-look plots
+(skipped when matplotlib is unavailable).
+
+Conventions: energies are in Hartree; frame spacing is assumed to be
+``DUMP_FS`` = 50 fs, so frame counts convert to ns via ``frame_to_ns``.
+Module-level path globals are rebound by ``configure_paths``.
+"""
 
 from __future__ import annotations
 
@@ -22,11 +44,15 @@ except Exception:  # pragma: no cover - plotting is optional for portability
 
 
 DEFAULT_PROJECT = Path.cwd()
+# Rebound by configure_paths(); module import only sets placeholders.
 PROJECT = DEFAULT_PROJECT
 OUTDIR = PROJECT / "sensitivity"
+# Time between saved trajectory frames in fs (xTB dump interval).
 DUMP_FS = 50.0
+# Extracts "energy: <float>" from an xTB .trj frame comment line.
 ENERGY_RE = re.compile(r"energy:\s*([-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?)")
 
+# Fixed per-label run layout inside the project directory.
 TRAJECTORIES = {
     "C": PROJECT / "md_C/C/md_only_from_last_snapshot/xtb.trj",
     "D": PROJECT / "md_D/D/relax_xtb_geoopt/xtb.trj",
@@ -45,6 +71,8 @@ THRESHOLD_INFO = {
     "S": PROJECT / "trim_threshold/S/xtb_traj_trim_info.json",
 }
 
+# Sweep grids: tail-reference fractions, threshold sigmas, rolling-mean
+# windows (frames) and band widths, and reported autocorrelation lags.
 REF_FRACTIONS = [0.1, 0.2, 0.3, 0.5]
 SIGMAS = [0.005, 0.01, 0.02, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 3.0]
 ROLLING_WINDOWS = [100, 500, 1000, 5000]
@@ -53,6 +81,19 @@ ACF_LAGS = [1, 10, 100, 500, 1000, 5000, 10000, 25000]
 
 
 def read_energies(path: Path) -> np.ndarray:
+    """Read per-frame energies (Hartree) from an xTB XYZ trajectory.
+
+    Walks the multi-frame XYZ structure (atom count line, comment line,
+    coordinates) and extracts the "energy:" annotation from each comment.
+    Frames without the annotation are skipped; parsing stops at the first
+    malformed atom-count line.
+
+    Args:
+        path: xTB ``.trj`` file.
+
+    Returns:
+        1D array of energies in file order.
+    """
     energies: list[float] = []
     with path.open("r", encoding="utf-8", errors="replace") as handle:
         while True:
@@ -75,16 +116,30 @@ def read_energies(path: Path) -> np.ndarray:
 
 
 def load_json(path: Path) -> dict:
+    """Read a JSON file, returning {} when it does not exist."""
     if not path.exists():
         return {}
     return json.loads(path.read_text(encoding="utf-8"))
 
 
 def frame_to_ns(frame: int) -> float:
+    """Convert a frame index/count to ns assuming DUMP_FS fs per frame."""
     return frame * DUMP_FS / 1_000_000.0
 
 
 def tail_reference(arr: np.ndarray, ref_fraction: float) -> tuple[int, float, float]:
+    """Compute the last-``ref_fraction`` reference statistics.
+
+    The std is floored at a tiny value relative to the mean so later
+    sigma-normalized comparisons never divide by zero.
+
+    Args:
+        arr: per-frame energies (Hartree).
+        ref_fraction: tail fraction used as the equilibrated reference.
+
+    Returns:
+        (reference start frame, reference mean, reference std) in Hartree.
+    """
     start = max(int(len(arr) * (1.0 - ref_fraction)), 1)
     ref = arr[start:]
     mean = float(np.mean(ref))
@@ -94,6 +149,20 @@ def tail_reference(arr: np.ndarray, ref_fraction: float) -> tuple[int, float, fl
 
 
 def threshold_t0(arr: np.ndarray, ref_fraction: float, sigma: float) -> tuple[int, float, float, int]:
+    """Detect the trim start via the tail-mean threshold criterion.
+
+    t0 is the earliest frame whose suffix mean (mean of all frames from
+    that index to the end) falls within ``sigma`` reference-stds of the
+    tail-reference mean; ``len(arr)`` when no frame qualifies.
+
+    Args:
+        arr: per-frame energies (Hartree).
+        ref_fraction: tail fraction defining the reference.
+        sigma: allowed deviation in units of the reference std.
+
+    Returns:
+        (t0 frame, reference mean, reference std, reference start frame).
+    """
     ref_start, ref_mean, ref_std = tail_reference(arr, ref_fraction)
     tail_means = np.cumsum(arr[::-1])[::-1] / np.arange(len(arr), 0, -1)
     in_band = np.abs(tail_means - ref_mean) <= sigma * ref_std
@@ -103,6 +172,21 @@ def threshold_t0(arr: np.ndarray, ref_fraction: float, sigma: float) -> tuple[in
 
 
 def rolling_stats(arr: np.ndarray, ref_mean: float, ref_std: float, window: int, sigma: float) -> dict:
+    """Diagnose when the rolling mean enters/stays in the reference band.
+
+    Args:
+        arr: per-frame energies (Hartree).
+        ref_mean: reference mean (Hartree).
+        ref_std: reference std (Hartree).
+        window: rolling-mean window in frames.
+        sigma: band half-width in units of ``ref_std``.
+
+    Returns:
+        Dict with ``first_in_band`` (frame of first in-band window
+        center), ``stable_from`` (frame after which every window stays
+        in band), ``fraction_in_band``, and ``max_abs_sigma``; the first
+        three are None when the trajectory is shorter than the window.
+    """
     if len(arr) < window:
         return {"first_in_band": None, "stable_from": None, "fraction_in_band": None}
     roll = np.convolve(arr, np.ones(window) / window, mode="valid")
@@ -121,6 +205,19 @@ def rolling_stats(arr: np.ndarray, ref_mean: float, ref_std: float, window: int,
 
 
 def candidate_stats(arr: np.ndarray, start: int, ref_mean: float, ref_std: float) -> dict:
+    """Statistics of the energies retained by one candidate trim start.
+
+    Args:
+        arr: per-frame energies (Hartree).
+        start: trim start frame (clamped into range).
+        ref_mean: reference mean (Hartree).
+        ref_std: reference std (Hartree).
+
+    Returns:
+        Dict with the clamped start, kept frame count/ns, kept mean/std,
+        ``delta_ref_sigma`` (|kept mean - ref mean| / ref std), and the
+        20-block standard error of the mean (NaN when <2 blocks or empty).
+    """
     start = min(max(int(start), 0), len(arr))
     kept = arr[start:]
     if len(kept) == 0:
@@ -154,6 +251,22 @@ def candidate_stats(arr: np.ndarray, start: int, ref_mean: float, ref_std: float
 
 
 def autocorrelation_summary(arr: np.ndarray, max_lag: int = 50_000) -> dict:
+    """Summarize the normalized energy autocorrelation function.
+
+    The ACF is computed via FFT with per-lag normalization, truncated at
+    ``max_lag``. The statistical inefficiency g = 1 + 2*sum(ACF) is
+    integrated up to the first non-positive lag.
+
+    Args:
+        arr: per-frame energies (Hartree).
+        max_lag: largest lag (frames) kept in the normalized ACF.
+
+    Returns:
+        Dict with ``acf_lag_<L>`` samples at the ``ACF_LAGS`` lags,
+        ``lag_1_over_e`` / ``lag_0p1`` (first lags where the ACF drops
+        below 1/e and 0.1; None when never), ``g_first_negative``, and
+        ``first_nonpositive_lag``.
+    """
     centered = arr - float(np.mean(arr))
     n = len(centered)
     fft_len = 1 << (2 * n - 1).bit_length()
@@ -191,6 +304,7 @@ def autocorrelation_summary(arr: np.ndarray, max_lag: int = 50_000) -> dict:
 
 
 def write_csv(path: Path, rows: list[dict], fieldnames: list[str]) -> None:
+    """Write dict rows as CSV with the given fixed column order."""
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
@@ -199,6 +313,7 @@ def write_csv(path: Path, rows: list[dict], fieldnames: list[str]) -> None:
 
 
 def fmt_num(value, digits: int = 3) -> str:
+    """Format a value for the Markdown report ("-" for None/NaN/inf)."""
     if value is None:
         return "-"
     if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
@@ -209,6 +324,16 @@ def fmt_num(value, digits: int = 3) -> str:
 
 
 def plot_energy(results: dict) -> None:
+    """Plot per-label energy traces with rolling means and trim markers.
+
+    One panel per label: downsampled raw energy, 500/5000-frame rolling
+    means, the last-20% reference mean +- 1 std band, and vertical lines
+    at the highlighted candidate trim starts. No-op without matplotlib.
+
+    Args:
+        results: label -> {energies, ref, candidate_starts} as assembled
+            in ``main``.
+    """
     if plt is None:
         return
     fig, axes = plt.subplots(3, 1, figsize=(13, 10), sharex=False)
@@ -242,6 +367,12 @@ def plot_energy(results: dict) -> None:
 
 
 def plot_candidate_sensitivity(candidate_rows: list[dict]) -> None:
+    """Plot kept-mean deviation versus trim start for every candidate.
+
+    One line per label with the highlighted candidates annotated; the
+    dashed guide marks a 1-sigma deviation from the reference mean.
+    No-op without matplotlib.
+    """
     if plt is None:
         return
     fig, ax = plt.subplots(figsize=(10, 5))
@@ -267,6 +398,15 @@ def plot_candidate_sensitivity(candidate_rows: list[dict]) -> None:
 
 
 def configure_paths(project_dir: Path, out_dir: Path | None = None) -> None:
+    """Rebind the module-level project/output/input path globals.
+
+    Must be called (as ``main`` does) before the analysis so the fixed
+    C/D/S run layout is rooted at the actual project directory.
+
+    Args:
+        project_dir: stage-03 project directory containing the C/D/S runs.
+        out_dir: output directory (default ``<project>/sensitivity``).
+    """
     global PROJECT, OUTDIR, TRAJECTORIES, PYMBAR_INFO, THRESHOLD_INFO
     PROJECT = project_dir.resolve()
     OUTDIR = out_dir.resolve() if out_dir else PROJECT / "sensitivity"
@@ -288,6 +428,16 @@ def configure_paths(project_dir: Path, out_dir: Path | None = None) -> None:
 
 
 def main() -> None:
+    """CLI entry point: run the full sensitivity study for C, D, and S.
+
+    For each label: read energies, compute the reference/threshold/
+    rolling/candidate/ACF diagnostics (with extra fixed candidate starts
+    for C), then write the CSVs, Markdown report, JSON payload, and plots
+    to the output directory.
+
+    Raises:
+        RuntimeError: a trajectory yields no energies.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project-dir", type=Path, default=DEFAULT_PROJECT, help="03_qm_to_martini project directory")
     parser.add_argument("--out-dir", type=Path, default=None, help="Output directory. Default: <project-dir>/sensitivity")

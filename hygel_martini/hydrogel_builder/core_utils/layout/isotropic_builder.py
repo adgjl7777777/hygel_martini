@@ -1,4 +1,47 @@
-"""Isotropic medium-cell builder with per-cell EM."""
+"""Isotropic medium-cell builder with per-cell EM.
+
+Historical diamond-lattice coordinate builder for "isotropy mode". Instead
+of laying out one anisotropic super-cell, the box is decomposed into medium
+cells (one per entry of ``MEDIUM_ACTIVE_INDICES`` per repeat), each of which
+gets 4 backbone chains on the diamond ``POLYMER_POSITIONS`` motif plus a
+primary and a secondary linker whose axes are chosen per cell — either at
+random or via the connectivity-aware balanced matching in
+:mod:`local_matching`. Each populated cell is squeezed into its cube,
+chain-end offsets are applied so linker stubs meet backbone ends, and the
+cells are concatenated into one global :class:`LayoutBlueprint`.
+
+Ownership and call sites
+    The public entry point is :func:`build_isotropic_blueprint`, called from
+    ``config_params/build_hydrogel.py`` when ``isotropy`` mode is enabled.
+    The per-cell EM helpers (:func:`_run_medium_cell_em` and friends) support
+    the "per-cell EM" variant of this pipeline.
+
+    Reuse note: :func:`_resolve_close_contacts` — the spatial-hash,
+    27-neighbor coincidence resolver defined here — is also imported by
+    ``build_hydrogel.py`` and applied to *every* layout after blueprint
+    population, including the newer net-driven layout path (which reproduces
+    the same overlap failure via parallel strands). Changes to its contract
+    affect all layout modes, not just isotropy.
+
+Inputs and outputs
+    Input is a prototype plan (``proto_plan``: proto backbone/linker
+    geometry, segment length, sequence factory), the backbone/linker
+    definitions and template library, the repeat counts, and
+    ``simulation_parameters``. Output is a single flat
+    :class:`LayoutBlueprint` whose atom positions are final pre-EM
+    coordinates in nm; per-cell debug GRO files are written under
+    ``<output_dir>/medium_cell/<idx>/``.
+
+Invariants
+    * All lengths are nm; force constants are kJ/mol/nm^2.
+    * ``small_edge`` is the proto small-cell edge; a medium cell spans
+      ``base_size = 2 * small_edge`` per axis and a big cell spans
+      ``cell_vector = 2 * base_size``.
+    * Atom/chain indices are cell-local until :func:`_offset_blueprint`
+      re-bases them during final concatenation.
+    * The returned blueprint contains no exact position coincidences
+      (resolved by :func:`_resolve_close_contacts` before returning).
+"""
 
 from dataclasses import replace
 from typing import Dict, List, Tuple, Optional, Sequence
@@ -27,11 +70,13 @@ from hygel_martini.hydrogel_builder.config_params.config import Config
 
 
 def _linear_index(ix: int, iy: int, iz: int, repeats: Tuple[int, int, int]) -> int:
+    """Flatten a 3D repeat-cell index into a row-major linear index."""
     nx, ny, nz = repeats
     return ix * ny * nz + iy * nz + iz
 
 
 def _normalize(vec: np.ndarray) -> np.ndarray:
+    """Return ``vec`` scaled to unit length; near-zero vectors pass through."""
     norm = np.linalg.norm(vec)
     if norm < 1e-9:
         return vec
@@ -39,6 +84,15 @@ def _normalize(vec: np.ndarray) -> np.ndarray:
 
 
 def _axis_rotation_matrix(axis: str) -> np.ndarray:
+    """Return the 90-degree rotation that maps the x axis onto ``axis``.
+
+    Args:
+        axis: ``"y"`` or ``"z"``; any other value yields the identity
+            (i.e. keep the x orientation).
+
+    Returns:
+        np.ndarray: 3x3 rotation matrix.
+    """
     if axis == "y":
         return np.array([[0.0, -1.0, 0.0],
                          [1.0,  0.0, 0.0],
@@ -51,10 +105,17 @@ def _axis_rotation_matrix(axis: str) -> np.ndarray:
 
 
 def _apply_rotation(vec: np.ndarray, rot: np.ndarray) -> np.ndarray:
+    """Apply rotation matrix ``rot`` to row vector(s) ``vec``."""
     return vec @ rot.T
 
 
 def _get_anisotropy_axis() -> str:
+    """Read ``simulation_parameters.anisotropy`` defensively.
+
+    Returns:
+        str: ``"x"``, ``"y"`` or ``"z"``; any missing, unreadable or
+        unrecognized configuration falls back to ``"x"``.
+    """
     axis = "x"
     try:
         axis = str(Config.get_param('simulation_parameters').get('anisotropy', 'x')).lower()
@@ -66,6 +127,17 @@ def _get_anisotropy_axis() -> str:
 
 
 def _normalize_linker_axes(linker_axes: Optional[Sequence[str]]) -> List[str]:
+    """Coerce a linker-axis spec into exactly two valid axis names.
+
+    Args:
+        linker_axes: ``None``, a single axis string, or a sequence of axis
+            strings; entries other than x/y/z are dropped.
+
+    Returns:
+        list[str]: Exactly two lower-case axis names (primary, secondary).
+        A single valid axis is duplicated; no valid axes yields
+        ``["x", "x"]``; extras beyond the first two are discarded.
+    """
     if linker_axes is None:
         axes = ["x", "x"]
     elif isinstance(linker_axes, str):
@@ -91,11 +163,22 @@ def _squeeze_positions_to_cube(
 ) -> np.ndarray:
     """Rescale all positions to fit inside a cube of side cube_side.
 
-    ghost_step: extend the bounding box by this amount on each side before
-    scaling.  Set to backbone_bond_c0/sqrt(3) to restore the inter-cell gap
-    that the bare squeeze would cancel: the boundary atoms then sit one bond
-    projection away from the cell face, matching the gap that existed in raw
-    (pre-squeeze) space.  Pass 0 to reproduce the original behaviour.
+    The bounding box is scaled anisotropically (per axis) onto the cube and
+    the result is re-centered on the origin.
+
+    Args:
+        positions: ``(N, 3)`` coordinates (nm).
+        cube_side: Target cube edge length (nm).
+        ghost_step: Extend the bounding box by this amount (nm) on each side
+            before scaling. Set to ``backbone_bond_c0 / sqrt(3)`` to restore
+            the inter-cell gap that the bare squeeze would cancel: the
+            boundary atoms then sit one bond projection away from the cell
+            face, matching the gap that existed in raw (pre-squeeze) space.
+            Pass 0 to reproduce the original behaviour.
+
+    Returns:
+        np.ndarray: Rescaled coordinates centered on the origin (i.e. in
+        ``[-cube_side/2, cube_side/2]`` per axis when ghost_step is 0).
     """
     mins = positions.min(axis=0) - ghost_step
     maxs = positions.max(axis=0) + ghost_step
@@ -106,6 +189,19 @@ def _squeeze_positions_to_cube(
 
 
 def _linker_total_length(entry: Dict, fallback: float, override: float | None = None) -> float:
+    """Resolve the end-to-end length (nm) of a linker definition.
+
+    Args:
+        entry: Linker config entry (or its inner ``definition`` dict); its
+            internal ``bonds`` and ``external_bonds`` lengths are summed.
+        fallback: Length used when the definition carries no bond lengths
+            (typically the proto linker length).
+        override: Explicit span (nm) from a loaded linker template; wins
+            outright when positive.
+
+    Returns:
+        float: The linker length in nm.
+    """
     if override is not None and override > 0:
         return float(override)
     definition = entry.get('definition', entry)
@@ -134,6 +230,31 @@ def _write_linker_debug(path: str,
                         scale: np.ndarray,
                         mins: np.ndarray,
                         maxs: np.ndarray) -> None:
+    """Dump one medium cell's linker geometry to a JSON debug file.
+
+    Records the squeeze parameters, every backbone chain's head/tail
+    positions before and after compression, and for every linker its
+    external-bond stub positions, the stub-to-stub vector, the planned axis
+    direction, and their dot product — enough to check offline whether each
+    linker's actual orientation matches the axis it was assigned.
+
+    Args:
+        path: Output JSON path.
+        blueprint: Cell-local blueprint whose atoms/chains are inspected.
+        positions_pre: Atom coordinates (nm) before the cube squeeze.
+        positions_post: Atom coordinates (nm) after squeeze/offsets.
+        axes: [primary, secondary] linker axis names for this cell.
+        medium_origin: Cell origin in the global frame (nm).
+        box_vector: Global box vector (nm).
+        cube_side: Target cube edge used by the squeeze (nm).
+        small_edge: Proto small-cell edge (nm).
+        linker_len: Linker length used for offsets (nm).
+        base_size: Medium-cell edge vector (nm).
+        cell_vector: Big-cell edge vector (nm).
+        scale: Per-axis squeeze scale factors.
+        mins: Pre-squeeze bounding-box minima (nm).
+        maxs: Pre-squeeze bounding-box maxima (nm).
+    """
     chain_atoms: Dict[Tuple[str, int], List[Tuple[int, int]]] = {}
     for idx, atom in enumerate(blueprint.atoms):
         chain_atoms.setdefault((atom.chain_type, atom.chain_index), []).append((atom.bead_index, idx))
@@ -250,6 +371,32 @@ def _resolve_close_contacts(
     coincidences by displacing one atom by *jitter* nm before any EM run.
 
     Uses spatial hashing (O(n)) so it's safe on large backbones.
+
+    Shared contract: this resolver is not isotropy-specific.
+    ``config_params/build_hydrogel.py`` imports it and runs it on every
+    layout after blueprint population — including the newer net-driven
+    layout, whose parallel strands reproduce the same coincidence failure —
+    with a raised ``threshold=0.05`` / ``jitter=0.12`` there. Keep the
+    behavior (in-place mutation, deterministic seed, distance guarantee)
+    stable for both callers.
+
+    Sweep detail: atoms are inserted into the hash grid one by one, and each
+    atom is compared against already-inserted atoms in its 27 surrounding
+    cells (cell size = ``threshold``). On a hit the current atom is pushed
+    away from its partner along their actual separation direction to exactly
+    ``jitter`` nm (a random direction is drawn only for exact coincidences),
+    both in the local array and on the atom object.
+
+    Args:
+        atoms: Objects with a mutable 3-vector ``position`` attribute (nm);
+            modified in place.
+        threshold: Contact distance (nm) below which a pair is resolved.
+        jitter: Post-resolution separation (nm) between the pair.
+        seed: Seed for the RNG used on exact coincidences, so rebuilds are
+            reproducible.
+
+    Returns:
+        int: Number of atoms displaced.
     """
     if not atoms:
         return 0
@@ -300,6 +447,19 @@ def _resolve_close_contacts(
 
 
 def _pick_boundary_atoms(positions: np.ndarray) -> List[int]:
+    """Pick up to four atoms nearest to alternating cube corners.
+
+    The four corners form a tetrahedral subset of the bounding box's eight
+    corners, giving well-spread anchor points for position restraints
+    during per-cell EM.
+
+    Args:
+        positions: ``(N, 3)`` atom coordinates (nm).
+
+    Returns:
+        list[int]: Unique atom indices (deduplicated, so fewer than four
+        for degenerate geometries).
+    """
     mins = positions.min(axis=0)
     maxs = positions.max(axis=0)
     spans = np.maximum(maxs - mins, 1e-9)
@@ -320,6 +480,13 @@ def _pick_boundary_atoms(positions: np.ndarray) -> List[int]:
 
 
 def _write_posre_itp(path: str, atom_indices: List[int], fc: float) -> None:
+    """Write a GROMACS position-restraint ITP for the given atoms.
+
+    Args:
+        path: Output .itp path.
+        atom_indices: 1-based GROMACS atom indices to restrain.
+        fc: Isotropic force constant (kJ/mol/nm^2) applied on x, y and z.
+    """
     with open(path, "w", encoding="utf-8") as f:
         f.write("[ position_restraints ]\n")
         f.write("; atom  type  fx  fy  fz\n")
@@ -328,6 +495,19 @@ def _write_posre_itp(path: str, atom_indices: List[int], fc: float) -> None:
 
 
 def _write_system_top(path: str, itp_path: str, posre_path: str, base_itp: str | None) -> None:
+    """Write a minimal .top for one medium cell's EM run.
+
+    Includes the optional force-field base ITP, the generated system ITP,
+    and the position-restraint file guarded by ``#ifdef POSRES`` (activated
+    via ``define = -DPOSRES`` in the EM mdp). The system contains a single
+    HYDROGEL molecule.
+
+    Args:
+        path: Output .top path.
+        itp_path: Combined system ITP (made absolute in the include).
+        posre_path: Position-restraint ITP (made absolute in the include).
+        base_itp: Optional force-field ITP included first; skipped if None.
+    """
     with open(path, "w", encoding="utf-8") as f:
         if base_itp:
             f.write(f'#include "{os.path.abspath(base_itp)}"\n')
@@ -346,6 +526,26 @@ def _build_world_from_blueprint(blueprint: LayoutBlueprint,
                                 output_dir: str,
                                 mean_sep: float,
                                 construct_proto_bonds: bool = True):
+    """Materialize a blueprint into a fresh global ``World``.
+
+    Resets the ``World`` singleton (destroying any previous system state!),
+    creates a single 1x1x1 hydrogel, populates it from the blueprint, and
+    sets the box.
+
+    Args:
+        blueprint: Atom/chain blueprint to instantiate.
+        box_vector: Box edge lengths (nm); ``World.box_length`` is set to
+            the largest component.
+        output_dir: Directory passed to ``construct_bonds`` for its outputs.
+        mean_sep: Mean bead separation (nm) stored on ``World``.
+        construct_proto_bonds: When True, run the prototype bond
+            construction pass; the EM helper skips it because the blueprint
+            already carries explicit bonds.
+
+    Returns:
+        tuple: ``(world, hydrogel)`` — the World instance and its single
+        hydrogel object.
+    """
     World.reset()
     Attributes.initialize()
     World.mean_sep = float(mean_sep)
@@ -367,6 +567,35 @@ def _run_medium_cell_em(blueprint: LayoutBlueprint,
                         out_dir: str,
                         sim_params: Dict,
                         temp_bonds: List[Tuple[int, int, Dict]] | None = None) -> List[np.ndarray]:
+    """Energy-minimize one medium cell and return the relaxed positions.
+
+    Builds a throwaway ``World`` from the cell blueprint, writes GRO/ITP/TOP
+    plus a position-restraint file for the boundary anchor atoms, and runs a
+    single GROMACS EM. Two temporary force modifications are active during
+    the run and reverted afterwards: backbone-backbone bond force constants
+    are softened to 10% (so the squeezed chains can relax without blowing
+    up), and any ``temp_bonds`` are added, then removed.
+
+    Args:
+        blueprint: Cell-local blueprint (bonds already explicit; proto bond
+            construction is skipped).
+        box_vector: Cell box (nm).
+        fixed_atom_indices: 1-based indices restrained during EM (see
+            :func:`_pick_boundary_atoms`), with force constant
+            ``isotropy.boundary_fix_fc`` (default 1e5 kJ/mol/nm^2).
+        out_dir: Directory for all EM inputs/outputs.
+        sim_params: Simulation parameters (gmx path, maxwarn, gpu_id,
+            omp_threads, mean_sep, base_itp_file, ...).
+        temp_bonds: Optional ``(i, j, params)`` bonds to hold parts together
+            only during this EM.
+
+    Returns:
+        list[np.ndarray]: Relaxed atom positions (nm) read from ``em.gro``,
+        in file order.
+
+    Raises:
+        FileNotFoundError: If EM produced no ``em.gro``.
+    """
     os.makedirs(out_dir, exist_ok=True)
     mean_sep = float(sim_params.get("mean_sep", 0.24))
     world, _ = _build_world_from_blueprint(
@@ -376,6 +605,10 @@ def _run_medium_cell_em(blueprint: LayoutBlueprint,
         mean_sep,
         construct_proto_bonds=False
     )
+    # Soften backbone-backbone bonds to 10% for this EM only: the cube
+    # squeeze compresses chains well below their equilibrium bond length, and
+    # full-strength springs make the first EM steps explode. Original c1
+    # values are snapshotted by bond object identity and restored below.
     backbone_atom_ids = {i for i, atom in enumerate(blueprint.atoms) if atom.chain_type == "backbone"}
     backbone_bond_snapshot = {}
     if backbone_atom_ids:
@@ -434,6 +667,8 @@ def _run_medium_cell_em(blueprint: LayoutBlueprint,
     em_path = os.path.join(out_dir, "em.gro")
     if not os.path.exists(em_path):
         raise FileNotFoundError(f"medium-cell EM output missing: {em_path}")
+    # Revert the temporary force modifications: drop the temp bonds and
+    # restore the snapshotted backbone force constants.
     for key in temp_keys:
         if key in World.Bonds:
             del World.Bonds[key]
@@ -448,6 +683,7 @@ def _run_medium_cell_em(blueprint: LayoutBlueprint,
 
 
 def pbc_diff(pos1, pos2, box):
+    """Minimum-image displacement ``pos1 - pos2`` in an orthorhombic box."""
     return minimum_image(pos1 - pos2, box)
 
 
@@ -458,7 +694,33 @@ def _optimize_linker_axes(
     base_size: np.ndarray,
     seed: int | None = None
 ) -> Dict[Tuple[Tuple[int, int, int], Tuple[int, int, int]], Tuple[Dict, Dict]]:
-    """Plan connectivity-aware xyz-balanced linker axes for each cell using local_matching."""
+    """Plan connectivity-aware, xyz-balanced linker axes for every cell.
+
+    Reconstructs the ideal (pre-squeeze) diamond geometry of the whole box:
+    two 4-valent linker vertices per medium cell (primary at the cell
+    origin, secondary at ``origin + small_edge * (1,1,1)``) and one chain
+    edge per ``POLYMER_POSITIONS`` entry. Each chain endpoint is assigned to
+    its PBC-nearest vertex and given a diamond local-coordinate label from
+    the sign pattern of the chain-center-to-vertex vector. The balanced
+    matching solver then picks an axis and an endpoint pairing per vertex so
+    that x/y/z usage stays balanced and long cycles are favored.
+
+    Args:
+        repeats: Big-cell repeat counts (nx, ny, nz).
+        small_edge: Proto small-cell edge (nm).
+        cell_vector: Big-cell edge vector (nm).
+        base_size: Medium-cell edge vector (nm).
+        seed: Seed for the matching solver's randomized attempts.
+
+    Returns:
+        dict: ``(big_cell_idx, medium_idx) -> (primary_plan,
+        secondary_plan)`` where each plan is ``{"axis": str,
+        "planned_endpoint_edges": ...}`` for that linker vertex.
+
+    Raises:
+        ValueError: If any reconstructed vertex does not receive exactly
+            four chain endpoints (a geometry/bookkeeping bug).
+    """
     nx, ny, nz = repeats
     total_box = cell_vector * np.array([nx, ny, nz], dtype=float)
 
@@ -532,6 +794,11 @@ def _optimize_linker_axes(
                             s = np.sign(v)
                             s = np.where(s == 0, 1.0, s)
 
+                            # The octant sign pattern of (chain center -
+                            # vertex) selects which of the four diamond bond
+                            # directions the chain leaves this vertex along;
+                            # encode it as the matching solver's local
+                            # coordinate label.
                             if s[0] == s[1] == s[2]:
                                 lc = (0, 0, 0)
                             elif s[0] != s[1] and s[0] != s[2]:
@@ -574,6 +841,21 @@ def _optimize_linker_axes(
 
 
 def _offset_blueprint(blueprint: LayoutBlueprint, atom_offset: int, chain_offset: int) -> LayoutBlueprint:
+    """Re-base a cell-local blueprint's atom and chain indices.
+
+    Used when concatenating per-cell blueprints into the global one: chain
+    indices shift by ``chain_offset`` and each chain's atom index list by
+    ``atom_offset``. Entries are shallow ``dataclasses.replace`` copies, so
+    positions and metadata are shared with the input.
+
+    Args:
+        blueprint: Cell-local blueprint.
+        atom_offset: Number of atoms already emitted globally.
+        chain_offset: First free global chain index.
+
+    Returns:
+        LayoutBlueprint: A blueprint with globally unique indices.
+    """
     atoms = []
     for atom in blueprint.atoms:
         atoms.append(replace(atom, chain_index=atom.chain_index + chain_offset))
@@ -596,7 +878,60 @@ def build_isotropic_blueprint(proto_plan,
                               linker_library,
                               output_dir: str,
                               sim_params: Dict) -> LayoutBlueprint:
+    """Build the full isotropic-mode coordinate blueprint.
+
+    Pipeline per medium cell (8 cells per big-cell repeat via
+    ``MEDIUM_ACTIVE_INDICES``):
+
+    1. Choose the primary/secondary linker axes — from the connectivity-
+       aware global plan when ``linker_orientation_strategy ==
+       "connectivity_aware"``, otherwise uniformly at random.
+    2. Place the four diamond backbone chains (``POLYMER_POSITIONS`` /
+       ``ORIENTATION_MAP``), instantiating per-chain monomer sequences
+       through the proto plan's sequence factory, and the two linkers,
+       drawing linker templates ratio-weighted from the library.
+    3. Expand to atoms via :func:`build_atom_blueprint` and squeeze the
+       cell into its ``cube_side`` cube (with a ghost-step margin so the
+       inter-cell gap survives the squeeze; pre-squeeze positions are kept
+       in each atom's ``extra['pre_compress_position']``).
+
+    Then three global passes run over all cells: (1) bend the backbone
+    chain facing each cell's primary axis away from it, unless the
+    PBC-nearest linker already points along that axis; (2) for each linker
+    stub, pick one of the three PBC-nearest backbone chains at random and
+    pull its near end toward the stub along the linker axis with a linearly
+    decaying offset; (3) write per-cell debug GRO files, translate cells to
+    their global origins and concatenate with re-based indices. Finally
+    :func:`_resolve_close_contacts` removes the exact coordinate
+    coincidences inherent to the diamond layout.
+
+    Args:
+        proto_plan: Prototype plan carrying the small-cell edge, proto
+            backbone/linker geometry, sequence factory, bond lookup and
+            mean separation.
+        backbone_defs: Backbone definition entries (with ``ratio`` weights).
+        linker_defs: Linker definition entries; must have unique ids.
+        repeats: Big-cell repeat counts (nx, ny, nz).
+        backbone_strategy: Accepted for interface parity; not used here
+            (sequences come from the proto plan's sequence factory).
+        linker_strategy: Accepted for interface parity; not used here.
+        linker_library: Loaded linker template library; when it has records
+            they take precedence over raw ``linker_defs`` for placement.
+        output_dir: Root for ``medium_cell/<idx>/`` debug outputs.
+        sim_params: Simulation parameters (``linker_orientation_strategy``,
+            ``random_seed``, ``mean_sep``, ...).
+
+    Returns:
+        LayoutBlueprint: All cells' atoms and chains with global indices
+        and final pre-EM coordinates (nm).
+
+    Raises:
+        ValueError: If linker ids collide, or the connectivity-aware
+            planner finds an inconsistent vertex.
+    """
     nx, ny, nz = repeats
+    # Geometry ladder: small cell (one chain) -> medium cell (2x per axis,
+    # the squeeze/EM unit) -> big cell (2x again, one repeat unit).
     small_edge = float(proto_plan.small_size[0])
     linker_len = float(proto_plan.proto_linker.length) if proto_plan.proto_linker is not None else 0.0
     base_size = np.array([2.0 * small_edge, 2.0 * small_edge, 2.0 * small_edge], dtype=float)
@@ -650,6 +985,9 @@ def build_isotropic_blueprint(proto_plan,
             seed=seed
         )
 
+    # Per-cell placement: lay out chains and linkers in raw proto space,
+    # expand to atoms, squeeze into the cube, and stash everything needed by
+    # the global adjustment passes below.
     idx = 0
     for ix in range(nx):
         for iy in range(ny):
@@ -674,6 +1012,10 @@ def build_isotropic_blueprint(proto_plan,
                         axes = _normalize_linker_axes(axes)
                         primary_axis = axes[0]
                         secondary_axis = axes[1]
+                    # Linker anchors: the primary linker sits at the cell
+                    # origin, offset half its length along its axis; the
+                    # secondary sits at the (1,1,1) small-cell corner, pushed
+                    # past the primary's full length plus half its own.
                     axis_index = {"x": 0, "y": 1, "z": 2}
                     first_vec = np.zeros(3, dtype=float)
                     first_vec[axis_index[primary_axis]] = linker_len * 0.5
@@ -683,6 +1025,7 @@ def build_isotropic_blueprint(proto_plan,
                     Config.debug_log(f"[isotropy] medium_cell {idx} axes={axes} origin={medium_origin.tolist()}")
 
                     def _axis_center(idx_val: int) -> float:
+                        """Center coordinate of small-cell slot 0 or 1."""
                         return small_edge * (0.5 + idx_val)
 
                     used_sequences: set[Tuple[str, ...]] = set()
@@ -700,6 +1043,10 @@ def build_isotropic_blueprint(proto_plan,
                             _axis_center(y_idx),
                             _axis_center(z_idx)
                         ], dtype=float)
+                        # Shift chain centers to make room for the linkers:
+                        # every chain moves past the primary linker, and the
+                        # far slot along the secondary axis moves past the
+                        # secondary linker too.
                         center_local[axis_index[primary_axis]] += linker_len
                         if secondary_axis == "x" and x_idx == 1:
                             center_local[0] += linker_len
@@ -805,6 +1152,9 @@ def build_isotropic_blueprint(proto_plan,
                     for i, atom in enumerate(sub_blueprint.atoms):
                         atom.extra = dict(atom.extra or {})
                         atom.extra["pre_compress_position"] = positions[i].copy()
+                    # Squeeze into cell-local frame: subtract the origin,
+                    # compress to the cube (origin-centered), then shift so
+                    # coordinates span [0, cube_side] per axis.
                     positions -= medium_origin
                     positions_post = _squeeze_positions_to_cube(positions, cube_side, ghost_step=ghost_step)
                     positions_post += np.array([cube_side / 2.0, cube_side / 2.0, cube_side / 2.0])
@@ -880,6 +1230,7 @@ def build_isotropic_blueprint(proto_plan,
                 apply_shift = True
                 if global_linkers:
                     def _pbc_distance_sq(center):
+                        """Squared PBC distance from the chain's far end."""
                         delta = minimum_image(far_end_global - center, total_box)
                         return float(np.dot(delta, delta))
                     nearest_axis = min(
@@ -911,6 +1262,7 @@ def build_isotropic_blueprint(proto_plan,
                 })
 
     def _pbc_delta(vec):
+        """Minimum-image image of a displacement in the full box."""
         return minimum_image(vec, total_box)
 
     for record in per_cell_records:
@@ -936,6 +1288,7 @@ def build_isotropic_blueprint(proto_plan,
             axis_idx = axis_index[axis]
 
             def _matches_any(res_name, target_names):
+                """True when the residue name (or any of a list) matches."""
                 if isinstance(res_name, list):
                     return any(name in target_names for name in res_name)
                 return res_name in target_names

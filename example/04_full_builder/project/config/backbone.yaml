@@ -15,7 +15,12 @@
 #          from the linker ITP and keeps the original ITP parameter unless a
 #          matching residue/type rule is added here.
 
+# 각 규칙: residue_name/bead_type 패턴이 (와일드카드 "*" 허용) 일치하는 결합의
+# funct/c0/c1을 덮어쓴다. c0 = 평형 길이 (nm), c1 = 힘 상수 (kJ/mol/nm²).
+# Each rule overwrites funct/c0/c1 of bonds whose residue_name/bead_type
+# pattern matches ("*" is a wildcard); c0 in nm, c1 in kJ/mol/nm².
 bonds:
+  # backbone-backbone 결합 / backbone-backbone bonds
   - residue_name: [BCK1, BCK1]
     bead_type: [C1, C1]
     funct: 1
@@ -31,6 +36,8 @@ bonds:
     funct: 1
     c0: 0.47
     c1: 1250
+  # linker stub(LB*)과 backbone end 사이 external junction bond.
+  # External junction bonds between linker stubs (LB*) and backbone ends.
   - residue_name: [LB1, BCK1]
     bead_type: ["*", C1]
     funct: 1

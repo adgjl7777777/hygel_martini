@@ -1,5 +1,11 @@
+# maker_anisotropy_x.yaml — x축 anisotropic layout variant.
+# maker.yaml과 같은 config를 쓰되 아래 두 키만 덮어쓴다.
+# Same stack as maker.yaml; only the two overrides below differ.
+#
 # includes: 파일 병합 순서 (위에서 아래 순서로 로드 후 마지막 이 파일이 덮어씀)
 # en: includes are loaded in order, then this file can override.
+# ${CONFIG_DIR}는 include된 파일이 아니라 이 파일의 디렉터리 기준.
+# ${CONFIG_DIR} resolves against this file's directory, not the included files'.
 includes:
   - config/simulation.yaml
   - config/hydrogel.yaml
@@ -8,5 +14,8 @@ includes:
   - config/backbone.yaml
 
 simulation_parameters:
+  # isotropic 빌드의 output/과 분리. Kept separate from the isotropic build's output/.
   output_dir: ${CONFIG_DIR}/output_anisotropy_x
+  # simulation.yaml의 anisotropy: false를 덮어써 x축 방향 이방성 layout 선택.
+  # Overrides simulation.yaml's anisotropy: false to lay out along the x axis.
   anisotropy: x

@@ -1,14 +1,32 @@
+"""GROMACS MDP generation for the rheology/dynamics MD protocols.
+
+Owns :class:`MDProtocolGenerator`, which renders MDP text (Martini
+standard nonbonded settings baked in) for the NEMD shear runs consumed
+by :mod:`.rheology` / :mod:`.extractors.rheology_nemd` and for
+high-frequency energy runs intended for Green-Kubo stress ACFs.  It
+only writes MDP content — wiring top/gro and running ``grompp`` are
+the caller's job.
+
+Draft status is explicit: the shear MDP's physical soundness
+(ensemble/barostat choice for anisotropic coupling combined with
+``deform``) still needs verification against the GROMACS manual, and
+the generated files say so in their comments.
+"""
 import os
 
 
 class MDProtocolGenerator:
-    """
-    GROMACS MDP 파일 생성기.
-    초안 상태: shear MDP의 물리적 적합성(ensemble, barostat 선택)은 GROMACS manual 기준으로
-    별도 검증 필요. 이 클래스는 MDP 파일만 생성하며, top/gro 연결이나 grompp 실행은 수행하지 않음.
+    """GROMACS MDP file generator (draft status).
+
+    Draft: the shear MDP's physical soundness (ensemble/barostat
+    choice) still needs verification against the GROMACS manual.  The
+    class generates MDP text/files only — it neither wires top/gro
+    files nor runs ``grompp``.
     """
 
     # Martini 표준 비결합 파라미터
+    # (Martini standard nonbonded block shared by every generated MDP:
+    #  Verlet lists, 1.1 nm cutoffs, reaction-field electrostatics.)
     _MARTINI_NONBONDED = """
 ; Nonbonded (Martini standard)
 cutoff-scheme       = Verlet
@@ -21,6 +39,7 @@ epsilon_rf          = 15
 """
 
     def __init__(self, base_mdp_path=None):
+        """Store an optional base MDP path (currently unused by getters)."""
         self.base_mdp = base_mdp_path
 
     def get_shear_mdp(
@@ -35,19 +54,27 @@ epsilon_rf          = 15
         compressibility=4.5e-5,
         nstenergy=1000,
     ):
-        """
-        NEMD shear MDP 생성.
-        shear_rate     : deform XY 성분 [nm/ps]
-        temperature    : 온도 [K]
-        nsteps         : MD 스텝 수
-        dt             : 타임스텝 [ps]
-        tau_t          : thermostat 시간상수 [ps]
-        tau_p          : barostat 시간상수 [ps]
-        ref_p          : 기준 압력 [bar]
-        compressibility: 압축률 [bar^-1]
-        nstenergy      : energy 출력 간격 [steps]
+        """Render the NEMD shear MDP text.
 
-        경고: anisotropic pressure coupling + deform 조합은 GROMACS manual 기준 검증 필요.
+        Warning: the anisotropic pressure coupling + ``deform``
+        combination must still be verified against the GROMACS manual
+        before quantitative use.
+
+        Args:
+            shear_rate: ``deform`` XY component in nm/ps.
+            temperature: Reference temperature in K.
+            nsteps: Number of MD steps.
+            dt: Timestep in ps.
+            tau_t: Thermostat time constant in ps.
+            tau_p: Barostat time constant in ps.
+            ref_p: Reference pressure in bar.
+            compressibility: Compressibility in bar^-1 (diagonal
+                components only; off-diagonals fixed at 0).
+            nstenergy: Energy output interval in steps.
+
+        Returns:
+            Complete MDP file contents as a string (Martini nonbonded
+            block included).
         """
         compr = f"{compressibility:.2e}"
         return (
@@ -86,9 +113,26 @@ epsilon_rf          = 15
         compressibility=4.5e-5,
         nstenergy=10,
     ):
-        """
-        Green-Kubo ACF용 고빈도 에너지 수집 MDP.
-        nstenergy를 작게 설정해 stress-stress ACF를 계산할 수 있게 함.
+        """Render an MDP for high-frequency energy output (Green-Kubo).
+
+        Same Martini nonbonded block with isotropic Parrinello-Rahman
+        coupling; ``nstenergy`` defaults to 10 steps so the
+        stress-stress autocorrelation can be resolved for Green-Kubo
+        viscosity.
+
+        Args:
+            temperature: Reference temperature in K.
+            nsteps: Number of MD steps.
+            dt: Timestep in ps.
+            tau_t: Thermostat time constant in ps.
+            tau_p: Barostat time constant in ps.
+            ref_p: Reference pressure in bar.
+            compressibility: Compressibility in bar^-1.
+            nstenergy: Energy output interval in steps (small on
+                purpose).
+
+        Returns:
+            Complete MDP file contents as a string.
         """
         compr = f"{compressibility:.2e}"
         return (
@@ -110,10 +154,22 @@ epsilon_rf          = 15
         )
 
     def create_shear_series(self, output_dir, rates=None, temperature=310.15, **mdp_kwargs):
-        """
-        전단 속도 계열 디렉터리와 MDP 파일 생성.
-        rates: 전단 속도 목록 [nm/ps]. 기본값 [0.0001, 0.001, 0.01].
-        경고: MDP 파일만 생성. top/gro 연결 및 grompp 실행은 별도 수행 필요.
+        """Create per-shear-rate directories with their shear MDPs.
+
+        Makes ``<output_dir>/shear_<rate>/shear.mdp`` for every rate
+        (directories created as needed).  Only MDP files are written —
+        top/gro wiring and ``grompp`` runs are separate steps.
+
+        Args:
+            output_dir: Parent directory for the series.
+            rates: Shear rates in nm/ps; default
+                ``[0.0001, 0.001, 0.01]``.
+            temperature: Reference temperature in K.
+            **mdp_kwargs: Extra arguments forwarded to
+                :meth:`get_shear_mdp`.
+
+        Returns:
+            List of the created MDP file paths.
         """
         if rates is None:
             rates = [0.0001, 0.001, 0.01]

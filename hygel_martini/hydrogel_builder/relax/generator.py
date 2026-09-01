@@ -1,4 +1,11 @@
-"""Thin workflow entry helper for post-build hydrogel relaxation runs."""
+"""Thin workflow entry helper for post-build hydrogel relaxation runs.
+
+Owns the stage dispatch only: it loads the relax config (with includes
+and path normalization via ``config.load_relax_config``) and routes on
+``workflow.mode`` to exactly one stage runner — ``soft_em.run_soft_em``,
+``soft_md.run_soft_md``, or ``hard_em_shrink.run_hard_em_shrink``.
+Called by ``cli.main`` and by the lazy package-level wrapper.
+"""
 
 from __future__ import annotations
 
@@ -12,6 +19,19 @@ from .hard_em_shrink import run_hard_em_shrink
 
 
 def run_relax_workflow(config_path: str | Path) -> Dict[str, Any]:
+    """Run one relaxation stage selected by ``workflow.mode`` in the config.
+
+    Args:
+        config_path: Relax config file (.yaml/.yml/.json); ``~`` expanded.
+
+    Returns:
+        Dict with the resolved config path, the mode that ran, and the
+        final structure path returned by the stage runner.
+
+    Raises:
+        FileNotFoundError: If the config file does not exist.
+        ValueError: For an unknown ``workflow.mode``.
+    """
     resolved_path = Path(config_path).expanduser()
     if not resolved_path.exists():
         raise FileNotFoundError(f"Config not found: {resolved_path}")

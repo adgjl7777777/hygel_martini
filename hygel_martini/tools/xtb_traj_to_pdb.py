@@ -1,3 +1,20 @@
+"""Convert an xTB XYZ trajectory to a multi-MODEL PDB with auto-trimming.
+
+Standalone tool for the QM/xTB (stage 03) side of the Bartender
+pipeline: it streams an xTB ``.trj`` (extended-XYZ) file, detects the
+equilibration start t0 from the per-frame energies embedded in the
+comment lines (pymbar detect_equilibration or a tail-mean energy
+threshold), and writes the post-equilibration frames as a MODEL/ENDMDL
+PDB plus a ``*_trim_info.json`` record and optional convergence plots.
+A ``--pdb-info`` mode only counts MODEL frames of an existing PDB.
+
+Runs in two streaming passes over the input (energies, then geometry),
+so memory stays flat for long trajectories.  Energies are in Hartree
+(xTB output); coordinates pass through in Angstrom.  numpy / pymbar /
+matplotlib / tqdm are optional: detection, plots, and progress bars
+degrade gracefully when they are missing.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -33,6 +50,7 @@ ENERGY_RE = re.compile(r"energy:\s*([-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?)")
 
 
 def extract_energy(comment: str) -> float | None:
+    """Extract the "energy:" value (Hartree) from an xTB comment line."""
     match = ENERGY_RE.search(comment)
     if match:
         return float(match.group(1))
@@ -40,7 +58,13 @@ def extract_energy(comment: str) -> float | None:
 
 
 def parse_frames_streaming(path: Path):
-    """Yields (comment_line, atom_lines) for each frame in an XYZ trajectory."""
+    """Yield (comment_line, atom_lines) for each frame in an XYZ trajectory.
+
+    Streams the file without loading it whole; atom lines are returned as
+    stripped raw strings.  Parsing stops silently at the first malformed
+    header or truncated frame, so a partially written trajectory yields
+    only its complete frames.
+    """
     with path.open("r", encoding="utf-8", errors="replace") as f:
         while True:
             line = f.readline()
@@ -76,6 +100,11 @@ def parse_pdb_frame_count(path: Path) -> int:
 
 
 def pdb_atom_line(atom_index: int, symbol: str, x: float, y: float, z: float) -> str:
+    """Format one fixed-width PDB ATOM record (resname MOL, chain A, res 1).
+
+    Coordinates are written in Angstrom with the standard %8.3f fields;
+    element symbols are truncated to two characters.
+    """
     atom_name = symbol[:2].upper().rjust(2)
     return (
         f"ATOM  {atom_index:5d} {atom_name:<4} MOL A{1:4d}    "
@@ -90,17 +119,24 @@ def detect_t0(
     detrend: bool = False,
     fast: bool = False,
 ) -> tuple[int, int, list]:
-    """Pass 1: Extract energies, detect equilibration start.
+    """Pass 1: Extract energies, detect equilibration start via pymbar.
+
+    Falls back to t0=0 (no trimming) when numpy/pymbar are missing, no
+    energies are found in the comments, or detect_equilibration raises.
 
     Args:
+        path: xTB XYZ trajectory file.
         nskip: pymbar nskip — check every Nth frame as a candidate t0.
                Higher values are less sensitive to slow monotonic drift (faster too).
         max_trim_fraction: cap on how much of the trajectory can be discarded.
                E.g. 0.5 means never trim more than 50% regardless of pymbar result.
         detrend: subtract a linear fit from the energy before passing to pymbar.
                  Prevents slow monotonic Epot drift from being flagged as non-equilibrated.
+        fast: pymbar fast mode (approximate but much faster).
 
-    Returns (t0, total_frames, energies).
+    Returns:
+        (t0, total_frames, energies): start frame, frame count with an
+        energy entry, and the energy list in Hartree.
     """
     if np is None or timeseries is None:
         print("[WARN] numpy or pymbar not found. Skipping auto-trimming.", file=sys.stderr)
@@ -158,9 +194,19 @@ def detect_t0_energy_threshold(
 
     t0 = earliest frame t where mean(energy[t:]) is within threshold_sigma * std
     of the mean of the last ref_fraction of the trajectory. Uses numpy cumsum
-    for O(N) computation.
+    for O(N) computation.  The reference std is floored to avoid a
+    degenerate zero-width band; when no frame within max_trim_fraction
+    qualifies, t0 is capped there.  Falls back to t0=0 without numpy or
+    without energies.
 
-    Returns (t0, total_frames, energies).
+    Args:
+        path: xTB XYZ trajectory file.
+        ref_fraction: Trailing fraction of the trajectory used as reference.
+        threshold_sigma: Band half-width in units of the reference std.
+        max_trim_fraction: Cap on the discarded fraction of frames.
+
+    Returns:
+        (t0, total_frames, energies) as in :func:`detect_t0`.
     """
     if np is None:
         print("[WARN] numpy not found. Skipping auto-trimming.", file=sys.stderr)
@@ -229,7 +275,15 @@ def detect_t0_energy_threshold(
 
 
 def _block_standard_error(data, max_block_size=None):
-    """Compute BSE vs block size for block averaging convergence check."""
+    """Compute block standard error vs block size for a convergence check.
+
+    Block sizes run from 1 up to max_block_size (default N//4) but stop
+    once fewer than 4 blocks remain, since the BSE estimate becomes
+    meaningless there.
+
+    Returns:
+        (block_sizes, bse) parallel lists.
+    """
     N = len(data)
     if max_block_size is None:
         max_block_size = N // 4
@@ -246,7 +300,13 @@ def _block_standard_error(data, max_block_size=None):
 
 
 def save_convergence_plots(energies: list, t0: int, start_index: int, output_path: Path) -> None:
-    """Save energy time-series and block-averaging plots alongside the PDB."""
+    """Save energy time-series and block-averaging plots alongside the PDB.
+
+    Writes ``<stem>_energy_convergence.png`` (trace with t0/start markers,
+    cumulative mean, equilibration-vs-production histograms) and, when the
+    production region has >=8 frames, ``<stem>_block_avg.png``.  No-op if
+    matplotlib/numpy are unavailable or the energy list is empty.
+    """
     if plt is None or np is None or not energies:
         return
 
@@ -313,6 +373,16 @@ def save_convergence_plots(energies: list, t0: int, start_index: int, output_pat
 
 
 def main():
+    """CLI driver: optional pass-1 t0 detection, then pass-2 PDB writing.
+
+    The effective start frame is ``max(t0, --skip-frames)``.  Frames with
+    malformed atom lines are written partially (bad lines skipped).
+    Always writes ``<output stem>_trim_info.json``; convergence plots
+    are produced only for auto-trim runs with energies unless
+    ``--no-plots``.  ``--pdb-info`` short-circuits everything and only
+    reports the MODEL count of an existing PDB.  All progress goes to
+    stderr so stdout stays clean for pipeline use.
+    """
     parser = argparse.ArgumentParser(description="Convert xTB XYZ trajectory to PDB with auto-trimming.")
     parser.add_argument("input", help="Input .trj (XYZ) file")
     parser.add_argument("output", help="Output .pdb file")

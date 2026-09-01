@@ -3,6 +3,27 @@
 These functions prepare an instantaneous, volume-preserving simple-shear step
 and combine matched positive/negative pressure traces. They do not by themselves
 estimate an equilibrium, plateau, or experimental storage modulus.
+
+Three layers live here:
+
+* reference scales — affine/phantom network-modulus bounds
+  (:func:`classical_network_modulus_bounds`) and the harmonic
+  strain-energy resolvability diagnostic
+  (:func:`harmonic_strain_energy_kbt`);
+* deformation kinematics — affine simple shear and incompressible
+  uniaxial transforms for coordinates and box vectors, plus GRO
+  writers (:func:`write_step_sheared_gro`,
+  :func:`write_uniaxially_deformed_gro`) that apply the same transform
+  to coordinates and box while keeping atom fields/velocities verbatim;
+* response algebra — pressure-to-stress conversions
+  (:func:`uniaxial_nominal_stress_from_pressure`,
+  :func:`paired_step_shear_response`).
+
+Higher-level orchestration and XVG handling live in
+:mod:`.mechanics_analysis`, which the ``mechanics`` extractor adapter
+wraps.  Lengths are nm, pressures bar, moduli/stresses MPa or kPa as
+stated per function.  All input checking raises ``ValueError`` —
+refusal semantics belong to the calling layer.
 """
 
 from __future__ import annotations
@@ -12,8 +33,11 @@ from pathlib import Path
 import numpy as np
 
 
+# Valid deformation selectors; the first letter is the displaced axis
+# and the second the gradient axis for shear.
 SHEAR_PLANES = ("xy", "xz", "yz")
 UNIAXIAL_AXES = ("x", "y", "z")
+# Exact SI Boltzmann constant (J/K).
 BOLTZMANN_J_PER_K = 1.380649e-23
 
 
@@ -33,6 +57,23 @@ def classical_network_modulus_bounds(
     assume that all supplied strands are elastically active and therefore do
     not correct for loops, dangling strands, incomplete conversion, spatial
     heterogeneity, finite extensibility, or rate-dependent solvent coupling.
+
+    Args:
+        n_strands: Elastically counted strand number (> 0).
+        n_junctions: Junction number (>= 0, strictly below
+            ``n_strands`` so the phantom estimate stays positive).
+        volume_nm3: Cell volume in nm^3.
+        temperature_k: Temperature in K.
+
+    Returns:
+        Dict with affine and phantom shear moduli in kPa, the mean
+        functionality ``2 n_strands / n_junctions`` (inf for zero
+        junctions), their ratio, and the strand number density in
+        nm^-3.
+
+    Raises:
+        ValueError: Non-integer/non-positive counts, junctions not
+            below strands, or non-positive volume/temperature.
     """
     if not isinstance(n_strands, (int, np.integer)) or n_strands <= 0:
         raise ValueError("n_strands must be a positive integer")
@@ -71,6 +112,19 @@ def harmonic_strain_energy_kbt(
     to be thermally resolvable in a finite simulation cell.  It is applicable
     only within a harmonic small-strain interpretation and does not constitute
     a sampling-error estimate.
+
+    Args:
+        modulus_kpa: Shear modulus scale in kPa (>= 0).
+        strain: Dimensionless applied strain.
+        volume_nm3: Cell volume in nm^3.
+        temperature_k: Temperature in K.
+
+    Returns:
+        Elastic strain energy of the cell in units of kBT.
+
+    Raises:
+        ValueError: Negative modulus or non-positive
+            volume/temperature.
     """
     if modulus_kpa < 0:
         raise ValueError("modulus_kpa must be non-negative")
@@ -99,6 +153,17 @@ def volume_preserving_uniaxial(
     The selected axis is scaled by ``stretch`` and both lateral axes by
     ``stretch**(-1/2)``.  This is an affine periodic-cell deformation, not a
     free-surface compression protocol.
+
+    Args:
+        coordinates: ``(n, 3)`` coordinates (any consistent unit).
+        stretch: Axial stretch ratio lambda (> 0).
+        axis: Stretched axis, one of ``x``/``y``/``z``.
+
+    Returns:
+        Deformed coordinates, same shape and unit as the input.
+
+    Raises:
+        ValueError: Wrong shape, non-positive stretch, or bad axis.
     """
     xyz = np.asarray(coordinates, dtype=float)
     if xyz.ndim != 2 or xyz.shape[1] != 3:
@@ -117,7 +182,20 @@ def volume_preserving_uniaxial_box(
     stretch: float,
     axis: str = "x",
 ) -> np.ndarray:
-    """Return row-wise box vectors after incompressible uniaxial deformation."""
+    """Return row-wise box vectors after incompressible uniaxial deformation.
+
+    Args:
+        lengths: ``(3,)`` positive orthorhombic box lengths.
+        stretch: Axial stretch ratio (> 0).
+        axis: Stretched axis.
+
+    Returns:
+        ``(3, 3)`` diagonal box-vector matrix (rows are vectors); the
+        deformation keeps the box orthorhombic.
+
+    Raises:
+        ValueError: Invalid lengths, stretch, or axis.
+    """
     box = np.asarray(lengths, dtype=float)
     if box.shape != (3,) or np.any(box <= 0):
         raise ValueError("lengths must contain three positive orthorhombic lengths")
@@ -139,6 +217,21 @@ def uniaxial_nominal_stress_from_pressure(
     to first-Piola/nominal (engineering) stress for comparison with an
     incompressible uniaxial stress--stretch equation.  The default factor
     converts bar to MPa.
+
+    Args:
+        axial_pressure: Pressure component along the stretch axis
+            (bar); arrays broadcast together.
+        lateral_pressure_1: First lateral normal pressure (bar).
+        lateral_pressure_2: Second lateral normal pressure (bar).
+        stretch: Axial stretch ratio (> 0).
+        pressure_to_stress: Unit conversion factor (0.1 = bar -> MPa).
+
+    Returns:
+        Nominal (first-Piola) stress array in the converted unit
+        (MPa by default), broadcast to the common input shape.
+
+    Raises:
+        ValueError: Non-positive stretch.
     """
     if stretch <= 0:
         raise ValueError("stretch must be positive")
@@ -156,7 +249,23 @@ def affine_simple_shear(
     gamma: float,
     plane: str = "xy",
 ) -> np.ndarray:
-    """Return coordinates after a simple engineering-shear step."""
+    """Return coordinates after a simple engineering-shear step.
+
+    For plane ``ab``, the ``a`` coordinate gains ``gamma * b`` (e.g.
+    ``x += gamma * y`` for ``xy``); the transform is affine and
+    volume-preserving.
+
+    Args:
+        coordinates: ``(n, 3)`` coordinates (any consistent unit).
+        gamma: Engineering shear strain (dimensionless).
+        plane: One of ``xy``/``xz``/``yz``.
+
+    Returns:
+        Sheared copy of the coordinates.
+
+    Raises:
+        ValueError: Wrong coordinate shape or invalid plane.
+    """
     xyz = np.asarray(coordinates, dtype=float)
     if xyz.ndim != 2 or xyz.shape[1] != 3:
         raise ValueError("coordinates must have shape (n, 3)")
@@ -177,7 +286,23 @@ def simple_shear_box(
     gamma: float,
     plane: str = "xy",
 ) -> np.ndarray:
-    """Return three GROMACS box vectors as rows after volume-preserving shear."""
+    """Return three GROMACS box vectors as rows after volume-preserving shear.
+
+    The shear tilts one box vector (e.g. ``v2[0] = gamma * Ly`` for the
+    ``xy`` plane), matching :func:`affine_simple_shear` applied to the
+    box, so coordinates and cell stay consistent.
+
+    Args:
+        lengths: ``(3,)`` positive orthorhombic box lengths.
+        gamma: Engineering shear strain.
+        plane: One of ``xy``/``xz``/``yz``.
+
+    Returns:
+        ``(3, 3)`` box-vector matrix with one off-diagonal tilt.
+
+    Raises:
+        ValueError: Invalid lengths or plane.
+    """
     box = np.asarray(lengths, dtype=float)
     if box.shape != (3,) or np.any(box <= 0):
         raise ValueError("lengths must contain three positive orthorhombic lengths")
@@ -194,7 +319,13 @@ def simple_shear_box(
 
 
 def gromacs_box_values(box_vectors: np.ndarray) -> np.ndarray:
-    """Convert three row-wise box vectors to the nine-value GRO ordering."""
+    """Convert three row-wise box vectors to the nine-value GRO ordering.
+
+    GRO order: ``v1x v2y v3z v1y v1z v2x v2z v3x v3y``.
+
+    Raises:
+        ValueError: ``box_vectors`` is not ``(3, 3)``.
+    """
     vectors = np.asarray(box_vectors, dtype=float)
     if vectors.shape != (3, 3):
         raise ValueError("box_vectors must have shape (3, 3)")
@@ -216,6 +347,23 @@ def write_step_sheared_gro(
     The input must be orthorhombic. Coordinates and the periodic box receive the
     same affine transform, which preserves fractional coordinates and volume.
     Velocities are deliberately unchanged for an instantaneous step strain.
+
+    The title line is annotated with the applied plane/gamma, atom
+    lines keep their leading fields and any trailing velocity columns,
+    and the output box is written in nine-value GRO order (tilted cell).
+
+    Args:
+        source: Input .gro path (orthorhombic, fixed-width, nm).
+        destination: Output .gro path (parent directories created).
+        gamma: Engineering shear strain (signed).
+        plane: Shear plane, one of ``xy``/``xz``/``yz``.
+        orthorhombic_tolerance: Maximum off-diagonal magnitude allowed
+            in a nine-value input box (nm).
+
+    Raises:
+        ValueError: Truncated/inconsistent GRO, bad atom-count or box
+            line, non-orthorhombic input, non-positive box lengths, or
+            an atom line shorter than the 44-column coordinate field.
     """
     source_path = Path(source)
     destination_path = Path(destination)
@@ -272,6 +420,22 @@ def write_uniaxially_deformed_gro(
     Coordinates and the periodic box receive the same incompressible uniaxial
     transform, preserving fractional coordinates and volume.  Atom fields and
     any velocity columns are retained verbatim apart from the coordinates.
+
+    The title line is annotated with the applied axis/lambda; the box
+    stays orthorhombic, so only three diagonal values are written.
+
+    Args:
+        source: Input .gro path (orthorhombic, fixed-width, nm).
+        destination: Output .gro path (parent directories created).
+        stretch: Axial stretch ratio lambda (> 0).
+        axis: Stretched axis, one of ``x``/``y``/``z``.
+        orthorhombic_tolerance: Maximum off-diagonal magnitude allowed
+            in a nine-value input box (nm).
+
+    Raises:
+        ValueError: Truncated/inconsistent GRO, bad atom-count or box
+            line, non-orthorhombic input, non-positive box lengths, or
+            an atom line shorter than the 44-column coordinate field.
     """
     source_path = Path(source)
     destination_path = Path(destination)
@@ -331,6 +495,27 @@ def paired_step_shear_response(
     ``pressure_to_modulus=0.1`` converts pressure in bar to apparent modulus in
     MPa. GROMACS pressure has the opposite sign from Cauchy shear stress, hence
     ``G = -(P_plus-P_minus)/(2*gamma)``.
+
+    The odd (antisymmetric) combination isolates the linear shear
+    response; the even residual ``(P+ + P-)/2 - P0`` diagnoses
+    nonlinearity/drift shared by both step directions.
+
+    Args:
+        baseline_pressure: Unsheared pressure trace (bar); the three
+            traces broadcast together and must be time-aligned.
+        positive_pressure: Trace after the +gamma step (bar).
+        negative_pressure: Trace after the -gamma step (bar).
+        gamma: Applied engineering shear strain (non-zero).
+        pressure_to_modulus: Unit factor (0.1 = bar -> MPa).
+
+    Returns:
+        Dict of arrays: ``odd_pressure`` and
+        ``even_residual_pressure`` (bar), plus ``apparent_modulus``
+        and the one-sided ``positive_/negative_apparent_modulus``
+        traces (MPa by default).
+
+    Raises:
+        ValueError: ``gamma`` is zero.
     """
     if gamma == 0:
         raise ValueError("gamma must be non-zero")

@@ -1,4 +1,36 @@
-"""State engine for a sealed, weakest-link parameterization protocol."""
+"""State engine for a sealed, weakest-link parameterization protocol.
+
+This module owns every state-changing (and state-reporting) operation of
+the E0-E6 decision protocol: project initialization, input checksum
+refresh, contract sealing, evidence evaluation/commit, full project
+validation, status reporting, and iteration forking. It is the layer
+between ``protocol.cli`` and the pure helpers (``schema`` validation,
+``io`` atomic file/hash utilities, ``ledger`` hash chaining).
+
+Inputs live inside one project directory: ``protocol.yaml``,
+``iterations/<id>/contract.yaml`` (+ ``seal.json``), evidence YAML files,
+referenced artifact files, and the append-only ``ledger.jsonl``.
+Outputs are JSON-compatible result dicts (rendered by the CLI) plus the
+files the operations create: seals, decision records, ledger events, and
+new iteration directories.
+
+Enforced invariants:
+
+- Anything that would violate the frozen protocol raises
+  ``ProtocolError``; a scientific non-pass is a normal result, not an
+  exception.
+- Gates run strictly in E0-E6 order; a non-pass terminal blocks every
+  later gate in that iteration.
+- Sealing freezes the contract, its scientific identity, and every
+  artifact checksum; the seal is re-verified before any evidence is
+  evaluated.
+- Data roles gate access: E0-E4 may not touch sealed confirmation
+  groups, E5 accepts only sealed confirmation groups (and opens them),
+  E6 requires a stress/transfer group.
+- Failed iterations are never edited; ``new_iteration`` forks a draft
+  with class-restricted changes and reclassifies opened confirmation
+  groups as development.
+"""
 
 from __future__ import annotations
 
@@ -40,22 +72,27 @@ class ProtocolError(RuntimeError):
 
 
 def _root(path: Path) -> Path:
+    """Normalize a user-supplied project path (expanduser + resolve)."""
     return Path(path).expanduser().resolve()
 
 
 def _iteration_dir(root: Path, iteration_id: str) -> Path:
+    """Directory of one iteration under ``iterations/``."""
     return root / "iterations" / iteration_id
 
 
 def _seal_path(root: Path, iteration_id: str) -> Path:
+    """Path of an iteration's ``seal.json``."""
     return _iteration_dir(root, iteration_id) / "seal.json"
 
 
 def _contract_hash(contract: Mapping[str, Any]) -> str:
+    """SHA-256 of the whole contract in canonical JSON form."""
     return sha256_bytes(canonical_json_bytes(contract))
 
 
 def _load_json(path: Path) -> Mapping[str, Any]:
+    """Read a JSON object file, wrapping failures in ``ProtocolError``."""
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
@@ -66,6 +103,7 @@ def _load_json(path: Path) -> Mapping[str, Any]:
 
 
 def _placeholder_text(name: str) -> str:
+    """Content of a placeholder input file created by ``initialize_project``."""
     return (
         f"# PLACEHOLDER: replace {name} with the exact frozen input.\n"
         "# Then set placeholder: false in the contract and run hash-inputs.\n"
@@ -79,7 +117,25 @@ def initialize_project(
     title: str,
     claim_domain: str,
 ) -> Dict[str, Any]:
-    """Create a non-overwriting project skeleton."""
+    """Create a non-overwriting project skeleton.
+
+    Refuses a non-empty target directory. Writes the protocol/contract/
+    evidence templates, README, placeholder input YAMLs and data-group
+    TSVs, an empty ledger, and appends the PROJECT_INITIALIZED event.
+
+    Args:
+        project_root: directory to create/populate.
+        project_id: identifier matching the id charset rule.
+        title: human-readable project title.
+        claim_domain: bounded claim-domain description.
+
+    Returns:
+        Result dict with the INITIALIZED decision and next action.
+
+    Raises:
+        ProtocolError: invalid id/title/claim domain, or the directory is
+            not empty.
+    """
 
     root = _root(project_root)
     if not ID_RE.fullmatch(project_id):
@@ -126,6 +182,7 @@ def initialize_project(
 
 
 def _artifact_rows(contract: Mapping[str, Any]) -> List[Mapping[str, Any]]:
+    """Materialize the contract's artifact specs (identity + data groups)."""
     return list(contract_artifacts(contract))
 
 
@@ -135,7 +192,25 @@ def refresh_checksums(
     iteration_id: Optional[str] = None,
     write: bool = False,
 ) -> Dict[str, Any]:
-    """Compute checksums for explicitly accepted, project-local frozen inputs."""
+    """Compute checksums for explicitly accepted, project-local frozen inputs.
+
+    Every referenced artifact must exist inside the project and must no
+    longer be marked placeholder. With ``write`` the observed digests are
+    stored back into the draft contract; a sealed iteration refuses the
+    write (its checksums are frozen).
+
+    Args:
+        project_root: protocol project directory.
+        iteration_id: iteration to process (default: the active one).
+        write: persist the digests into ``contract.yaml``.
+
+    Returns:
+        Result dict with per-artifact {id, path, sha256} rows.
+
+    Raises:
+        ProtocolError: placeholder artifact, missing/escaping path, or a
+            write attempt on a sealed iteration.
+    """
 
     root = _root(project_root)
     protocol = load_yaml(root / "protocol.yaml")
@@ -176,6 +251,11 @@ def refresh_checksums(
 
 
 def _normalized_data_groups(contract: Mapping[str, Any]) -> List[Dict[str, Any]]:
+    """Project each data group onto the fields that must match for TYPE_II.
+
+    Extracts (id, path, sha256, role, sealed) so manifests can be
+    compared while ignoring incidental keys.
+    """
     normalized = []
     for group in contract.get("data_groups", []):
         if isinstance(group, Mapping):
@@ -192,6 +272,20 @@ def _normalized_data_groups(contract: Mapping[str, Any]) -> List[Dict[str, Any]]
 
 
 def _validate_transition(root: Path, contract: Mapping[str, Any]) -> List[str]:
+    """Enforce iteration-class boundaries against the parent contract.
+
+    TYPE_I/II/III must preserve the scientific identity (a change forces
+    TYPE_IV); TYPE_I and TYPE_II must also preserve the design and gates,
+    and TYPE_II additionally the data manifests/roles. Contracts without
+    a parent (v001) pass trivially.
+
+    Args:
+        root: project root (to load the parent contract).
+        contract: the child contract being validated.
+
+    Returns:
+        List of transition-violation messages (empty when compliant).
+    """
     errors: List[str] = []
     parent = contract.get("parent")
     if not isinstance(parent, Mapping):
@@ -229,6 +323,21 @@ def _verify_seal(
     contract: Mapping[str, Any],
     records: Optional[List[Mapping[str, Any]]] = None,
 ) -> Tuple[Optional[Mapping[str, Any]], List[str]]:
+    """Verify an iteration's seal against the current contract and ledger.
+
+    Checks the recorded contract hash, scientific-identity hash, and
+    artifact registry, and — when ledger records are supplied — that
+    exactly one matching ITERATION_SEALED event exists.
+
+    Args:
+        root: project root.
+        iteration_id: iteration whose seal is checked.
+        contract: the iteration's current contract document.
+        records: validated ledger rows, or None to skip the ledger check.
+
+    Returns:
+        (seal payload or None when absent/unreadable, error list).
+    """
     errors: List[str] = []
     path = _seal_path(root, iteration_id)
     if not path.is_file():
@@ -270,7 +379,26 @@ def _verify_seal(
 def seal_iteration(
     project_root: Path, *, iteration_id: Optional[str] = None
 ) -> Dict[str, Any]:
-    """Freeze a complete prospective contract and its referenced artifacts."""
+    """Freeze a complete prospective contract and its referenced artifacts.
+
+    Runs full protocol/contract/transition validation (placeholders are
+    hard errors here, unlike ``validate``), requires a valid ledger, and
+    is idempotent: an existing valid seal returns ALREADY_SEALED, an
+    invalid one raises. Writes ``seal.json`` (canonical contract hash,
+    identity hash, artifact registry, sealed confirmation ids, UTC
+    timestamp) and appends the ITERATION_SEALED event.
+
+    Args:
+        project_root: protocol project directory.
+        iteration_id: iteration to seal (default: the active one).
+
+    Returns:
+        The seal payload plus decision SEALED / ALREADY_SEALED.
+
+    Raises:
+        ProtocolError: any validation failure, placeholder artifact,
+            invalid ledger, or invalid existing seal.
+    """
 
     root = _root(project_root)
     protocol = load_yaml(root / "protocol.yaml")
@@ -331,6 +459,7 @@ def seal_iteration(
 
 
 def _decision_events(records: Sequence[Mapping[str, Any]], iteration_id: str) -> List[Mapping[str, Any]]:
+    """Filter the ledger rows to one iteration's DECISION events, in order."""
     return [
         row
         for row in records
@@ -339,6 +468,21 @@ def _decision_events(records: Sequence[Mapping[str, Any]], iteration_id: str) ->
 
 
 def _validate_evidence_artifacts(root: Path, artifacts: Any) -> List[Dict[str, Any]]:
+    """Validate and normalize the artifact list of one evidence file.
+
+    Each artifact needs a unique valid id, a project-local existing path,
+    and a SHA-256 that matches the file's observed digest.
+
+    Args:
+        root: project root for safe path resolution.
+        artifacts: the raw ``evidence.artifacts`` value.
+
+    Returns:
+        Normalized [{id, path, sha256}, ...] rows.
+
+    Raises:
+        ProtocolError: any structural, path, or checksum violation.
+    """
     if not isinstance(artifacts, list) or not artifacts:
         raise ProtocolError("evidence.artifacts must be a non-empty list")
     normalized: List[Dict[str, Any]] = []
@@ -375,7 +519,37 @@ def evaluate_evidence(
     *,
     commit: bool = False,
 ) -> Dict[str, Any]:
-    """Evaluate one gate against a sealed contract; mutate only with ``commit``."""
+    """Evaluate one gate against a sealed contract; mutate only with ``commit``.
+
+    Pre-checks, all raising ``ProtocolError`` on violation: the evidence
+    file lives inside the project and matches the schema/project/
+    iteration; the contract, ledger, and seal are all valid; the
+    evidence id was never committed before; the iteration has no non-pass
+    terminal yet and this is exactly the next gate in strict E0-E6 order;
+    the referenced data groups exist and satisfy the role rules
+    (E0-E4: no sealed groups, E5: only sealed confirmation groups,
+    E6: at least one stress group); the observation ids exactly match the
+    gate's frozen criteria; every evidence artifact checks out.
+
+    Each criterion is scored via ``schema.evaluate_rule`` and the gate
+    result is weakest-link aggregated (any FAIL -> FAIL, else any
+    INCONCLUSIVE -> INCONCLUSIVE, else PASS), mapping to the contract's
+    frozen terminal/action labels. With ``commit`` the decision is
+    appended to the ledger and written under ``decisions/``; preview mode
+    changes nothing.
+
+    Args:
+        project_root: protocol project directory.
+        evidence_path: evidence YAML inside the project.
+        commit: persist the decision (ledger event + decision JSON).
+
+    Returns:
+        The full decision payload (criteria, result, action, claim
+        ceiling, next permitted action, ...).
+
+    Raises:
+        ProtocolError: any precondition or observation-type violation.
+    """
 
     root = _root(project_root)
     evidence_file = Path(evidence_path).expanduser().resolve()
@@ -555,6 +729,21 @@ def _validate_ledger_semantics(
     records: List[Mapping[str, Any]],
     contracts: Mapping[str, Mapping[str, Any]],
 ) -> List[str]:
+    """Check ledger DECISION events against protocol semantics per iteration.
+
+    Verifies: decisions only after exactly one seal event, no decision
+    after a non-pass terminal, decision contract hashes matching the
+    current contract, committed evidence files and artifacts still
+    present and unchanged, and the strict E0-E6 gate sequence.
+
+    Args:
+        root: project root (for evidence/artifact immutability checks).
+        records: validated ledger rows.
+        contracts: iteration id -> contract document.
+
+    Returns:
+        List of semantic-violation messages.
+    """
     errors: List[str] = []
     for iteration_id, contract in contracts.items():
         iteration_events = events_for_iteration(records, iteration_id)
@@ -607,7 +796,20 @@ def _validate_ledger_semantics(
 
 
 def validate_project(project_root: Path) -> Dict[str, Any]:
-    """Validate schemas, artifacts, seals, ledger hashes, and state semantics."""
+    """Validate schemas, artifacts, seals, ledger hashes, and state semantics.
+
+    Read-only, never raises for a scientific/structural problem: every
+    finding is collected into ``errors``/``warnings`` and the overall
+    ``decision`` is PASS/FAIL. Placeholder artifacts are warnings for a
+    draft iteration but errors once that iteration is sealed.
+
+    Args:
+        project_root: protocol project directory.
+
+    Returns:
+        Report dict: decision, per-iteration seal state and decision
+        counts, ledger row count, errors, warnings.
+    """
 
     root = _root(project_root)
     errors: List[str] = []
@@ -677,7 +879,21 @@ def validate_project(project_root: Path) -> Dict[str, Any]:
 
 
 def project_status(project_root: Path) -> Dict[str, Any]:
-    """Report the exact current gate and claim ceiling without changing state."""
+    """Report the exact current gate and claim ceiling without changing state.
+
+    Derives the active iteration's state from its seal and committed
+    decisions: DRAFT, SEALED_AWAITING_E0, AWAITING_<gate>,
+    TESTED_DOMAIN_RELEASE (E5 passed), DOMAIN_QUALIFIED (E6 passed), or
+    TERMINAL_NONPASS with its terminal label. Also lists completed gates
+    and confirmation groups opened by E5, and embeds the validation
+    error/warning counts.
+
+    Args:
+        project_root: protocol project directory.
+
+    Returns:
+        Status dict (see keys above).
+    """
 
     root = _root(project_root)
     validation = validate_project(root)
@@ -741,7 +957,35 @@ def new_iteration(
     failure_mechanism: str,
     from_iteration_id: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Fork a closed non-pass iteration without rewriting its terminal."""
+    """Fork a closed non-pass iteration without rewriting its terminal.
+
+    Requires the source iteration to have reached a non-pass terminal
+    (or the special E6 case, which is refused outright: E6 results may
+    not feed back into a released parameter). For TYPE_I/II the
+    per-mechanism correction cap from the protocol policy is enforced
+    by counting prior TYPE_I/II contracts addressing the same mechanism.
+
+    The new draft copies the source contract, records the parent linkage
+    (iteration, terminal, gate, result), reclassifies every confirmation
+    group opened by an E5 decision as unsealed development data, becomes
+    the active iteration, and is logged as ITERATION_CREATED. It still
+    needs editing, checksum refresh, validation, and a new seal.
+
+    Args:
+        project_root: protocol project directory.
+        new_iteration_id: id of the draft iteration to create.
+        iteration_class: TYPE_I .. TYPE_IV transition class.
+        failure_mechanism: mechanism this iteration addresses.
+        from_iteration_id: source iteration (default: the active one).
+
+    Returns:
+        Result dict with DRAFT_ITERATION_CREATED and next actions.
+
+    Raises:
+        ProtocolError: invalid inputs, existing target, invalid ledger,
+            source not at a non-pass terminal, E6 feedback attempt, or
+            the correction cap being reached.
+    """
 
     root = _root(project_root)
     if not ID_RE.fullmatch(new_iteration_id):

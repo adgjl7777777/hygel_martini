@@ -2,9 +2,15 @@
 # molecule with one length, so heterogeneous (rewired) junction gaps cannot
 # be spanned -- the layout refuses the combination outright.
 simulation_parameters:
+  # Presence of this block selects the net-driven layout over the diamond path.
   network_layout:
+    # RCSR symbol: pcu = primitive cubic (6-connected, fundamental cycle 4).
     net: pcu
+    # Supercell repeats per axis; pcu refuses odd counts (bipartiteness) and
+    # cells too small for the net's girth.
     repeats: [4, 4, 4]
+    # Junction-to-junction distance (nm). Must match the rigid strand:
     # strand BCK-BCK span (2.473, extended conformer) +
     # 2 * (junction arm 0.773 + S-C bond 0.1715); build_templates.py prints it.
+    # A mismatch above 0.1 nm is reported as crosslink-bond pre-strain.
     cell_parameter: 4.36

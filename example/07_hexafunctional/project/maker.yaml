@@ -3,8 +3,10 @@
 # Self-contained: no cross-project includes. ${CONFIG_DIR} resolves against
 # THIS maker.yaml's directory for every included file, so including another
 # example's config re-points its relative paths into this project.
+# 로드 순서대로 deep-merge되며 뒤 파일이 앞 파일을, 이 파일이 전부를 덮어쓴다.
+# Deep-merged in order; later files override earlier ones, this file overrides all.
 includes:
-  - config/simulation.yaml
-  - config/mdp.yaml
-  - config/hydrogel.yaml
-  - config/network.yaml
+  - config/simulation.yaml   # 실행 환경/GROMACS/가교 설정 / runtime, GROMACS, crosslinking
+  - config/mdp.yaml          # EM MDP 값 / EM MDP parameters
+  - config/hydrogel.yaml     # backbone/linker 화학 / backbone and linker chemistry
+  - config/network.yaml      # pcu net layout + rewiring

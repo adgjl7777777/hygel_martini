@@ -1,3 +1,20 @@
+"""Constructor-mode case builder for the stage-02 workflow.
+
+Owns the legacy OPLS/GROMACS setup generation: for every requested
+monomer sequence it builds the polymer geometry (via polymer_maker),
+sizes a cubic water box, estimates the water count, and writes a full
+per-case directory tree under ``paths.out_root``:
+
+    <seq>/polymer.xyz|.pdb, mdp/{em,nvt,npt,md}.mdp, topol.top,
+    replica_XX/run_pipeline.sh (+ packmol.inp when requested),
+    plus a top-level summary.json.
+
+Called by ``generator.run_opls_to_martini`` when ``workflow.mode`` is
+``constructor``.  Nothing is executed here; only inputs and scripts are
+written.  Internal box math mixes units: spans from ASE are Angstrom,
+box sizing is done in nm (see NM_TO_ANGSTROM).
+"""
+
 from __future__ import annotations
 
 import copy
@@ -23,12 +40,23 @@ from .writers import (
 
 
 def _sequence_stem(tokens: List[str]) -> str:
+    """Name a sequence: concatenate 1-letter tokens, else join with '_'."""
     if all(len(tok) == 1 for tok in tokens):
         return "".join(tokens)
     return "_".join(tokens)
 
 
 def _parse_sequence_entry(entry: Any, monomer_keys: set[str]) -> List[str]:
+    """Normalize one ``system.sequences`` entry into a token list.
+
+    Accepts a comma- or space-separated string, a known monomer symbol,
+    a bare one-letter shorthand string (e.g. "SDC" -> ["S","D","C"]),
+    or a list/tuple of tokens.
+
+    Raises:
+        ValueError: For empty entries or entries yielding no tokens.
+        TypeError: For unsupported entry types.
+    """
     if isinstance(entry, str):
         text = entry.strip()
         if not text:
@@ -53,6 +81,16 @@ def _parse_sequence_entry(entry: Any, monomer_keys: set[str]) -> List[str]:
 
 
 def _build_sequence_jobs(system_cfg: Dict[str, Any], monomer_keys: set[str]) -> List[List[str]]:
+    """Resolve the list of sequences (token lists) to build.
+
+    ``system.sequences``, when given, wins verbatim; otherwise the
+    homopolymer grid ``system.symbols`` x ``system.lengths`` is used
+    (each symbol repeated length times).
+
+    Raises:
+        ValueError: If ``system.sequences`` is present but not a
+            non-empty list.
+    """
     explicit_sequences = system_cfg.get("sequences")
     if explicit_sequences is not None:
         if not isinstance(explicit_sequences, list):
@@ -72,6 +110,29 @@ def _build_sequence_jobs(system_cfg: Dict[str, Any], monomer_keys: set[str]) -> 
 
 
 def build_cases(cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """Generate all constructor cases and write out_root/summary.json.
+
+    Per sequence: builds the polymer (torsion count follows
+    ``system.n_torsion_mode``), derives a cubic box from the largest
+    coordinate span plus ``2*cutoff_nm + min_box_safety_nm`` (floored by
+    ``ensure_min_box_nm``), estimates the water count from the water
+    density at ``temperature_c``, and writes the mdp templates, topol
+    stub and per-replica pipeline scripts.  Packmol inputs are written
+    only when ``system.solvate_tool == "packmol"``; the GROMACS path
+    solvates inside run_pipeline.sh instead.
+
+    Args:
+        cfg: Merged stage-02 config (constructor sections).
+
+    Returns:
+        Dict with ``settings`` (the config) and ``cases`` (one metadata
+        record per sequence: box in nm and Angstrom, water estimate,
+        replica dirs and packmol seeds); also dumped as summary.json.
+
+    Raises:
+        KeyError: If a sequence token is missing from the monomer library.
+        ValueError: If ``topology.polymer_itp`` is an absolute path.
+    """
     out_root = Path(cfg["paths"]["out_root"])
     out_root.mkdir(parents=True, exist_ok=True)
 
@@ -99,6 +160,7 @@ def build_cases(cfg: Dict[str, Any]) -> Dict[str, Any]:
 
         seq_name = _sequence_stem(seq_tokens)
         n_repeat = len(seq_tokens)
+        # "repeat" mode: one torsion step per monomer; otherwise one per bond.
         n_torsion = n_repeat if system_cfg["n_torsion_mode"] == "repeat" else max(1, n_repeat - 1)
 
         case_dir = out_root / seq_name
@@ -157,6 +219,7 @@ def build_cases(cfg: Dict[str, Any]) -> Dict[str, Any]:
             rep_dir = case_dir / f"replica_{rep_idx:02d}"
             rep_dir.mkdir(parents=True, exist_ok=True)
 
+            # Deterministic per-replica packmol seed (varies with length too).
             seed = 1000 + rep_idx + (n_repeat * 100)
             if solvate_tool == "packmol":
                 write_packmol_input(

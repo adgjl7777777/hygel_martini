@@ -1,3 +1,31 @@
+"""Bartender ``.inp`` template parsing, validation, and connection inference.
+
+This module owns the monomer-side input handling of the stage-03
+workflow: it parses a Bartender init template into a
+``config.MonomerTemplate``, validates the template against its monomer
+XYZ (bead weights, coverage, connectivity), and infers which connector
+("cap", e.g. Br) atoms and beads form the head/tail attachment points of
+the monomer.
+
+Callers: ``pipeline.run_pipeline`` parses/validates each monomer template
+once per token; ``workflow_logic.builder`` consumes the resulting
+templates and ``ConnectionMetadata`` when stitching monomers into a
+polymer template; ``merger`` uses ``build_bead_maps`` for typing.
+
+Inputs: Bartender ``.inp`` files (BEADS/BONDS/CONSTRAINTS/ANGLES/
+DIHEDRALS/IMPROPERS sections) and monomer XYZ files. Outputs: in-memory
+dataclasses and ``ValidationReport`` objects only; nothing is written.
+
+Invariants:
+
+- All atom and bead indices are 1-based (Bartender convention); the
+  ``backbone_atom_cfg`` mappings received here are already 1-based
+  (converted from the user's 0-based YAML by ``config``).
+- Connector detection distances are in Angstrom.
+- Fractional BEADS tokens ("12/2") must follow the n-way rule: an atom
+  appearing in n beads carries denominator n in each, summing to 1.
+"""
+
 from __future__ import annotations
 
 import re
@@ -16,6 +44,7 @@ from ..config import (
 )
 from .core import _split_csv, _distance
 
+# Recognized Bartender .inp section names (uppercase, one per line).
 SECTION_HEADERS = {
     "BEADS",
     "BONDS",
@@ -26,6 +55,17 @@ SECTION_HEADERS = {
 }
 
 def _parse_weighted_atom(token: str) -> WeightedAtomRef:
+    """Parse one BEADS atom token, e.g. "12" or "12/2" (shared atom).
+
+    Args:
+        token: 1-based atom index, optionally with "/denominator".
+
+    Returns:
+        The corresponding ``WeightedAtomRef``.
+
+    Raises:
+        ValueError: malformed token or denominator < 1.
+    """
     match = re.fullmatch(r"(\d+)(?:/(\d+))?", token)
     if not match:
         raise ValueError(f"Malformed BEADS atom token: {token}")
@@ -35,12 +75,38 @@ def _parse_weighted_atom(token: str) -> WeightedAtomRef:
     return WeightedAtomRef(atom_index=int(match.group(1)), denominator=denominator)
 
 def _parse_section_ints(path: Path, line: str, expected: int) -> Tuple[int, ...]:
+    """Parse one comma-separated bonded-term line into exactly N bead ids.
+
+    Args:
+        path: source file, used only for the error message.
+        line: raw section line, e.g. "1, 2, 3".
+        expected: required integer count (2 bond, 3 angle, 4 dihedral).
+
+    Raises:
+        ValueError: wrong token count (int() raises on bad tokens).
+    """
     values = tuple(int(token) for token in _split_csv(line))
     if len(values) != expected:
         raise ValueError(f"{path}: expected {expected} integers in line '{line}'")
     return values
 
 def parse_bartender_inp(path: Path) -> MonomerTemplate:
+    """Parse a Bartender ``.inp`` file into a ``MonomerTemplate``.
+
+    Everything before the first recognized section header is preserved
+    verbatim as the preamble; afterwards blank lines and ``#`` comments
+    are skipped and each section's data lines are parsed (BEADS as
+    "bead_id token[, token...]", bonded sections as integer tuples).
+
+    Args:
+        path: Bartender init/mapping template file.
+
+    Returns:
+        Parsed template with 1-based indices throughout.
+
+    Raises:
+        ValueError: no BEADS section, or a malformed line.
+    """
     lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
 
     preamble: List[str] = []
@@ -99,6 +165,11 @@ def parse_bartender_inp(path: Path) -> MonomerTemplate:
     )
 
 def _weighted_atom_owners(template: MonomerTemplate) -> Dict[int, List[WeightedAtomRef]]:
+    """Invert the bead mapping: atom index -> its references across beads.
+
+    An atom split between n beads yields n entries, letting validators
+    check the fractional-weight rule per atom.
+    """
     owners: Dict[int, List[WeightedAtomRef]] = defaultdict(list)
     for refs in template.beads.values():
         for ref in refs:
@@ -106,6 +177,7 @@ def _weighted_atom_owners(template: MonomerTemplate) -> Dict[int, List[WeightedA
     return owners
 
 def _connector_indices(symbols: Sequence[str], indicator: str) -> List[int]:
+    """Return 1-based indices of atoms whose element symbol is ``indicator``."""
     marker = indicator.strip().upper()
     return [index for index, symbol in enumerate(symbols, start=1) if str(symbol).strip().upper() == marker]
 
@@ -114,6 +186,24 @@ def infer_backbone_beads(
     xyz_path: Path,
     backbone_atom_cfg: Dict[str, List[int]],
 ) -> Tuple[int, ...]:
+    """Map configured backbone atoms onto the beads that contain them.
+
+    A bead is a backbone bead when any of its atoms appears in the
+    head/tail/body backbone-atom lists. Bead template order is preserved.
+
+    Args:
+        template: parsed monomer template.
+        xyz_path: monomer XYZ (used only in error messages).
+        backbone_atom_cfg: 1-based atom index lists under keys
+            "head"/"tail"/"body"; all-empty means "not configured".
+
+    Returns:
+        Backbone bead ids in template order, or () when unconfigured.
+
+    Raises:
+        ValueError: an index exceeds the template atom count, an atom is
+            unassigned to any bead, or no bead matches.
+    """
     head_atoms = list(backbone_atom_cfg.get("head", []))
     tail_atoms = list(backbone_atom_cfg.get("tail", []))
     body_atoms = list(backbone_atom_cfg.get("body", []))
@@ -148,6 +238,23 @@ def validate_template(
     xyz_path: Path,
     connection_cfg: ConnectionDetectionConfig,
 ) -> ValidationReport:
+    """Validate a monomer template against its XYZ file.
+
+    Checks collected into the report (all findings are fatal problems):
+    atom count consistency, per-atom weight sums equal to exactly 1 with
+    the n-way fractional-token rule, complete atom coverage, at least two
+    connector atoms each assigned to a bead, bonds/constraints referencing
+    known beads, no isolated beads, and a connected bead graph.
+
+    Args:
+        template: parsed monomer template.
+        xyz_path: monomer XYZ file.
+        connection_cfg: connector element and cutoff settings (only the
+            indicator element is used here).
+
+    Returns:
+        A ``ValidationReport``; ``report.ok`` is True when clean.
+    """
     symbols, _ = parse_xyz(xyz_path)
     natoms = len(symbols)
     report = ValidationReport(target=str(template.path))
@@ -230,6 +337,31 @@ def infer_connection_metadata(
     connection_cfg: ConnectionDetectionConfig,
     backbone_atom_cfg: Dict[str, List[int]],
 ) -> ConnectionMetadata:
+    """Infer which connector atoms/beads are the monomer's head and tail.
+
+    Connector (cap) atoms are located by element symbol; the head/tail
+    assignment picks, within the Angstrom cutoff, the connector(s) closest
+    to the configured head/tail backbone atoms. With both head and tail
+    configured, the distinct pair minimizing the summed distance wins;
+    with only one side configured there must be exactly two connectors and
+    the leftover one becomes the other side.
+
+    Args:
+        template: parsed monomer template (bead ownership lookup).
+        xyz_path: monomer XYZ providing symbols and coordinates.
+        connection_cfg: connector element symbol and distance cutoff (A).
+        backbone_atom_cfg: 1-based head/tail(/body) atom index lists;
+            error messages echo them 0-based to match the user YAML.
+
+    Returns:
+        ``ConnectionMetadata`` with connector atoms, their owning beads,
+        and the inferred backbone beads.
+
+    Raises:
+        ValueError: too few connectors, no admissible assignment within
+            the cutoff, ambiguous bead ownership, or neither head nor tail
+            configured.
+    """
     symbols, coords = parse_xyz(xyz_path)
     head_refs = list(backbone_atom_cfg.get("head", []))
     tail_refs = list(backbone_atom_cfg.get("tail", []))
@@ -251,6 +383,7 @@ def infer_connection_metadata(
         )
 
     def distance_to_refs(connector_atom: int, refs: Sequence[int]) -> float:
+        """Minimum distance (Angstrom) from a connector to any ref atom."""
         return min(_distance(coords[ref - 1], coords[connector_atom - 1]) for ref in refs)
 
     if head_refs and tail_refs:
@@ -317,6 +450,7 @@ def infer_connection_metadata(
         raise ValueError(f"{xyz_path.name}: backbone_atoms must define at least one of head or tail.")
 
     def owner(atom_index: int, label: str) -> int:
+        """Return the single bead containing ``atom_index`` (error otherwise)."""
         owners = [
             bead_id
             for bead_id, refs in template.beads.items()
@@ -339,6 +473,7 @@ def infer_connection_metadata(
     )
 
 def default_bead_spec(token: str, bead_count: int) -> dict[str, list[str]]:
+    """Build the default bead labels/types for a monomer: token+1..N."""
     labels = [f"{token}{index}" for index in range(1, bead_count + 1)]
     return {"labels": labels, "types": list(labels)}
 
@@ -346,6 +481,30 @@ def build_bead_maps(
     case: Dict[str, object],
     overrides: Dict[str, Dict[str, List[str]]],
 ) -> tuple[Dict[int, str], Dict[int, str], set[int]]:
+    """Derive global bead label/type maps and backbone-bead set for a case.
+
+    Walks the case's sequence tokens in order, offsetting each monomer's
+    local (1-based) bead indices into the global polymer numbering, and
+    resolves per-bead labels/types via ``config.normalize_label_spec``
+    (explicit overrides take precedence over specs stored in the case).
+    Backbone beads come from case-level ``backbone_beads`` (fallback:
+    ``connection_beads``); only when both are absent are per-monomer
+    ``backbone_beads`` / ``left_connection_bead`` entries offset instead.
+
+    Args:
+        case: parsed ``case.json`` payload (needs ``monomers`` and
+            ``sequence_tokens``).
+        overrides: per-token label/type override specs, keyed by monomer
+            token (e.g. from a label-map YAML).
+
+    Returns:
+        Tuple of (global bead index -> label, global bead index -> Martini
+        type, set of global backbone bead indices).
+
+    Raises:
+        ValueError: required case keys are missing or mistyped.
+        KeyError: a sequence token has no ``monomers`` entry.
+    """
     from ..config import normalize_label_spec
     monomers = case.get("monomers")
     tokens = case.get("sequence_tokens")
@@ -393,6 +552,20 @@ def validate_generated_input(
 
     Unlike validate_template, this skips connector-atom checks and allows
     terminal_cap_indices (Br placeholder atoms) to be unassigned.
+
+    Checks: atom count consistency, per-atom weight sums equal to 1,
+    atom coverage outside the cap set, and that every bonded term
+    (bond/constraint/angle/dihedral/improper) references known bead ids.
+    Connectivity of the bead graph is not re-checked here.
+
+    Args:
+        template: assembled polymer template (from the builder).
+        xyz_path: polymer XYZ file.
+        terminal_cap_indices: 1-based indices of terminal cap atoms that
+            may legitimately be missing from the bead mapping.
+
+    Returns:
+        A ``ValidationReport``; ``report.ok`` is True when clean.
     """
     symbols, _ = parse_xyz(xyz_path)
     natoms = len(symbols)

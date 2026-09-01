@@ -1,3 +1,24 @@
+"""Soft-EM stage of the post-build relaxation (workflow.mode=soft_em).
+
+Owns the iterative energy-minimization loop that gently relaxes a
+freshly built hydrogel: per iteration it (1) writes a scaled copy of
+the bonded .itp whose force constants ramp from ``bonded_start`` to
+``bonded_end`` over ``bonded_ramp_iters`` iterations, (2) runs GROMACS
+EM, (3) reads potential energy (kJ/mol), Fmax (kJ/mol/nm) and the
+pressure tensor (bar) from the EM outputs, and (4) rescales the box —
+coordinates included — toward ``p_target`` (bar) with per-iteration
+length changes capped at ``max_dlen`` (fractional).  Convergence needs
+energy-change, Fmax and pressure tolerances simultaneously satisfied
+at full bonded strength; the result is ``<workdir>/final.gro``.
+
+Called by ``generator.run_relax_workflow``; box lengths are in nm.
+Also hosts the GROMACS helpers (_run, _grompp_and_run_em,
+_build_mdrun_cmd, _wrap_pbc_gro, ...) reused by ``hard_em_shrink``.
+Supports ``restart: true`` (resume after the last iteration that
+completed its box scaling); otherwise an existing workdir is moved
+aside to ``<name>_bak``.
+"""
+
 from __future__ import annotations
 
 import os
@@ -10,6 +31,7 @@ from statistics import mean
 from typing import Any, Dict, List, Optional, Tuple
 
 
+# Matches .itp/.top section headers like "[ bonds ]".
 SECTION_RE = re.compile(r"^\s*\[\s*([A-Za-z0-9_]+)\s*\]\s*$")
 
 
@@ -21,6 +43,19 @@ def _run(
     input_str: str | None = None,
     check: bool = True,
 ) -> subprocess.CompletedProcess[str]:
+    """Run a command with merged stdout/stderr captured as text.
+
+    Args:
+        cmd: Argument vector.
+        cwd: Working directory (None keeps the current one).
+        env: Environment for the child (None inherits).
+        input_str: Text fed to stdin (e.g. gmx energy term selection).
+        check: Raise on nonzero exit instead of returning the process.
+
+    Raises:
+        RuntimeError: When ``check`` and the command fails; the captured
+            output is embedded so GROMACS diagnostics survive.
+    """
     process = subprocess.run(
         cmd,
         cwd=str(cwd) if cwd else None,
@@ -40,14 +75,21 @@ def _run(
 
 
 def _ensure_dir(path: Path) -> None:
+    """Create the directory (and parents) if needed."""
     path.mkdir(parents=True, exist_ok=True)
 
 
 def _clamp(value: float, low: float, high: float) -> float:
+    """Clamp value into [low, high]."""
     return max(low, min(high, value))
 
 
 def _parse_gro_box(gro_path: Path) -> Tuple[float, float, float]:
+    """Read the box diagonal (nm) from the last line of a .gro file.
+
+    Raises:
+        ValueError: When fewer than three values are present.
+    """
     last = gro_path.read_text(encoding="utf-8", errors="replace").strip().splitlines()[-1].split()
     if len(last) < 3:
         raise ValueError(f"Cannot parse box from {gro_path}")
@@ -55,6 +97,13 @@ def _parse_gro_box(gro_path: Path) -> Tuple[float, float, float]:
 
 
 def _parse_em_fmax(log_path: Path) -> float:
+    """Parse the final maximum force (kJ/mol/nm) from an EM log.
+
+    Tries the "Maximum force = ..." summary line first, then "Fmax =".
+
+    Raises:
+        RuntimeError: If neither pattern is found.
+    """
     text = log_path.read_text(encoding="utf-8", errors="replace")
     match = re.search(r"Maximum\s+force\s*=\s*([0-9.Ee+\-]+)", text)
     if match:
@@ -66,6 +115,17 @@ def _parse_em_fmax(log_path: Path) -> float:
 
 
 def _find_energy_indices(gmx_cmd: str, edr_file: Path, wanted_names: List[str], env: Dict[str, str]) -> List[int]:
+    """Map energy-term names to their ``gmx energy`` menu indices.
+
+    Probes the interactive menu by sending "0" and scanning the printed
+    listing, since index numbering varies between .edr files.
+
+    Returns:
+        Indices in the same order as ``wanted_names``.
+
+    Raises:
+        RuntimeError: If any wanted term is absent (menu excerpt included).
+    """
     probe = _run(
         [gmx_cmd, "energy", "-f", str(edr_file), "-o", os.devnull, "-xvg", "none"],
         input_str="0\n",
@@ -101,6 +161,11 @@ def _extract_xvg(
     terms: List[str],
     env: Dict[str, str],
 ) -> None:
+    """Extract the given energy terms from an .edr into a plain .xvg.
+
+    Term columns follow the order of ``terms``; ``-xvg none`` keeps the
+    output free of Grace headers for simple numeric parsing.
+    """
     indices = _find_energy_indices(gmx_cmd, edr_file, terms, env)
     selection = "\n".join(str(idx) for idx in indices) + "\n0\n"
     _run(
@@ -112,6 +177,11 @@ def _extract_xvg(
 
 
 def _read_xvg_rows(path: Path) -> List[List[float]]:
+    """Parse numeric rows from an .xvg (skipping #/@ lines and bad rows).
+
+    Raises:
+        RuntimeError: When no numeric data is found at all.
+    """
     rows: List[List[float]] = []
     for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
         stripped = line.strip()
@@ -127,6 +197,7 @@ def _read_xvg_rows(path: Path) -> List[List[float]]:
 
 
 def _summarize_series(path: Path, column: int, mode: str) -> float:
+    """Reduce one .xvg column to a scalar: mode "last" or mean (default)."""
     rows = _read_xvg_rows(path)
     if mode == "last":
         return rows[-1][column]
@@ -134,6 +205,7 @@ def _summarize_series(path: Path, column: int, mode: str) -> float:
 
 
 def _split_comment(line: str) -> Tuple[str, str]:
+    """Split an .itp line into (code, ";comment") preserving the comment."""
     if ";" in line:
         code, comment = line.split(";", 1)
         return code.rstrip(), ";" + comment
@@ -141,6 +213,7 @@ def _split_comment(line: str) -> Tuple[str, str]:
 
 
 def _is_int_token(token: str) -> bool:
+    """True when the token parses as int."""
     try:
         int(token)
         return True
@@ -149,6 +222,7 @@ def _is_int_token(token: str) -> bool:
 
 
 def _is_float_token(token: str) -> bool:
+    """True when the token parses as float."""
     try:
         float(token)
         return True
@@ -157,6 +231,21 @@ def _is_float_token(token: str) -> bool:
 
 
 def scale_itp_bonded(in_itp: Path, out_itp: Path, factor: float) -> None:
+    """Write a copy of an .itp with bonded force constants multiplied.
+
+    Only the [bonds], [angles] and [dihedrals] sections are touched;
+    line comments are kept.  For bonds/angles the last float token on
+    the line (the force constant) is scaled.  For dihedrals: funct 3
+    (Ryckaert-Bellemans) scales every C0..C5 coefficient, otherwise the
+    7th token (the k column of periodic/improper forms) is scaled with
+    a last-float fallback.  Lines that cannot be interpreted are copied
+    verbatim, so unknown content degrades to "unscaled", not corrupted.
+
+    Args:
+        in_itp: Source topology include.
+        out_itp: Destination (overwritten).
+        factor: Multiplier for the force constants (kJ/mol-based units).
+    """
     current_section: str | None = None
     output: List[str] = []
 
@@ -222,6 +311,12 @@ def scale_itp_bonded(in_itp: Path, out_itp: Path, factor: float) -> None:
 
 
 def patch_system_top(in_top: Path, out_top: Path, bonded_itp_basename: str, new_local_itp_name: str) -> None:
+    """Copy a .top, redirecting the bonded include to a local scaled .itp.
+
+    Any ``#include`` whose basename matches ``bonded_itp_basename`` is
+    rewritten to ``new_local_itp_name`` (relative, next to the new .top);
+    all other lines pass through unchanged.
+    """
     pattern = re.compile(r'^\s*#include\s+"([^"]+)"\s*$')
     output: List[str] = []
 
@@ -369,6 +464,14 @@ def _grompp_and_run_em(
     mpi_args: Optional[List[str]] = None,
     mdrun_args: Optional[List[str]] = None,
 ) -> Tuple[Path, Path, Path, Path]:
+    """Run one grompp + EM mdrun pass in ``outdir`` (deffnm "em").
+
+    Returns:
+        (em.tpr, em.edr, em.log, em.gro) paths.
+
+    Raises:
+        RuntimeError: If a command fails or an expected output is missing.
+    """
     _ensure_dir(outdir)
     tpr = outdir / "em.tpr"
     edr = outdir / "em.edr"
@@ -394,6 +497,34 @@ def _grompp_and_run_em(
 
 
 def run_soft_em(cfg: Dict[str, Any]) -> Path:
+    """Run the iterative soft-EM loop until converged (see module docstring).
+
+    Per iteration under ``<workdir>/iter_NNN/``: scaled bonded .itp and
+    patched .top, an ``em/`` run, extracted potential/pressure .xvg
+    files, and the rescaled+wrapped structure fed to the next iteration.
+    Convergence (checked from ``min_iter`` on) requires |dEpot| <
+    ``e_threshold`` (kJ/mol), Fmax < ``f_threshold`` (kJ/mol/nm), every
+    pressure component within ``p_tol`` of ``p_target`` (bar), and the
+    bonded ramp completed.  Box updates follow ``box_mode``
+    (anisotropic / isotropic / cubic, see :func:`_compute_box_deltas`);
+    when the pressure tensor terms are unavailable in the .edr, the
+    scalar "Pressure" is used for all three axes.
+
+    Args:
+        cfg: Normalized relax config; uses tools/paths/runtime plus the
+            ``soft_em`` section (thresholds and ramp settings above,
+            stress_terms/stress_use, scale_factor [fraction per bar],
+            max_dlen, min_iter/max_iter, box_mode, cubic_rate,
+            cubic_max_dlen, maxwarn, restart).
+
+    Returns:
+        ``<workdir>/final.gro`` on convergence.
+
+    Raises:
+        FileNotFoundError: For missing input files.
+        ValueError: For an unknown ``box_mode``.
+        RuntimeError: If GROMACS fails or ``max_iter`` is exhausted.
+    """
     tools = cfg.get("tools", {})
     runtime = cfg.get("runtime", {})
     paths = cfg.get("paths", {})

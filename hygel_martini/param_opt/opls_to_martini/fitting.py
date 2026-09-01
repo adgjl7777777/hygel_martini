@@ -1,3 +1,20 @@
+"""Existing-data fitting for stage 02: trim + Bartender refit job setup.
+
+Owns the ``workflow.mode=existing_data_fit`` branch: it consumes
+user-provided OPLS/GROMACS trajectory cases (``opls_data.cases``) and
+writes, per case, a ``trim/run_prepare_md.sh`` script (trjconv/energy
+extraction + equilibration trim via ``gromacs_traj_to_pdb``) and a
+``bartender_job/run_bartender.sh`` refit script, plus case.json /
+run_all.sh / summary.json bookkeeping.  Depending on the
+``opls_data.execution`` preset the scripts are either only written or
+also executed immediately.  Also provides the ``--check-gmx`` /
+``--check-bartender`` tool probes and the ``--postprocess-only``
+screening entry (delegating to qm_to_martini.postprocess).
+
+Called by ``generator.run_opls_to_martini``; no MD production runs are
+launched from here.
+"""
+
 from __future__ import annotations
 
 import json
@@ -14,6 +31,7 @@ from .writers import write_text
 
 
 def _bool(value: Any, default: bool = False) -> bool:
+    """Coerce config values to bool ("1"/"true"/"yes"/"on" are truthy strings)."""
     if value is None:
         return default
     if isinstance(value, bool):
@@ -24,6 +42,13 @@ def _bool(value: Any, default: bool = False) -> bool:
 
 
 def _as_path(base_dir: Path, value: Any, *, required: bool = True) -> Path | None:
+    """Resolve a config path against base_dir (absolute paths pass through).
+
+    Returns None for empty/missing values when not required.
+
+    Raises:
+        ValueError: If the value is empty but required.
+    """
     if value is None or str(value).strip() == "":
         if required:
             raise ValueError("A required path value is empty.")
@@ -35,18 +60,22 @@ def _as_path(base_dir: Path, value: Any, *, required: bool = True) -> Path | Non
 
 
 def _q(value: str | Path) -> str:
+    """Shell-quote a value for the generated bash scripts."""
     return shlex.quote(str(value))
 
 
 def _rel(path: Path, start: Path) -> str:
+    """Relative path from start to path (scripts cd into their own dir)."""
     return os.path.relpath(str(path), start=str(start))
 
 
 def _repo_root() -> Path:
+    """Installable package root (3 levels up), exported as PYTHONPATH."""
     return Path(__file__).resolve().parents[3]
 
 
 def _merge_case_variant(case: Dict[str, Any], variant: Dict[str, Any]) -> Dict[str, Any]:
+    """Overlay one variant dict on its parent case (shallow; drops "variants")."""
     merged = dict(case)
     merged.update(variant)
     merged.pop("variants", None)
@@ -54,6 +83,11 @@ def _merge_case_variant(case: Dict[str, Any], variant: Dict[str, Any]) -> Dict[s
 
 
 def _iter_case_variants(cases: Iterable[Dict[str, Any]]) -> Iterable[Dict[str, Any]]:
+    """Expand opls_data.cases: yield each case, or one merged dict per variant.
+
+    Raises:
+        TypeError: If a variants[] entry is not a mapping.
+    """
     for case in cases:
         variants = case.get("variants")
         if variants:
@@ -66,18 +100,29 @@ def _iter_case_variants(cases: Iterable[Dict[str, Any]]) -> Iterable[Dict[str, A
 
 
 def _mode_tag(case: Dict[str, Any]) -> str:
+    """Middle directory-name component: mode_tag > mode > name > "default"."""
     return str(case.get("mode_tag") or case.get("mode") or case.get("name") or "default").strip()
 
 
 def _label(case: Dict[str, Any]) -> str:
+    """Case label used for directory names: label > sequence > "CASE"."""
     return str(case.get("label") or case.get("sequence") or "CASE").strip()
 
 
 def _case_dir(out_root: Path, case: Dict[str, Any]) -> Path:
+    """Case directory layout: <out_root>/<label>/<mode_tag>/<label>."""
     return out_root / _label(case) / _mode_tag(case) / _label(case)
 
 
 def _resolve_md_mode(cfg: Dict[str, Any]) -> str:
+    """Normalize bartender_pipeline.md to one of md / md_notrim / trim / off.
+
+    Stage 02 names the trajectory source "md" (stage 03 calls it "xtb");
+    legacy aliases (existing, gromacs, bartender-noxtb, ...) are mapped.
+
+    Raises:
+        ValueError: For an unrecognized mode string.
+    """
     pipeline = cfg.get("bartender_pipeline", {})
     mode = str(pipeline.get("md", "md")).strip().lower()
     aliases = {
@@ -95,6 +140,22 @@ def _resolve_md_mode(cfg: Dict[str, Any]) -> str:
 
 
 def _apply_execution_preset(cfg: Dict[str, Any]) -> str:
+    """Apply the opls_data.execution.mode preset onto the config in place.
+
+    A single mode alias (e.g. "setup", "md", "md_notrim", "trim",
+    "off"; many spelling variants accepted) expands into four knobs at
+    once: ``bartender_pipeline.md``, ``bartender_pipeline.bartender.
+    enabled``, ``execution.run_trim`` and ``execution.run_bartender``.
+    The resolved values are also recorded under ``execution.effective``
+    for the summary output.  An empty mode leaves the config untouched.
+
+    Returns:
+        The normalized mode string, or "" when no preset was requested.
+
+    Raises:
+        ValueError: For an unknown mode alias.
+        TypeError: If the touched config sections are not mappings.
+    """
     data_cfg = cfg.setdefault("opls_data", {})
     if not isinstance(data_cfg, dict):
         raise TypeError("opls_data must be a mapping")
@@ -177,6 +238,7 @@ def _apply_execution_preset(cfg: Dict[str, Any]) -> str:
 
 
 def _resolve_tool(cfg: Dict[str, Any], name: str, default: str) -> str:
+    """Look up a tool command in cfg["tools"], falling back to default."""
     tools = cfg.get("tools", {})
     if not isinstance(tools, dict):
         tools = {}
@@ -184,6 +246,18 @@ def _resolve_tool(cfg: Dict[str, Any], name: str, default: str) -> str:
 
 
 def check_existing_data_tools(cfg: Dict[str, Any], tools: Iterable[str]) -> Dict[str, Any]:
+    """Probe the configured gmx / bartender commands without running them.
+
+    Resolution order per tool: existing base_dir-relative path, then
+    PATH lookup (shutil.which), then existing absolute path.
+
+    Args:
+        cfg: Merged stage-02 config.
+        tools: Subset of {"gmx", "bartender"} to check.
+
+    Returns:
+        {"ok": all_found, "tools": [{name, configured, resolved, exists}]}.
+    """
     base_dir = Path(cfg["paths"]["base_dir"]).resolve()
     pipeline = cfg.get("bartender_pipeline", {})
     bartender_cfg = pipeline.get("bartender", {}) if isinstance(pipeline, dict) else {}
@@ -211,6 +285,23 @@ def _prepare_script_lines(
     base_dir: Path,
     md_mode: str,
 ) -> tuple[List[str], Path]:
+    """Assemble the bash lines of trim/run_prepare_md.sh for one case.
+
+    The script (executed from trim_dir) converts the case trajectory to
+    a multi-model PDB (``gmx trjconv`` for non-PDB inputs, plain copy
+    otherwise), extracts the configured energy term to energy.xvg when
+    an .edr is given, and calls ``gromacs_traj_to_pdb`` to write the
+    trimmed ``md_traj.pdb``.  ``--auto-trim`` is suppressed when
+    md_mode is "md_notrim".  Case keys override the ``opls_data.trim``
+    defaults for the per-case knobs (selections, energy_term, ...).
+
+    Returns:
+        (script lines, path of the trimmed PDB the script will write).
+
+    Raises:
+        ValueError: When the trajectory is missing, or a non-PDB
+            trajectory has no tpr for trjconv.
+    """
     data_cfg = cfg.get("opls_data", {})
     trim_cfg = data_cfg.get("trim", {}) if isinstance(data_cfg, dict) else {}
     tools_cfg = cfg.get("tools", {})
@@ -314,6 +405,11 @@ def _write_prepare_md_job(
     base_dir: Path,
     md_mode: str,
 ) -> Path | None:
+    """Write trim/run_prepare_md.sh for one case (skipped when md_mode=off).
+
+    Returns:
+        Path of the trimmed PDB the script will produce, or None.
+    """
     if md_mode == "off":
         return None
     trim_dir = case_dir / "trim"
@@ -333,6 +429,21 @@ def _write_bartender_job(
     md_mode: str,
     trajectory_pdb: Path | None,
 ) -> Path | None:
+    """Write the per-case Bartender refit job directory and script.
+
+    Skipped (returns None) for md_mode trim/off or when the pipeline
+    disables Bartender.  Copies the .inp next to the script, then emits
+    ``run_bartender.sh`` invoking ``bartender ... -owntraj <trimmed pdb>
+    -refit`` (with optional -skip), honoring BTROOT / env_script /
+    HYGEL_BARTENDER_CPUS overrides, and a bartender_job.json manifest.
+
+    Returns:
+        The job directory, or None when the job is not applicable.
+
+    Raises:
+        ValueError: If geometry, bartender_inp, or the prepared
+            trajectory is missing while Bartender is enabled.
+    """
     if md_mode in {"trim", "off"}:
         return None
     pipeline = cfg.get("bartender_pipeline", {})
@@ -403,10 +514,32 @@ def _write_bartender_job(
 
 
 def _run_script(path: Path) -> None:
+    """Execute a generated bash script in its own directory (check=True)."""
     subprocess.run(["bash", str(path)], cwd=str(path.parent), check=True)
 
 
 def run_existing_data_fit(cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """Prepare (and optionally run) trim + Bartender jobs for every case.
+
+    Applies the execution preset, expands case variants, writes the
+    per-case scripts plus case.json, aggregates everything into
+    ``run_all.sh`` and ``summary.json`` under ``paths.out_root``, and
+    executes the trim/Bartender scripts inline when the preset sets
+    run_trim/run_bartender (a missing trimmed PDB is prepared on demand
+    before a Bartender run).
+
+    Args:
+        cfg: Merged stage-02 config with opls_data.cases populated.
+
+    Returns:
+        Summary dict (settings, execution/md modes, case records,
+        run_all path); also written as summary.json.
+
+    Raises:
+        ValueError: When opls_data.cases is empty.
+        TypeError: When opls_data is not a mapping.
+        subprocess.CalledProcessError: If an inline script run fails.
+    """
     base_dir = Path(cfg["paths"]["base_dir"]).resolve()
     out_root = Path(cfg["paths"]["out_root"]).resolve()
     out_root.mkdir(parents=True, exist_ok=True)
@@ -480,6 +613,15 @@ def run_existing_data_fit(cfg: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def run_postprocess_only(cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """Run only the Bartender screening postprocess on existing results.
+
+    Delegates to ``qm_to_martini.postprocess.run_screening_postprocess``
+    and writes postprocess_summary.json under
+    ``paths.postprocess_output_root`` (falling back to out_root).
+
+    Raises:
+        ValueError: If screening is not enabled in the config.
+    """
     post_cfg = cfg.get("bartender_pipeline", {}).get("postprocess", {})
     if not post_cfg.get("screening", {}).get("enabled", False):
         raise ValueError(

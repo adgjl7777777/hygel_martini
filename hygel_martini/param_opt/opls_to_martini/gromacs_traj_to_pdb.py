@@ -1,3 +1,20 @@
+"""Equilibration trimming of GROMACS multi-model PDB trajectories.
+
+Owns the trim step of the stage-02 existing-data pipeline: given a
+multi-MODEL PDB (typically produced by ``gmx trjconv``) and an optional
+energy .xvg series, it detects the equilibration point t0 (pymbar
+detect_equilibration, or a reverse cumulative-mean energy threshold),
+drops the leading frames, and writes the trimmed PDB plus a
+``*_trim_info.json`` record and optional convergence plots.
+
+Invoked by the generated ``run_prepare_md.sh`` scripts as
+``python -m hygel_martini.param_opt.opls_to_martini.gromacs_traj_to_pdb``;
+:func:`trim_pdb` is also importable directly.  numpy / pymbar /
+matplotlib are optional: without them detection or plotting degrades
+gracefully (t0=0, no plots) instead of failing.  Frame indices are in
+trajectory frames; the energy series is assumed frame-aligned.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -26,6 +43,12 @@ except ImportError:  # pragma: no cover - optional runtime dependency
 
 
 def _parse_xvg(path: Path) -> Tuple[List[float], List[float]]:
+    """Parse a GROMACS .xvg into (times, values) lists.
+
+    Comment (#) and directive (@) lines are skipped; malformed rows are
+    ignored.  A missing file yields two empty lists (trim then falls
+    back to skip_frames only).
+    """
     times: List[float] = []
     values: List[float] = []
     if not path.exists():
@@ -47,6 +70,11 @@ def _parse_xvg(path: Path) -> Tuple[List[float], List[float]]:
 
 
 def _iter_pdb_frames(path: Path) -> Iterable[List[str]]:
+    """Yield PDB frames as raw line lists, split on MODEL/ENDMDL.
+
+    Files without MODEL records are yielded as a single frame, so a
+    single-structure PDB still round-trips through the trimmer.
+    """
     current: List[str] = []
     saw_model = False
     with path.open("r", encoding="utf-8", errors="replace") as handle:
@@ -73,6 +101,13 @@ def _iter_pdb_frames(path: Path) -> Iterable[List[str]]:
 
 
 def _detect_t0_pymbar(values: List[float], nskip: int, fast: bool) -> tuple[int, float, float]:
+    """Detect equilibration via pymbar timeseries.detect_equilibration.
+
+    Returns:
+        (t0, g, neff): start index, statistical inefficiency, effective
+        sample count.  Falls back to (0, 1.0, len(values)) when numpy or
+        pymbar is unavailable or the series is empty.
+    """
     if np is None or timeseries is None or not values:
         return 0, 1.0, float(len(values))
     arr = np.asarray(values, dtype=float)
@@ -85,6 +120,14 @@ def _detect_t0_energy_threshold(
     ref_fraction: float,
     threshold_sigma: float,
 ) -> int:
+    """Detect t0 as the first frame whose tail mean matches the reference.
+
+    The last ``ref_fraction`` of the series defines a reference mean and
+    std (std floored to avoid a zero threshold); t0 is the earliest
+    index whose mean-over-remaining-frames lies within
+    ``threshold_sigma`` reference stds of the reference mean.  Returns 0
+    when numpy is missing, the series is empty, or nothing qualifies.
+    """
     if np is None or not values:
         return 0
     arr = np.asarray(values, dtype=float)
@@ -103,6 +146,11 @@ def _detect_t0_energy_threshold(
 
 
 def _write_plots(values: List[float], t0: int, start_index: int, out_pdb: Path) -> None:
+    """Save an energy trace + cumulative-mean PNG next to the output PDB.
+
+    Marks the applied start index (and detected t0 when different).
+    No-op when matplotlib or numpy is unavailable.
+    """
     if plt is None or np is None or not values:
         return
     arr = np.asarray(values, dtype=float)
@@ -142,6 +190,30 @@ def trim_pdb(
     fast: bool,
     write_plots: bool,
 ) -> dict:
+    """Trim leading equilibration frames from a multi-model PDB.
+
+    The start index is ``max(skip_frames, t0)`` where t0 comes from the
+    chosen detection method (only when auto_trim is set and energies
+    exist) and is capped at ``max_trim_fraction`` of the trajectory.
+
+    Args:
+        input_pdb: Multi-MODEL PDB to trim.
+        output_pdb: Destination for the surviving frames.
+        energy_xvg: Frame-aligned energy series; None disables detection.
+        auto_trim: Enable t0 detection (else only skip_frames applies).
+        skip_frames: Unconditional number of leading frames to drop.
+        nskip: pymbar detect_equilibration stride.
+        max_trim_fraction: Cap on trimmed fraction (0..1) of all frames.
+        trim_method: "pymbar" or "energy_threshold".
+        ref_fraction: Tail fraction defining the threshold reference.
+        threshold_sigma: Tolerance in reference stds (threshold method).
+        fast: pymbar fast-detection flag.
+        write_plots: Save convergence plots when energies exist.
+
+    Returns:
+        Trim-info dict (frame counts, t0, start index, method, g/neff);
+        also written as ``<output stem>_trim_info.json``.
+    """
     frames = list(_iter_pdb_frames(input_pdb))
     total_frames = len(frames)
     _, energies = _parse_xvg(energy_xvg) if energy_xvg else ([], [])
@@ -196,6 +268,11 @@ def trim_pdb(
 
 
 def main() -> None:
+    """CLI wrapper around :func:`trim_pdb`; prints trim info to stderr.
+
+    stderr is used so stdout stays clean inside the generated pipeline
+    scripts.
+    """
     parser = argparse.ArgumentParser(
         description="Trim a GROMACS-derived multi-model PDB using optional energy XVG data."
     )

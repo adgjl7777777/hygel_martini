@@ -1,9 +1,21 @@
+"""Default configuration for the stage-02 (OPLS -> Martini) workflow.
+
+Holds ``DEFAULT_CONFIG``, the template that user configs are deep-merged
+over (user values win) by ``generator.run_opls_to_martini``, plus the
+nm<->Angstrom conversion constant shared with ``builder``.  The dict
+covers both workflow modes: constructor-mode sections (system, sampling,
+mdp, water, runtime, topology) and existing-data-fit sections
+(opls_data, bartender_pipeline).  Per param_opt layout rules, these
+defaults live only inside this package.
+"""
+
 from __future__ import annotations
 
 from typing import Any, Dict
 
 from ..polymer_maker.maker import DEFAULT_MONOMER_FILES
 
+# Unit conversion used by builder: box/span values in nm <-> Angstrom.
 NM_TO_ANGSTROM = 10.0
 
 DEFAULT_CONFIG: Dict[str, Any] = {
@@ -25,6 +37,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "gmxrc_path": "/opt/gromacs/2026/bin/GMXRC",
     },
     "monomers": dict(DEFAULT_MONOMER_FILES),
+    # Constructor-mode system definition: which polymer sequences to
+    # build and the solvated-box sizing rules (lengths in nm, T in C).
     "system": {
         "sequences": None,
         "symbols": ["S"],
@@ -36,10 +50,13 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "n_torsion_mode": "repeat",
         "solvate_tool": "gromacs",
     },
+    # Production sampling: MD timestep (ps) and number of steps.
     "sampling": {
         "dt_ps": 0.002,
         "sample_nsteps": 10_000_000,
     },
+    # GROMACS .mdp template values (EM/NVT/NPT/MD). Units follow the
+    # key suffixes: _nm, _ps, _bar, _bar_inv (1/bar compressibility).
     "mdp": {
         "em_nsteps": 50000,
         "emtol": 1000.0,
@@ -61,6 +78,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "pbc": "xyz",
         "npt_pcoupltype": "isotropic",
     },
+    # Water-count estimation constants and solvation inputs (packmol
+    # tolerance in Angstrom; gromacs_water_model is the gmx solvate -cs box).
     "water": {
         "molar_mass_g_per_mol": 18.01528,
         "avogadro": 6.02214076e23,
@@ -68,6 +87,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "packmol_water_structure": "water.xyz",
         "gromacs_water_model": "spc216.gro",
     },
+    # run_pipeline.sh runtime defaults; OMP thread counts default to 1
+    # to avoid oversubscribing shared nodes.
     "runtime": {
         "default_run_mode": "none",
         "cpu_omp_threads": 1,
@@ -75,6 +96,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "none_omp_threads": 1,
         "random_seed_fallback": 123456789,
     },
+    # topol.top stub contents (include paths and [ molecules ] entries).
     "topology": {
         "forcefield_include": "oplsaa.ff/forcefield.itp",
         "water_include": "oplsaa.ff/tip4p.itp",
@@ -85,6 +107,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "water_molecule_name": "SOL",
         "water_molecule_count": 0,
     },
+    # existing_data_fit mode: user-supplied trajectory cases plus the
+    # equilibration-trim settings forwarded to gromacs_traj_to_pdb.
     "opls_data": {
         "cases": [],
         "trim": {

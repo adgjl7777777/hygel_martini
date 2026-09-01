@@ -9,6 +9,21 @@ the two-core, and (when a GRO file is supplied) periodic winding.
 The reduced graph is a structural diagnostic.  Calling a strand "in the
 two-core" does not by itself prove that it contributes the classical ``kBT/V``
 to an experimental or simulated equilibrium modulus.
+
+Entry points: :func:`audit_reduced_network` (the full audit dict —
+counts, degree/multiplicity distributions, two-core, bridges, cycle
+rank, connectivity SHA-256 fingerprints, and the optional ``periodic``
+winding block) and :func:`main`, a JSON-emitting CLI
+(``python -m ... network_topology <itp> [--gro ...]``).  The
+``topology.reduced_network`` extractor adapter turns the audit into
+manifest gate checks with ``validation_role="structural_audit"``.
+
+Gate behavior: audits refuse by raising ``ValueError`` — multi-molecule
+or bond-less ITPs, a missing junction residue, a GRO/ITP atom-count
+mismatch, or an unassignable periodic image shift all fail loudly
+instead of producing a partial audit.  Strand components with other
+than two junction attachments are not silently dropped either: they
+are counted and itemized as malformed.
 """
 
 from __future__ import annotations
@@ -72,6 +87,11 @@ def _read_itp_atoms_bonds(
 
 
 def _components(nodes: Iterable[int], adjacency: dict[int, set[int]]) -> list[set[int]]:
+    """Return connected components (as sets) via iterative traversal.
+
+    Components are discovered from their smallest node id upward, so
+    the output order is deterministic for a given graph.
+    """
     remaining = set(nodes)
     output: list[set[int]] = []
     while remaining:
@@ -93,6 +113,7 @@ def _components(nodes: Iterable[int], adjacency: dict[int, set[int]]) -> list[se
 def _reduced_components(
     n_nodes: int, edges: list[tuple[int, int]]
 ) -> list[set[int]]:
+    """Connected components of the reduced junction graph (0..n-1 nodes)."""
     adjacency = {node: set() for node in range(n_nodes)}
     for left, right in edges:
         adjacency[left].add(right)
@@ -103,6 +124,7 @@ def _reduced_components(
 def _multigraph_degrees(
     n_nodes: int, edges: list[tuple[int, int]]
 ) -> list[int]:
+    """Per-node degrees counting multi-edges; a self-loop contributes 2."""
     degrees = [0] * n_nodes
     for left, right in edges:
         if left == right:
@@ -116,6 +138,14 @@ def _multigraph_degrees(
 def _two_core(
     n_nodes: int, edges: list[tuple[int, int]]
 ) -> tuple[set[int], set[int]]:
+    """Return the multigraph 2-core as (surviving nodes, surviving edge ids).
+
+    Iteratively peels nodes of multigraph degree < 2 (self-loops count
+    2, so a node with only a self-loop survives) together with their
+    incident edges until every remaining node has degree >= 2.  The
+    2-core is the standard structural proxy for the load-bearing part
+    of the network — dangling trees are removed.
+    """
     incident: dict[int, set[int]] = {node: set() for node in range(n_nodes)}
     for edge_id, (left, right) in enumerate(edges):
         incident[left].add(edge_id)
@@ -124,6 +154,7 @@ def _two_core(
     active_edges = set(range(len(edges)))
 
     def degree(node: int) -> int:
+        """Multigraph degree of ``node`` over the still-active edges."""
         value = 0
         for edge_id in incident[node] & active_edges:
             left, right = edges[edge_id]
@@ -149,7 +180,13 @@ def _two_core(
 
 
 def _bridge_edges(n_nodes: int, edges: list[tuple[int, int]]) -> set[int]:
-    """Return multigraph bridge IDs using edge-aware Tarjan traversal."""
+    """Return multigraph bridge IDs using edge-aware Tarjan traversal.
+
+    Edge-aware means the DFS skips only the specific parent edge id
+    (not the parent node), so a parallel edge between the same node
+    pair correctly prevents either copy from being a bridge, and
+    self-loops are never bridges.
+    """
     adjacency: dict[int, list[tuple[int, int]]] = defaultdict(list)
     for edge_id, (left, right) in enumerate(edges):
         adjacency[left].append((right, edge_id))
@@ -160,6 +197,7 @@ def _bridge_edges(n_nodes: int, edges: list[tuple[int, int]]) -> set[int]:
     clock = 0
 
     def visit(node: int, parent_edge: int | None) -> None:
+        """Recursive Tarjan visit updating low-links and collecting bridges."""
         nonlocal clock
         discovery[node] = low[node] = clock
         clock += 1
@@ -186,6 +224,14 @@ def _shortest_path(
     allowed: set[int],
     adjacency: dict[int, set[int]],
 ) -> list[int]:
+    """BFS shortest bonded path from start to end within ``allowed`` atoms.
+
+    ``start`` need not be in ``allowed`` (paths out of a junction begin
+    at its representative), but every subsequent hop must be.
+
+    Raises:
+        ValueError: No bonded path exists inside the allowed set.
+    """
     if start == end:
         return [start]
     parents: dict[int, int | None] = {start: None}
@@ -214,6 +260,11 @@ def _read_gro(path: str | Path) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _canonical_winding(vector: np.ndarray) -> tuple[int, int, int]:
+    """Canonicalize a winding vector's sign (v and -v describe one cycle).
+
+    The first nonzero component is made positive so each undirected
+    winding class is stored exactly once in the vector set.
+    """
     values = tuple(int(value) for value in vector)
     for value in values:
         if value < 0:
@@ -231,6 +282,42 @@ def _periodic_winding(
     strands: list[dict[str, object]],
     n_itp_atoms: int,
 ) -> dict[str, object]:
+    """Audit periodic winding of the reduced network from GRO coordinates.
+
+    For every valid strand, the bonded atom path between its two
+    junction representatives is unwrapped bond-by-bond with
+    minimum-image fractional displacements; comparing that unwrapped
+    displacement with the direct junction-to-junction displacement
+    yields an integer periodic image shift per reduced edge.  A BFS
+    then assigns each junction an integer potential; any edge whose
+    shift disagrees with the potentials closes a cycle with a nonzero
+    winding vector.  The rank of the collected winding vectors is the
+    number of independent periodic directions the network winds
+    through.
+
+    Assumes GRO atom ordering matches the ITP (1-based ITP atom id ->
+    GRO row ``id - 1``); the GRO may contain extra trailing atoms
+    (e.g. solvent) but never fewer than the ITP.
+
+    Args:
+        coordinates: GRO positions in nm, shape ``(n_gro_atoms, 3)``.
+        box: ``(3, 3)`` periodic cell in nm (row vectors).
+        adjacency: Atom-level bonded adjacency from the ITP.
+        junction_components: Junction atom sets, in audit order.
+        strands: Strand records with ``atoms`` and two ``attachments``
+            (records with malformed attachments are skipped).
+        n_itp_atoms: Atom count of the audited ITP.
+
+    Returns:
+        Dict with ``box_volume_nm3``, ``winding_rank`` (0-3),
+        per-axis ``spans_x/y/z`` flags, and the sorted canonical
+        ``winding_vectors``.
+
+    Raises:
+        ValueError: GRO has fewer atoms than the ITP, a strand path is
+            broken, or an image shift is not integral (residual above
+            1e-5 — bond-length vs box-size inconsistency).
+    """
     if coordinates.shape[0] < n_itp_atoms:
         raise ValueError(
             "GRO contains fewer atoms than the audited ITP; atom ordering cannot match"
@@ -239,6 +326,7 @@ def _periodic_winding(
     representatives = [min(component) for component in junction_components]
 
     def minimum_image_fractional(left: int, right: int) -> np.ndarray:
+        """Minimum-image displacement between two ITP atom ids, fractional."""
         delta = (coordinates[right - 1] - coordinates[left - 1]) @ inverse_box
         return delta - np.round(delta)
 
@@ -364,6 +452,28 @@ def audit_reduced_network(
     strands.  This convention matches the PEGDA builder topology used by the
     Q-series and deliberately fails visibly for architectures requiring a
     different reduction rule.
+
+    Args:
+        itp: Single-molecule ITP whose bonded graph is audited.
+        gro: Optional coordinate file; when given, a ``periodic``
+            winding audit block is added (GRO atom order must match
+            the ITP).
+        junction_residue: Residue name marking junction atoms
+            (default ``BCK``).
+
+    Returns:
+        JSON-serializable audit dict: atom/bond/junction/strand counts,
+        malformed strand records, junction-size / strand-size / degree
+        / edge-multiplicity distributions, self-loop and parallel-
+        strand counts, reduced component stats, two-core and bridge
+        counts, cycle rank and the phantom coefficient
+        ``strands - junctions``, SHA-256 fingerprints of the atom-bond,
+        junction-attachment, and reduced-edge connectivity, the
+        canonical ``reduced_edges``, and optionally ``periodic``.
+
+    Raises:
+        ValueError: Malformed or multi-molecule ITP, no atoms carrying
+            the junction residue, or any periodic-audit failure.
     """
     itp_path = Path(itp)
     atoms, bonds = _read_itp_atoms_bonds(itp_path)
@@ -514,6 +624,17 @@ def audit_reduced_network(
 
 
 def main(argv: list[str] | None = None) -> int:
+    """CLI entry point: audit one ITP and emit the result as JSON.
+
+    Args:
+        argv: Argument list (None uses ``sys.argv``): positional
+            ``itp``, optional ``--gro``, ``--junction-residue``
+            (default BCK), and ``--output`` (JSON path; stdout when
+            omitted).
+
+    Returns:
+        Process exit code 0 (audit failures raise instead).
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("itp", type=Path)
     parser.add_argument("--gro", type=Path)

@@ -1,7 +1,14 @@
+# common_c.yaml — same stage-03 pipeline as common.yaml but for the C (CBA)
+# case: sequences: [C], its own out_root, cluster-sized cpu counts, and
+# explicit backbone_atoms on every monomer. Kept self-contained (no include
+# of common.yaml) so the C/D/S batch runs stay independently editable.
+# ${CONFIG_DIR} resolves against the TOP config file's directory.
+
 paths:
   # Base directory for all relative paths below.
   # `${CONFIG_DIR}` is the directory that contains this file.
   base_dir: ${CONFIG_DIR}/..
+  # Per-case job directories are created under this root.
   out_root: ${CONFIG_DIR}/../md_C
 system:
   # Explicit polymer sequences to build.

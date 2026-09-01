@@ -1,3 +1,15 @@
+"""Extractor adapter: reduced junction-strand network audit gate.
+
+Registers ``topology.reduced_network``, which wraps
+:func:`..network_topology.audit_reduced_network` for the manifest
+runner and turns the raw audit into named pass/fail checks against the
+expected counts declared in the manifest.  Requires only ``itp``; an
+optional ``gro`` input additionally enables the periodic winding audit
+(and is required when ``expected_winding_rank`` is declared).
+``validation_role="structural_audit"``: this gate certifies bonded-
+graph construction only, never force-field quality or equilibrium
+mechanics.
+"""
 from __future__ import annotations
 
 from ._registry import BaseExtractor, register_extractor
@@ -12,6 +24,32 @@ class ReducedNetworkTopologyExtractor(BaseExtractor):
     required_inputs = ["itp"]
 
     def compute(self, inputs: dict, params: dict) -> PropertyResult:
+        """Run the audit and evaluate the manifest's expected counts.
+
+        Only expectations actually declared in ``params`` become
+        checks; each check is named ``<field>_equals_<value>`` so the
+        report is self-describing.  A ``max_malformed_strands`` bound
+        (default 0) is always checked.
+
+        Args:
+            inputs: ``itp`` (bonded graph); optional ``gro`` for the
+                periodic winding audit.
+            params: ``junction_residue`` (default ``BCK``) plus any of
+                ``expected_junction_count``, ``expected_strand_count``,
+                ``expected_self_loop_count``,
+                ``expected_parallel_strand_excess``,
+                ``expected_bridge_strand_count``,
+                ``expected_winding_rank``, ``max_malformed_strands``.
+
+        Returns:
+            Computed PropertyResult whose value is the boolean gate
+            verdict; metadata keeps per-check outcomes, the full audit
+            dict, and the claim boundary.
+
+        Raises:
+            ValueError: ``expected_winding_rank`` declared without a
+                ``gro`` input (the periodic audit needs coordinates).
+        """
         from ..network_topology import audit_reduced_network
 
         audit = audit_reduced_network(

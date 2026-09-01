@@ -1,5 +1,24 @@
 #!/usr/bin/env python3
-"""Summarize postprocess sweep outputs into case/variant CSV tables."""
+"""Summarize postprocess sweep outputs into case/variant CSV tables.
+
+This script owns the tabulation step between a screening-threshold sweep
+and its plots: it walks
+``<result_dir>/outputs/<variant>/<label>/<mode>/screening_report.json``
+(plus the sibling ``screened_summary.json``), builds one row per case
+with accepted/parsed/info counts, screening settings, and RMSD ("rmse")
+and force-metric statistics (n/min/max/mean/median/p90), and aggregates
+the cases per variant.
+
+Callers: run as a standalone CLI; its outputs
+(``tables/case_summary.csv``, ``tables/variant_summary.csv``,
+``tables/missing_outputs.csv``, ``tables/summary_overview.md``) are the
+inputs of ``analysis.plotter``.
+
+Conventions: the column prefix "rmse" carries the Bartender per-term
+``rmsd`` fit values; "force" carries the screening force metric. An
+optional ``expected_case_outputs.tsv`` in the result directory lets
+missing case outputs be reported explicitly.
+"""
 
 from __future__ import annotations
 
@@ -18,12 +37,22 @@ STAT_KEYS = ["n", "min", "max", "mean", "median", "p90"]
 
 
 def as_float(value: Any) -> float | None:
+    """Return the value as a finite float, or None for anything else."""
     if isinstance(value, (int, float)) and math.isfinite(float(value)):
         return float(value)
     return None
 
 
 def percentile(values: Sequence[float], fraction: float) -> float | None:
+    """Linearly interpolated percentile of the values.
+
+    Args:
+        values: sample values (order irrelevant); empty yields None.
+        fraction: percentile as a fraction, e.g. 0.9 for P90.
+
+    Returns:
+        The interpolated percentile, or None for an empty input.
+    """
     if not values:
         return None
     sorted_values = sorted(values)
@@ -39,6 +68,14 @@ def percentile(values: Sequence[float], fraction: float) -> float | None:
 
 
 def stats(values: Iterable[Any]) -> Dict[str, Any]:
+    """Compute the standard statistic block over the finite values.
+
+    Non-numeric/non-finite entries are dropped first; with nothing left,
+    every key maps to "" so CSV cells stay blank rather than zero.
+
+    Returns:
+        Dict with the ``STAT_KEYS`` (n, min, max, mean, median, p90).
+    """
     numeric = [value for value in (as_float(item) for item in values) if value is not None]
     if not numeric:
         return {key: "" for key in STAT_KEYS}
@@ -53,14 +90,17 @@ def stats(values: Iterable[Any]) -> Dict[str, Any]:
 
 
 def flatten_stats(prefix: str, values: Iterable[Any]) -> Dict[str, Any]:
+    """Prefix the stat block keys, e.g. "all_rmse" -> "all_rmse_p90"."""
     return {f"{prefix}_{key}": value for key, value in stats(values).items()}
 
 
 def load_json(path: Path) -> Dict[str, Any]:
+    """Read and parse a UTF-8 JSON file."""
     return json.loads(path.read_text(encoding="utf-8"))
 
 
 def safe_get(mapping: Dict[str, Any], *keys: str, default: Any = "") -> Any:
+    """Walk nested dict keys, returning ``default`` on any missing step."""
     current: Any = mapping
     for key in keys:
         if not isinstance(current, dict) or key not in current:
@@ -70,6 +110,14 @@ def safe_get(mapping: Dict[str, Any], *keys: str, default: Any = "") -> Any:
 
 
 def variant_from_report_path(report_path: Path, outputs_dir: Path) -> tuple[str, str, str]:
+    """Extract (variant_id, label, mode) from a report's path.
+
+    Relies on the fixed sweep layout
+    ``outputs/<variant>/<label>/<mode>/screening_report.json``.
+
+    Raises:
+        ValueError: the path is too shallow to carry all three parts.
+    """
     rel = report_path.relative_to(outputs_dir)
     parts = rel.parts
     if len(parts) < 4:
@@ -78,6 +126,7 @@ def variant_from_report_path(report_path: Path, outputs_dir: Path) -> tuple[str,
 
 
 def selected_terms(summary: Dict[str, Any]) -> Dict[str, List[Dict[str, Any]]]:
+    """Normalize a ``screened_summary.json`` payload to lists per section."""
     result: Dict[str, List[Dict[str, Any]]] = {}
     for section in SECTIONS:
         rows = summary.get(section, [])
@@ -86,6 +135,12 @@ def selected_terms(summary: Dict[str, Any]) -> Dict[str, List[Dict[str, Any]]]:
 
 
 def read_expected(result_dir: Path) -> set[tuple[str, str, str, Path]]:
+    """Read the optional expected-output manifest for missing-case checks.
+
+    Returns:
+        Set of (variant_id, label, mode, expected report path); empty when
+        ``expected_case_outputs.tsv`` does not exist.
+    """
     expected_path = result_dir / "expected_case_outputs.tsv"
     if not expected_path.exists():
         return set()
@@ -99,6 +154,20 @@ def read_expected(result_dir: Path) -> set[tuple[str, str, str, Path]]:
 
 
 def collect_case_rows(result_dir: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Build one summary row per (variant, label, mode) case.
+
+    For each ``screening_report.json`` found under ``outputs/``: record
+    the screening settings, per-section accepted/parsed/info counts and
+    force-metric cutoffs, plus rmse/force stat blocks over the screened
+    terms (all terms and per section). Cases named in the expected
+    manifest whose report is genuinely absent become missing rows.
+
+    Args:
+        result_dir: sweep result directory.
+
+    Returns:
+        (case rows, missing-output rows).
+    """
     outputs_dir = result_dir / "outputs"
     case_rows: list[dict[str, Any]] = []
     missing_rows: list[dict[str, Any]] = []
@@ -169,6 +238,20 @@ def collect_case_rows(result_dir: Path) -> tuple[list[dict[str, Any]], list[dict
 
 
 def aggregate_variant_rows(case_rows: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Aggregate case rows into one row per variant.
+
+    Settings columns are copied from the variant's first case (assumed
+    identical across cases); counts are summed and ``zero_<section>_cases``
+    counts cases with no accepted terms. The rmse/force stat blocks are
+    recomputed over the pooled screened terms re-read from each case's
+    ``screened_summary.json`` (not averaged from per-case stats).
+
+    Args:
+        case_rows: rows from ``collect_case_rows``.
+
+    Returns:
+        Variant rows sorted by variant id.
+    """
     grouped: Dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in case_rows:
         grouped[str(row["variant_id"])].append(row)
@@ -218,6 +301,11 @@ def aggregate_variant_rows(case_rows: Sequence[dict[str, Any]]) -> list[dict[str
 
 
 def write_csv(path: Path, rows: Sequence[dict[str, Any]]) -> None:
+    """Write dict rows as CSV, unioning keys in first-seen order.
+
+    An empty row list produces an empty file (no header), which the
+    downstream plotter treats as absent data.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     if not rows:
         path.write_text("", encoding="utf-8")
@@ -234,6 +322,7 @@ def write_csv(path: Path, rows: Sequence[dict[str, Any]]) -> None:
 
 
 def write_overview(path: Path, case_rows: Sequence[dict[str, Any]], variant_rows: Sequence[dict[str, Any]], missing: Sequence[dict[str, Any]]) -> None:
+    """Write the Markdown overview: row counts plus suggested sort columns."""
     lines = [
         "# Sweep Summary Overview",
         "",
@@ -259,6 +348,7 @@ def write_overview(path: Path, case_rows: Sequence[dict[str, Any]], variant_rows
 
 
 def main() -> None:
+    """CLI entry point: collect case rows, aggregate, and write the tables."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("result_dir", type=Path, help="Analyze result directory, e.g. analyze/results/01_summary_sweep")
     parser.add_argument("--out-dir", type=Path, default=None, help="Directory for CSV outputs. Default: result_dir/tables")

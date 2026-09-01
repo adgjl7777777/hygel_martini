@@ -1,12 +1,25 @@
 # add_series.yaml
-# 한글: add_polymer / add_molecule / add_water / add_small_ion 설정
-# English: add_polymer / add_molecule / add_water / add_small_ion settings
+# 한글: add_polymer / add_molecule / add_water / add_small_ion 설정.
+#       네트워크 빌드가 끝난 뒤 자유 사슬/소분자/물/이온을 박스에 추가하는
+#       단계들이며, maker.yaml includes로 병합된다. ${CONFIG_DIR}는 최상위
+#       maker.yaml의 디렉터리 기준.
+# English: add_polymer / add_molecule / add_water / add_small_ion settings —
+#          post-build stages that pack free chains, small molecules, water,
+#          and ions into the box. Merged via maker.yaml; ${CONFIG_DIR}
+#          resolves against the TOP maker.yaml's directory.
 
 add_series_parameters:
+  # 가교되지 않은 자유 고분자 사슬 추가 단계. num_polymers: 0이면 건너뜀.
+  # Free (non-crosslinked) polymer chains; skipped when num_polymers is 0.
   add_polymer:
+    # 추가할 사슬 수 / number of free chains to add
     num_polymers: 1
+    # 사슬당 backbone bead 수 / backbone beads per chain
     length: 100
+    # system.top [molecules]에 올라갈 이름 / molecule name in system.top
     molecule_name: POLY
+    # 네트워크와 독립적인, 자유 사슬 전용 화학 정의 (형식은 hydrogel.yaml과 동일).
+    # Chemistry for the free chains only, same schema as hydrogel.yaml.
     monomer_definitions:
       MONOMERS:
         - id: PE2
@@ -19,12 +32,14 @@ add_series_parameters:
           backbone_id: PB2
           gro: ${CONFIG_DIR}/structure/poltol.gro
           itp: ${CONFIG_DIR}/structure/poltol.itp
+      # 사슬 양끝에 붙는 말단 모노머 정의. Terminal monomers capping each chain end.
       TERMINALS:
         - id: TER
           ratio: 1
           backbone_id: PB2
           gro: ${CONFIG_DIR}/structure/poltol.gro
           itp: ${CONFIG_DIR}/structure/poltol.itp
+      # 말단 종 선택 전략. How terminal species are chosen per end.
       TERMINAL_STRATEGY:
         strategy: random
       SEQUENCE_STRATEGY:
@@ -61,25 +76,46 @@ add_series_parameters:
           bond_funct: 1
           bond_c0: 0.47
           bond_c1: 1250
+      # BONDS에 규칙이 없는 쌍의 기본 결합 길이 (nm).
+      # Fallback bond length (nm) for pairs without a BONDS rule.
       default_bond_length: 0.47
       angles:
+        # 기본 각도 (도, kJ/mol/rad²). Default angle (degrees, kJ/mol/rad²).
         default_angle:
           angle_funct: 1
           angle_c0: 180
           angle_c1: 25
+        # residue/type 패턴별 예외 각도 규칙 (여기서는 없음).
+        # Pattern-specific angle overrides (none here).
         specific_angles: []
 
+  # 임의 소분자 추가 단계 (Packmol로 배치). num_molecules: 0이면 건너뜀.
+  # Arbitrary small molecules packed in via Packmol; skipped at 0.
   add_molecule:
-    molecule_gro: ${CONFIG_DIR}/structure/LAC.gro
-    num_molecules: 10
-    molecule_itp: ${CONFIG_DIR}/structure/LAC.itp
+    molecule_gro: ${CONFIG_DIR}/structure/LAC.gro   # 분자 좌표 / molecule coordinates
+    num_molecules: 10                               # 추가 개수 / how many to insert
+    molecule_itp: ${CONFIG_DIR}/structure/LAC.itp   # 분자 topology / molecule topology
 
+  # 물 추가 단계: gel_weight_fraction을 맞추도록 물 bead 수를 질량 수지로 계산.
+  # Water stage: bead count is solved from a mass balance to hit the target wt%.
   add_water:
+    # full = 가교제 질량을 dry gel 질량에 포함해 계산.
+    # full = include crosslinker mass in the dry-gel mass.
     mode: full
+    # system.top [molecules]의 물 이름 / water molecule name in system.top
     molecule_name: W
+    # Martini 물 bead type (W = 물 4분자, 72 amu). Martini water bead type.
     water_bead_type: W
+    # 목표 젤 중량 분율: dry gel / (gel + water). 산정 방식은
+    # simulation.yaml의 gel_weight_fraction_mode가 정한다.
+    # Target gel weight fraction, dry gel over total; accounting follows
+    # simulation.yaml's gel_weight_fraction_mode.
     gel_weight_fraction: 0.6
 
+  # 이온 추가 단계. charge는 e 단위, number는 개수.
+  # additional_add: true인 종은 잔여 전하 중화(보정) 풀로도 사용된다.
+  # Ion stage; charge in e, number is a molecule count. Species flagged
+  # additional_add serve as the residual-charge compensation pool.
   add_small_ion:
     ions:
       - ion_name: NA

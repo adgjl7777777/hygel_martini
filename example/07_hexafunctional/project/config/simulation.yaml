@@ -14,69 +14,153 @@
 # 두지 않는다. 격자는 network.yaml의 network_layout 블록이 정한다.
 
 simulation_parameters:
+  # GROMACS 실행 파일. MPI 빌드는 gmx_mpi, 단일 바이너리는 gmx.
+  # GROMACS executable. gmx_mpi for MPI builds, gmx for a single binary.
   gromacs_executable_path: gmx_mpi
+
+  # Packmol 실행 파일. PATH에 있으면 이름만, 아니면 절대경로.
+  # Packmol executable. Just the name if on PATH, else an absolute path.
   packmol_path: packmol
+
+  # Martini forcefield ITP 디렉터리. ${REPO_ROOT}는 로더가 패키지 루트로 치환.
+  # Martini forcefield ITP directory. ${REPO_ROOT} = the package root.
   gromacs_include_path: ${REPO_ROOT}/martini_v300
+
+  # Martini atomtypes를 담은 기본 ITP. grompp topology가 항상 include한다.
+  # Base ITP with the Martini atomtypes — always included by grompp.
   base_itp_file: ${REPO_ROOT}/martini_v300/martini_v3.0.0.itp
+
+  # 빌드 산출물 출력 디렉터리 (maker_partial.yaml이 output_partial로 덮어씀).
+  # Output directory for build artifacts (maker_partial.yaml overrides it).
   output_dir: ${CONFIG_DIR}/output
 
   # network_layout 경로에서는 반복 수를 network.yaml의 repeats가 정한다.
   # number_of_cells는 다이아몬드 경로의 값이므로 최소값으로 고정해 둔다.
   number_of_cells: 1
+
+  # backbone strand 하나당 CG bead 수 (junction 사이 사슬 길이).
+  # Number of CG beads per backbone strand between junctions.
   segment_length: 20
+
+  # 젤 wt% 계산 시 이온 질량 처리: exclude_ions = polymer+water 기준.
+  # How gel wt% counts mass: exclude_ions = polymer + water only.
   gel_weight_fraction_mode: exclude_ions
+
+  # 주기적 경계조건 사용 여부. Whether to apply periodic boundary conditions.
   pbc_true_or_false: true
+
+  # bead 간 평균 간격 (nm). 물 패킹과 bond-length fallback에 쓰인다.
+  # Mean bead separation (nm); used for water packing and bond fallbacks.
   mean_sep: 0.24
 
+  # 명시 규칙이 없는 각도에 적용되는 기본값.
+  # Default angle used when no specific rule matches.
   default_angle:
-    angle_funct: 1
-    angle_c0: 180
-    angle_c1: 25
+    angle_funct: 1      # 1 = harmonic
+    angle_c0: 180       # 평형 각도 (도) / equilibrium angle (degrees)
+    angle_c1: 25        # 힘 상수 (kJ/mol/rad²) / force constant
 
+  # null = CPU 전용 (공용 서버 기본값), N = GPU N번에 고정 (CUDA_VISIBLE_DEVICES=N).
+  # null = CPU-only (safe on shared machines), N = pin to GPU N.
   gpu_id: null
+
+  # 빌드 EM 단계 mdrun의 OpenMP 스레드 수 (-ntomp). null = GROMACS 자동.
+  # OpenMP threads for build-stage mdrun (-ntomp). null = auto-detect.
   omp_threads: 4
+
+  # grompp가 허용할 경고 최대 수 (-maxwarn).
+  # Max warnings grompp may absorb (-maxwarn).
   grompp_maxwarn: 2
+
+  # 전하 0인 EM 단계 전용 Coulomb 설정. Cut-off = PME 없이 빠르게.
+  # Coulomb settings for neutral (zero-charge) EM stages; Cut-off is fast.
   neutral_em_coulombtype: Cut-off
+  # 중성 EM 단계의 rcoulomb / rvdw cutoff (nm). null이면 mdp 값 유지.
+  # rcoulomb/rvdw cutoffs (nm) for neutral EM stages; null keeps mdp values.
   neutral_em_rcoulomb: 1.5
   neutral_em_rvdw: 1.5
+
+  # 난수 시드. 같은 시드는 같은 배치를 재현한다 (rewiring seed는 network.yaml).
+  # Random seed for reproducible placement (rewiring has its own seed).
   random_seed: 2020
+
+  # true → output/debug.txt에 상세 실행 로그 기록.
+  # true → write a verbose execution log to output/debug.txt.
   debug_mode: true
+
+  # true → virtual_sites/restraints 등 rich ITP 섹션을 보존해 출력.
+  # true → carry rich ITP sections (virtual_sites, restraints, ...) through.
   emit_rich_itp_sections: true
 
+  # Packmol 원자 간 최소 허용 거리 (Å). Minimum inter-atom distance (Å).
   packmol_threshold: 3
+  # 겹침 검사 루프 최대 반복 수. Max iterations of the overlap-check loop.
   overlap_check_limit: 10
+  # 원자 수가 이보다 많으면 최소거리 보고 생략. Skip min-distance report above this atom count.
   min_distance_report_max_atoms: 3000
-  sidechain_num_candidates: 72
-  sidechain_overlap_threshold_factor: 0.8
-  sidechain_search_radius_factor: 10.0
-  sidechain_nearby_atom_limit: 800
-  sidechain_auto_threshold: 20000
 
+  # side-chain 배치 성능 튜닝 (이 예제는 side chain이 없어 실질 무효).
+  # Side-chain placement tuning; inert here since this system has no side chains.
+  sidechain_num_candidates: 72          # 후보 배향 수 / candidate orientations
+  sidechain_overlap_threshold_factor: 0.8   # 겹침 판정 상대 임계값 / relative overlap threshold
+  sidechain_search_radius_factor: 10.0  # 탐색 반경 배율 / search radius multiplier
+  sidechain_nearby_atom_limit: 800      # 인근 원자 검사 상한 / max nearby atoms checked
+  sidechain_auto_threshold: 20000       # 이 원자 수 초과 시 간략 모드 / fast mode above this size
+
+  # 링커에 target별 bond가 없을 때의 fallback 가교 bond.
+  # Fallback crosslink bond when the linker declares no target-specific one.
   default_dynamic_crosslink_bond:
     bond_funct: 1
-    bond_c0: 0.47
-    bond_c1: 1250
+    bond_c0: 0.47       # 평형 길이 (nm) / equilibrium length (nm)
+    bond_c1: 1250       # 힘 상수 (kJ/mol/nm²) / force constant
 
   # f=6: stub 6개가 backbone end를 하나씩 받는다 (다이아몬드는 2개 stub이
   # 2개씩). runtime router가 stub 수 x targets로 기대치를 계산한다.
   dynamic_crosslink_targets_per_stub: 1
+
+  # block copolymer 전용 제어들 — 이 예제에서는 비활성.
+  # Block-copolymer-specific controls, all inactive in this example.
   respect_target_backbone: false
   linker_terminal_compensation:
     enabled: false
     target_backbone: null
     compensation_beads: 0
+  # 사슬 방향 정책: random | one_direction | graph_directed.
+  # Chain orientation policy: random | one_direction | graph_directed.
   chain_orientation_policy: random
+
+  # stub당 유지할 연결 후보 backbone 수 (탐색 폭).
+  # Candidate backbone ends retained per stub (search width).
   dynamic_crosslink_candidate_limit: 64
+
+  # runtime 매칭 전략. nearest = 기하학적 최근접 end에 결합.
+  # Runtime matching strategy; nearest = bond the geometrically closest end.
   dynamic_crosslink_assignment_strategy: nearest
+
+  # layout 단계 링커 배향 전략. connectivity_aware = 연결성 최대화 배향.
+  # Linker orientation strategy at layout time; connectivity_aware maximizes connectivity.
   linker_orientation_strategy: connectivity_aware
+
+  # 가교 직후 soft-bond EM 완화 수행 여부와 그때의 임시 힘 상수 (kJ/mol/nm²).
+  # Whether to run a soft-bond EM right after crosslinking, and its temporary fc.
   dynamic_crosslink_relax_enabled: true
   dynamic_crosslink_relax_fc: 50.0
 
 # 이 예제는 추가 이온 ITP를 쓰지 않는다.
 additional_itp_files: []
 
+# 빌드 후 공유결합 그래프 연결성 감사. 완전 전환 빌드는 gate로 쓴다
+# (부분 전환 variant는 maker_partial.yaml이 보고 전용으로 완화).
+# Post-build covalent-graph connectivity audit; gating for the full build
+# (maker_partial.yaml relaxes it to report-only for partial conversion).
 hydrogel_topology_connectivity_audit:
   enabled: true
+  # 최대 컴포넌트가 담아야 하는 하이드로젤 원자 최소 비율.
+  # Minimum fraction of hydrogel atoms in the largest bonded component.
   min_largest_component_fraction: 0.95
+  # 허용되는 컴포넌트 수 상한. 1 = 전체가 한 덩어리여야 함.
+  # Max allowed components; 1 = the whole network must be one piece.
   max_components: 1
+  # 위반 시 빌드를 즉시 실패 처리할지 여부.
+  # Whether a violation fails the build immediately.
   fail_on_violation: true

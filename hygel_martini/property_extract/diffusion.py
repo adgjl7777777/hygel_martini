@@ -1,4 +1,16 @@
-"""PBC-safe translational MSD primitives for within-model mobility analysis."""
+"""PBC-safe translational MSD primitives for within-model mobility analysis.
+
+Owns three pure-numpy building blocks — trajectory unwrapping
+(:func:`unwrap_trajectory`), multi-origin MSD accumulation
+(:func:`multi_origin_msd`), and an explicit-window Einstein fit
+(:func:`fit_diffusion_coefficient`).  No file I/O and no unit
+conventions of its own: coordinates, box lengths, and ``frame_dt``
+carry whatever consistent units the caller uses, and the fitted
+coefficient is reported in coordinate^2/time accordingly.  All inputs
+are validated eagerly — malformed shapes or windows raise
+``ValueError`` instead of returning partial results, so callers wrap
+these in their own refusal handling.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +25,22 @@ def unwrap_trajectory(positions: np.ndarray, boxes: np.ndarray) -> np.ndarray:
     Positions have shape ``(n_frames, n_particles, 3)``. Boxes may be one
     length vector or one vector per frame. Coordinates and box lengths must use
     the same units.
+
+    Frame-to-frame displacements are minimum-imaged with the box of the
+    later frame and accumulated from the first frame's raw positions,
+    so a particle must not move more than half a box length between
+    stored frames for the unwrap to be valid.
+
+    Args:
+        positions: Wrapped coordinates, shape ``(n_frames, n_particles, 3)``.
+        boxes: Box lengths, shape ``(3,)`` (constant) or
+            ``(n_frames, 3)`` (per frame, e.g. NPT).
+
+    Returns:
+        Unwrapped coordinates with the same shape as ``positions``.
+
+    Raises:
+        ValueError: Wrong array shapes or fewer than two frames.
     """
     pos = np.asarray(positions, dtype=float)
     if pos.ndim != 3 or pos.shape[2] != 3 or pos.shape[0] < 2:
@@ -40,7 +68,30 @@ def multi_origin_msd(
     max_lag_frames: int | None = None,
     origin_stride: int = 1,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Return lag times, 3-D MSD, and number of time origins per lag."""
+    """Return lag times, 3-D MSD, and number of time origins per lag.
+
+    Averages squared displacements over all particles and over sliding
+    time origins spaced ``origin_stride`` frames apart, for every lag
+    from 0 to ``max_lag_frames``.  Lag 0 is defined as MSD 0 with
+    ``n_frames`` origins.
+
+    Args:
+        unwrapped_positions: Output of :func:`unwrap_trajectory`,
+            shape ``(n_frames, n_particles, 3)``.
+        frame_dt: Time between stored frames (caller's time unit).
+        max_lag_frames: Largest lag in frames; default ``n_frames - 1``.
+        origin_stride: Use every N-th frame as a time origin (larger
+            stride trades statistics for speed/independence).
+
+    Returns:
+        Tuple ``(lag_times, msd, counts)`` — arrays of length
+        ``max_lag + 1``: lag times in ``frame_dt`` units, mean squared
+        displacement (coordinate^2), and origins averaged per lag.
+
+    Raises:
+        ValueError: Bad array shape, non-positive ``frame_dt`` /
+            ``origin_stride``, or a lag outside ``[1, n_frames - 1]``.
+    """
     pos = np.asarray(unwrapped_positions, dtype=float)
     if pos.ndim != 3 or pos.shape[2] != 3 or pos.shape[0] < 2:
         raise ValueError("unwrapped_positions must have shape (frames,particles,3)")
@@ -69,7 +120,30 @@ def fit_diffusion_coefficient(
     fit_end: float,
     dimensions: int = 3,
 ) -> dict[str, float]:
-    """Fit ``MSD = 2*d*D*t + intercept`` over an explicit lag window."""
+    """Fit ``MSD = 2*d*D*t + intercept`` over an explicit lag window.
+
+    A plain least-squares line through the finite MSD points with
+    ``fit_start <= t <= fit_end``; the caller chooses the window, so
+    diffusive-regime selection is explicit rather than automatic.
+
+    Args:
+        lag_times: 1-D lag times (same unit as ``frame_dt`` upstream).
+        msd: 1-D MSD values matching ``lag_times`` (coordinate^2).
+        fit_start: Window start (inclusive).
+        fit_end: Window end (inclusive); must exceed ``fit_start``.
+        dimensions: Dimensionality ``d`` of the Einstein relation
+            (3 for bulk translation).
+
+    Returns:
+        Dict with ``diffusion_coefficient_coordinate2_per_time``
+        (slope / (2 d)), the raw slope/intercept, ``r_squared`` (1.0
+        when the window has zero variance), the echoed window, and
+        ``n_fit_points``.
+
+    Raises:
+        ValueError: Mismatched arrays, invalid window/dimensions, or
+            fewer than two finite points inside the window.
+    """
     t = np.asarray(lag_times, dtype=float)
     y = np.asarray(msd, dtype=float)
     if t.ndim != 1 or y.ndim != 1 or t.size != y.size:

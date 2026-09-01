@@ -10,6 +10,26 @@ specific order:
 
 That ordering keeps the topology file synchronized with the gradually updated
 coordinate file while preserving user-configured ion identities.
+
+Ownership and call sites
+    Called by the build pipeline after water has been added (the counts that
+    the water stage reserves for ion replacement come from this module's
+    :func:`resolve_effective_ion_plan`, which
+    :mod:`hygel_martini.hydrogel_builder.add_series.add_water` imports).
+
+Inputs and outputs
+    Inputs are the solvated ``.gro``, the ``.top`` topology, and the
+    ``add_series_parameters.add_small_ion`` config block. Ions are inserted
+    by replacing solvent molecules in place via ``gmx genion``, so the
+    topology's ``[molecules]`` section is updated by GROMACS itself; a final
+    reorder pass keeps the coordinate file consistent with that section.
+
+Invariants
+    * Ion entries carry ``ion_name``, integer ``charge`` (e), ``number``
+      (molecule count), and an optional ``additional_add`` flag marking the
+      species usable for charge compensation.
+    * The compensation math is seeded from ``random_seed`` so the plan
+      predicted up front matches the one executed here.
 """
 
 import itertools
@@ -27,7 +47,22 @@ from hygel_martini.hydrogel_builder.core_utils.runtime.geo_opt import _run_with_
 
 
 def _run_checked(cmd, label, cwd=None, env=None, input_text=None):
-    """Run a subprocess through the shared logging wrapper."""
+    """Run a subprocess through the shared logging wrapper.
+
+    Args:
+        cmd: Command argv list.
+        label: Short tag used by the logging wrapper to name the step.
+        cwd: Working directory for the subprocess.
+        env: Environment mapping (e.g. with ``GMX_INCLUDE`` set).
+        input_text: Text piped to stdin (used to answer genion's solvent
+            group prompt).
+
+    Returns:
+        subprocess.CompletedProcess: The finished process.
+
+    Raises:
+        subprocess.CalledProcessError: If the command exits non-zero.
+    """
     proc = _run_with_logs(cmd, label, log_path=None, cwd=cwd, env=env, input_text=input_text)
     if proc.returncode != 0:
         raise subprocess.CalledProcessError(proc.returncode, cmd, output=proc.stdout, stderr=proc.stderr)
@@ -35,7 +70,21 @@ def _run_checked(cmd, label, cwd=None, env=None, input_text=None):
 
 
 def _partition_ion_definitions(ion_list):
-    """Split configured ions into primary and compensating pools."""
+    """Split configured ions into primary and compensating pools.
+
+    Ions flagged ``additional_add`` are set aside as the compensation pool
+    whose counts may be increased later to neutralize the system; the rest
+    are inserted exactly as configured. Zero-charge entries only contribute
+    to the totals and land in no pool.
+
+    Args:
+        ion_list: List of ion config dicts (may be None).
+
+    Returns:
+        tuple: ``(cations, anions, extra_cations, extra_anions,
+        total_charge)`` where the lists reference the original dicts and
+        ``total_charge`` is the summed ``charge * number`` in e.
+    """
     cations = []
     anions = []
     extra_cations = []
@@ -56,7 +105,20 @@ def _partition_ion_definitions(ion_list):
 
 
 def _ensure_compensation_pool(primary_pool, compensation_pool, label):
-    """Guarantee that a compensation pool contains at least one ion species."""
+    """Guarantee that a compensation pool contains at least one ion species.
+
+    The final ``genion -neutral`` step needs one cation and one anion
+    species, so if the user marked none as ``additional_add`` the first
+    primary species is moved (popped, not copied) into the pool.
+
+    Args:
+        primary_pool: List of non-compensating ion dicts; mutated on demand.
+        compensation_pool: List of compensating ion dicts; mutated on demand.
+        label: ``"cation"`` or ``"anion"``, used in the error message.
+
+    Raises:
+        ValueError: If both pools are empty for this polarity.
+    """
     if compensation_pool:
         return
     if not primary_pool:
@@ -65,7 +127,25 @@ def _ensure_compensation_pool(primary_pool, compensation_pool, label):
 
 
 def _apply_residual_charge(total_charge, compensation_pool, seed):
-    """Increase compensation-ion counts so the staged system can be neutralized."""
+    """Increase compensation-ion counts so the staged system can be neutralized.
+
+    Distributes ``|total_charge|`` across the pool in proportion to the
+    configured counts (floored to integers). Any leftover charge that the
+    floor step drops is covered by brute-force enumeration of small integer
+    additions (each species count 0..max|charge| extra), with one valid
+    combination chosen by a seeded RNG for reproducibility. Pool entries'
+    ``number`` fields are mutated in place.
+
+    Args:
+        total_charge: Net system charge (e) that this pool must cancel; its
+            sign is opposite to the pool's ion charges.
+        compensation_pool: Ion dicts whose ``number`` may be increased.
+        seed: Seed for the tie-breaking RNG.
+
+    Raises:
+        ValueError: If the pool's effective charge is zero, or the residual
+            charge cannot be represented by the enumerated combinations.
+    """
     if abs(total_charge) <= 1e-6 or not compensation_pool:
         return
 
@@ -108,7 +188,23 @@ def _apply_residual_charge(total_charge, compensation_pool, seed):
 
 
 def resolve_effective_ion_plan(ion_params, seed=None):
-    """Predict the effective ion counts after compensation adjustments."""
+    """Predict the effective ion counts after compensation adjustments.
+
+    Runs the same partition/compensation pipeline that
+    :func:`run_genion_for_neutralization` executes, but on a deep copy of
+    the config, so callers (notably the water stage) can budget for the
+    final ion counts without side effects.
+
+    Args:
+        ion_params: The ``add_small_ion`` config block (may be None/empty).
+        seed: RNG seed for residual-charge tie-breaking; defaults to
+            ``simulation_parameters.random_seed``.
+
+    Returns:
+        list[dict]: Copied ion dicts with adjusted ``number`` values, anions
+        first then cations, each polarity ordered primaries-then-reversed-
+        compensation to mirror the genion insertion order.
+    """
     ion_list = copy.deepcopy((ion_params or {}).get("ions") or [])
     if not ion_list:
         return []
@@ -140,15 +236,38 @@ def resolve_effective_ion_plan(ion_params, seed=None):
 
 
 def run_genion_for_neutralization(input_gro, output_gro, topology_file, sim_params, ion_params, solvent_name):
-    """
-    Runs the GROMACS genion tool to add ions and neutralize the system.
+    """Run GROMACS genion to add ions and neutralize the system.
+
+    Executes the staged plan described in the module docstring: for every
+    anion species but the last, then every cation species but the last, a
+    minimal ``grompp`` + ``genion`` pair replaces solvent molecules in the
+    current coordinate file; the last anion/cation pair is inserted together
+    with ``-neutral`` so GROMACS absorbs any remaining net charge. The
+    topology's ``[molecules]`` section is updated by genion itself. Finally
+    the coordinate file is post-processed and its water/ion blocks reordered
+    to match the topology.
 
     Args:
-        input_gro (str): Path to the input .gro file.
+        input_gro (str): Path to the solvated input .gro file.
         output_gro (str): Path for the final output .gro file.
-        topology_file (str): Path to the topology file (.top).
-        sim_params (dict): Simulation parameters from config.
-        ion_params (dict): Ion parameters from config.
+        topology_file (str): Path to the topology file (.top); it must
+            already reside in ``sim_params['output_dir']``, where all
+            commands run.
+        sim_params (dict): Simulation parameters from config (output dir,
+            GROMACS executable and include path, random seed).
+        ion_params (dict): The ``add_small_ion`` config block. Its ion
+            dicts are mutated in place by the compensation step.
+        solvent_name (str): Solvent residue name, piped to genion's group
+            prompt to choose which molecules get replaced.
+
+    Returns:
+        dict: ``{"output_gro": <path>, "ion_counts": {name: count}}`` where
+        the counts reflect the compensation-adjusted plan.
+
+    Raises:
+        subprocess.CalledProcessError: If any grompp/genion call fails.
+        ValueError: If neutralization is impossible with the configured
+            ion species.
     """
     print("="*50)
     print("Running GROMACS genion to add ions and neutralize the system...")
@@ -193,6 +312,8 @@ def run_genion_for_neutralization(input_gro, output_gro, topology_file, sim_para
     anion_list.extend(additional_anion_list)
     cation_list.extend(additional_cation_list)
     genion_count = 0
+    # Stage 1: insert every anion species except the last, one grompp+genion
+    # pair per species, threading the growing .gro through each iteration.
     for i in range(len(anion_list)-1):
         temp_mdp_file = os.path.join(output_dir, "temp_for_genion.mdp")
         temp_tpr_file = os.path.join(output_dir, "temp_for_genion.tpr")
@@ -233,6 +354,8 @@ def run_genion_for_neutralization(input_gro, output_gro, topology_file, sim_para
             if os.path.exists(temp_file):
                 os.remove(temp_file)
         genion_count += 1
+    # Stage 2: same one-by-one insertion for every cation species but the
+    # last.
     for i in range(len(cation_list)-1):
         temp_mdp_file = os.path.join(output_dir, "temp_for_genion.mdp")
         temp_tpr_file = os.path.join(output_dir, "temp_for_genion.tpr")
@@ -273,6 +396,8 @@ def run_genion_for_neutralization(input_gro, output_gro, topology_file, sim_para
             if os.path.exists(temp_file):
                 os.remove(temp_file)
         genion_count += 1
+    # Stage 3: insert the final anion/cation pair together with -neutral so
+    # genion cancels any charge left over from the staged insertions.
     temp_mdp_file = os.path.join(output_dir, "temp_for_genion.mdp")
     temp_tpr_file = os.path.join(output_dir, "temp_for_genion.tpr")
 
@@ -361,8 +486,20 @@ def run_genion_for_neutralization(input_gro, output_gro, topology_file, sim_para
 
 
 def _reorder_water_and_ions(gro_path, water_resname, ion_names):
-    """
-    Reorder a GRO file so water and ions follow topology ordering.
+    """Reorder a GRO file so water and ions follow topology ordering.
+
+    genion leaves inserted ions at the coordinate positions of the waters
+    they replaced, which scatters them through the water block. This pass
+    rewrites the file as ``[everything else] + [waters] + [ions in config
+    order]`` so the atom order matches the topology's ``[molecules]``
+    section. Ions that genion emitted with the generic ``ION`` residue name
+    are renamed back to their specific ion name (matched via the atom-name
+    column). Failures are logged but never raised, leaving the file as-is.
+
+    Args:
+        gro_path: Path of the GRO file to rewrite in place.
+        water_resname: Residue name of the solvent block.
+        ion_names: Ion residue names in the desired (config) order.
     """
     try:
         with open(gro_path, 'r') as f:

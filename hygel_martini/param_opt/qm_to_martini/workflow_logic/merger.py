@@ -1,3 +1,32 @@
+"""Bartender ITP parsing and cross-case merging into a typed force field.
+
+This module owns the "merge" side of the stage-03 workflow: parsing a
+Bartender ``gmx_out.itp`` into ``ParamLine`` records, promoting each
+per-case bead-index term to a bead-type keyed ``TypedRecord`` (using the
+case's bead label/type maps), grouping identical type keys across cases
+into ``MergedVariant`` lists, and rendering the merged force field as an
+ITP plus a JSON summary.
+
+Callers: ``pipeline.collect_results`` uses ``summarize_itp``;
+``pipeline.merge_results`` drives ``typed_records_for_result`` ->
+``merge_records`` -> ``write_merged_forcefield`` /
+``merged_summary_payload``.
+
+Inputs: ``gmx_out.itp`` and ``case.json`` files. Outputs: the merged
+``*types`` ITP and summary payload dicts; parsing itself writes nothing.
+
+Invariants and conventions:
+
+- Parameter tokens are kept as verbatim strings (GROMACS units); no
+  numeric normalization is applied during merging.
+- Merged sections use the ``*types`` headers (bondtypes, angletypes, ...)
+  keyed by bead type names, and are split into WITH_BACKBONE /
+  WITHOUT_BACKBONE categories; angles are additionally split by the
+  bonded-graph distance between their endpoint beads (DIST_LE2/DIST_GE3).
+- Exactly one variant per type key is left uncommented (the primary);
+  every other variant is emitted commented for inspection.
+"""
+
 from __future__ import annotations
 
 import json
@@ -16,6 +45,12 @@ from ..config import (
 from .core import _sorted_pair, _build_graph, shortest_path_len
 
 def split_main_and_comment(raw: str) -> Tuple[str, str]:
+    """Split an ITP line into (data part, inline comment).
+
+    Leading ``;`` markers are stripped first so a commented-out data line
+    still yields its content; only the first ``;`` after the data starts
+    an inline comment.
+    """
     stripped = raw.lstrip()
     while stripped.startswith(";"):
         stripped = stripped[1:].lstrip()
@@ -25,6 +60,20 @@ def split_main_and_comment(raw: str) -> Tuple[str, str]:
     return stripped.strip(), ""
 
 def parse_param_line(raw: str, section: str, n_idx: int) -> Optional[ParamLine]:
+    """Parse one ITP data line (commented or active) into a ``ParamLine``.
+
+    Non-term lines (blank, prose comments, headers) return None. The
+    Bartender ``rmsd:`` annotation, when present in the inline comment,
+    is extracted; parameter tokens stay verbatim strings.
+
+    Args:
+        raw: raw ITP line.
+        section: normalized section name recorded in the record.
+        n_idx: number of leading bead-index columns for this section.
+
+    Returns:
+        Parsed ``ParamLine`` or None for lines that are not terms.
+    """
     stripped = raw.strip()
     if not stripped:
         return None
@@ -60,6 +109,19 @@ def parse_param_line(raw: str, section: str, n_idx: int) -> Optional[ParamLine]:
     )
 
 def parse_gmx_out_itp(path: Path) -> Dict[str, List[ParamLine]]:
+    """Parse a Bartender ITP into per-section ``ParamLine`` lists.
+
+    Both index-based headers (``bonds``) and type-based headers
+    (``bondtypes``) map onto the same normalized section; unknown
+    sections are ignored.
+
+    Args:
+        path: ``gmx_out.itp`` (or compatible) file.
+
+    Returns:
+        Section name (bonds/constraints/angles/dihedrals/impropers) ->
+        parsed lines, empty lists for absent sections.
+    """
     header_map = {
         "bonds": "bonds",
         "bondtypes": "bonds",
@@ -91,9 +153,20 @@ def parse_gmx_out_itp(path: Path) -> Dict[str, List[ParamLine]]:
     return parsed
 
 def summarize_itp(path: Path) -> Dict[str, object]:
+    """Summarize one ITP as a JSON-friendly dict of per-section term lists.
+
+    Args:
+        path: ITP file to summarize.
+
+    Returns:
+        Dict with the source path, per-section counts, and per-term
+        payloads (indices, verbatim params, commented flag, comment,
+        optional rmsd).
+    """
     parsed = parse_gmx_out_itp(path)
 
     def _payload(line: ParamLine) -> Dict[str, object]:
+        """Convert one ``ParamLine`` into its JSON payload."""
         payload: Dict[str, object] = {
             "indices": list(line.indices),
             "params": list(line.tokens),
@@ -115,6 +188,19 @@ def summarize_itp(path: Path) -> Dict[str, object]:
     }
 
 def choose_best_rmsd_uncomment(lines: List[ParamLine]) -> List[ParamLine]:
+    """Keep only the best-RMSD line active per identical index tuple.
+
+    For every group of lines sharing the same index tuple, the line with
+    the smallest RMSD is (re)activated and the rest are commented out.
+    Groups with no RMSD annotation at all are left untouched. Input order
+    is preserved; new ``ParamLine`` objects are created (no mutation).
+
+    Args:
+        lines: parsed lines from one section (typically angles).
+
+    Returns:
+        A new list with adjusted ``commented`` flags.
+    """
     grouped: Dict[Tuple[int, ...], List[int]] = defaultdict(list)
     for index, line in enumerate(lines):
         grouped[line.indices].append(index)
@@ -148,6 +234,27 @@ def typed_records_for_result(
     case_path: Path,
     label_overrides: Dict[str, Dict[str, List[str]]],
 ) -> List[TypedRecord]:
+    """Convert one case's ITP terms into bead-type keyed ``TypedRecord``s.
+
+    Bead indices are translated to display labels and Martini type names
+    via the case's bead maps; each record is categorized WITH_BACKBONE /
+    WITHOUT_BACKBONE, and angles additionally get a DIST_LE2/DIST_GE3 tag
+    from the BFS distance between their endpoint beads over the
+    bond+constraint graph. Duplicate angle candidates for the same index
+    tuple are reduced to one active line by best RMSD first.
+
+    Args:
+        itp_path: the case's ``gmx_out.itp``.
+        case_path: the owning ``case.json``.
+        label_overrides: per-token label/type overrides (label-map YAML).
+
+    Returns:
+        Records in section order (bonds, constraints, angles, dihedrals,
+        impropers), tagged with ``<sequence_stem>:<job_dir>`` provenance.
+
+    Raises:
+        KeyError: an ITP bead index is missing from the case bead map.
+    """
     from .loader import build_bead_maps
  # Circular import avoidance if needed, but pipeline is main
     case = json.loads(case_path.read_text(encoding="utf-8"))
@@ -162,9 +269,11 @@ def typed_records_for_result(
     source_tag = f"{case.get('sequence_stem', case_path.parent.name)}:{itp_path.parent.name}"
 
     def category(indices: Tuple[int, ...]) -> str:
+        """Categorize a term by whether any bead lies on the backbone."""
         return "WITH_BACKBONE" if any(index in backbone_beads for index in indices) else "WITHOUT_BACKBONE"
 
     def map_labels(indices: Tuple[int, ...]) -> tuple[Tuple[str, ...], Tuple[str, ...]]:
+        """Translate bead indices to (display labels, Martini type names)."""
         try:
             display = tuple(label_map[index] for index in indices)
             types = tuple(type_map[index] for index in indices)
@@ -260,6 +369,22 @@ def typed_records_for_result(
     return records
 
 def merge_records(records: List[TypedRecord]) -> Dict[Tuple[str, str, str, Tuple[str, ...]], List[MergedVariant]]:
+    """Group typed records across cases and rank the parameter variants.
+
+    Records are keyed by (section, category, angle_dist, type_names).
+    Within a key, records with identical (tokens, commented, inline
+    comment) collapse into one variant that aggregates its labels,
+    sources, example index tuples, comments, and RMSD values. Variants
+    are ranked (active before commented; for angletypes, lower best RMSD
+    first; source tag as tiebreak); the best becomes the single primary
+    (uncommented) variant, all others are forced commented.
+
+    Args:
+        records: typed records from every merged case.
+
+    Returns:
+        Type key -> ranked ``MergedVariant`` list (primary first).
+    """
     grouped: Dict[Tuple[str, str, str, Tuple[str, ...]], List[TypedRecord]] = defaultdict(list)
     for record in records:
         grouped[(record.section, record.category, record.angle_dist, record.type_names)].append(record)
@@ -285,6 +410,7 @@ def merge_records(records: List[TypedRecord]) -> Dict[Tuple[str, str, str, Tuple
             )
 
         def score(item: Dict[str, Any]) -> Tuple[float, int, float, str]:
+            """Variant ranking key: lower sorts first (becomes primary)."""
             sample = item["sample"]
             if sample.section == "angletypes":
                 rmsd = min(item["rmsd_values"]) if item["rmsd_values"] else math.inf
@@ -316,9 +442,16 @@ def merge_records(records: List[TypedRecord]) -> Dict[Tuple[str, str, str, Tuple
     return merged
 
 def _format_type_names(type_names: Tuple[str, ...], widths: Tuple[int, ...]) -> str:
+    """Left-pad each type name to its column width for aligned ITP output."""
     return " ".join(f"{value:<{width}}" for value, width in zip(type_names, widths))
 
 def line_from_variant(variant: MergedVariant) -> str:
+    """Render one merged variant as an ITP line with provenance comments.
+
+    Commented (non-primary) variants get a leading ``;``. The trailing
+    comment aggregates display labels, original inline comments, sorted
+    unique RMSD values, source tags, and up to five example index tuples.
+    """
     widths = (8, 8, 8, 8)
     prefix = _format_type_names(variant.type_names, widths[: len(variant.type_names)]).rstrip()
     main = f"{';' if variant.commented else ''}{prefix} {' '.join(variant.tokens)}".rstrip()
@@ -342,6 +475,19 @@ def write_merged_forcefield(
     root: Path,
     label_map_path: Optional[Path],
 ) -> None:
+    """Write the merged force field as a ``*types`` ITP file.
+
+    Sections are emitted in fixed order (bondtypes .. impropertypes),
+    each split by category (and, for angletypes, by endpoint distance
+    class), with type keys sorted alphabetically and one primary
+    (uncommented) variant per key.
+
+    Args:
+        path: output ITP path.
+        merged: result of ``merge_records``.
+        root: scanned root, recorded in the header comment.
+        label_map_path: label-map file used, recorded in the header.
+    """
     lines = [
         "; Auto-generated merged Bartender forcefield summary",
         f"; root = {root}",
@@ -384,6 +530,18 @@ def merged_summary_payload(
     merged: Dict[Tuple[str, str, str, Tuple[str, ...]], List[MergedVariant]],
     skipped: List[Dict[str, str]],
 ) -> Dict[str, object]:
+    """Build the JSON-friendly summary payload for a merged force field.
+
+    Args:
+        root: scanned root directory.
+        merged: result of ``merge_records``.
+        skipped: per-file {path, reason} entries for ITPs that could not
+            be merged.
+
+    Returns:
+        Dict with the root, group count, per-key group entries (variants
+        with the selected/primary index), and the skipped list.
+    """
     groups = []
     for key, variants in sorted(merged.items(), key=lambda item: (item[0][0], item[0][1], item[0][2], item[0][3])):
         groups.append(

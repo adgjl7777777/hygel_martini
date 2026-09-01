@@ -3,6 +3,29 @@
 This module supports both a legacy single-backbone polymer path and a newer
 template-driven path that can mix backbone chemistries, side chains, and
 terminal groups. The newer path is the one aligned with the current cleanup.
+
+Ownership and call sites
+    :class:`Polymer` is the build unit for the standalone-polymer pipeline
+    (a single linear chain, no crosslinked network): the driver calls
+    :meth:`Polymer.configure` once with the polymer template config, then per
+    chain ``construct_atoms`` -> ``construct_chemical_detail`` ->
+    ``construct_angles``. Nothing is returned; every created
+    ``Attributes.Atom`` / ``Bond`` / ``Angle`` / ``Dihedral`` registers
+    itself into the global ``World`` singleton on construction.
+
+Inputs and outputs
+    Inputs are the polymer config dict (BACKBONES / MONOMERS / TERMINALS
+    template entries, BONDS rules, sequence strategies) plus the global
+    :class:`Config` for legacy parameters. Output is the populated ``World``
+    state, from which the writer later emits GRO/ITP files.
+
+Invariants
+    * All coordinates and bond lengths are in nm; force constants follow
+      GROMACS conventions (kJ/mol/nm^2 for harmonic bonds).
+    * Backbone beads are laid on a straight interpolated line first; side
+      chains and terminals are attached afterwards with local clash checks.
+    * Template-local atom indices are remapped to global ``World`` atom ids
+      before any topology term is registered.
 """
 
 import numpy as np
@@ -19,7 +42,24 @@ from hygel_martini.hydrogel_builder.core_utils.templates.monomer_loader import l
 
 
 def _build_polymer_bond_lookup(bond_rules, fallback_length):
-    """Create a fast lookup table for backbone-to-backbone bond parameters."""
+    """Create a fast lookup table for backbone-to-backbone bond parameters.
+
+    Args:
+        bond_rules: List of BONDS config entries; only rules whose
+            ``between`` names exactly two backbone ids are kept. Each rule
+            may use either the new keys (``bond_funct``/``bond_c0``/
+            ``bond_c1``) or the legacy aliases (``funct``/``length``/``fc``).
+        fallback_length: Equilibrium bond length (nm) used when a rule
+            omits it.
+
+    Returns:
+        dict: ``sorted (id_a, id_b) tuple -> {'bond_funct', 'bond_c0',
+        'bond_c1'}`` with c0 in nm and c1 in kJ/mol/nm^2 (default 56000).
+
+    Raises:
+        ValueError: If two rules target the same backbone pair
+            (via :func:`require_unique`).
+    """
     lookup = {}
     if not bond_rules:
         return lookup
@@ -46,6 +86,24 @@ class Polymer():
     The class exposes a template-first workflow but still retains a legacy
     fallback for historical input sets that only define a single generic
     backbone bead type.
+
+    Class-level state falls into two groups:
+
+    * Build statistics (``num_PLM_atoms`` .. ``num_PLM_dihedrals``): running
+      counts of topology objects, refreshed from ``World`` after each build
+      stage.
+    * Template caches populated by :meth:`configure` and shared by every
+      instance: the raw polymer config (``_polymer_config``), backbone
+      definitions plus their sequence iterator (``_backbone_defs``,
+      ``_backbone_lookup``, ``_backbone_iterator``), the backbone-pair bond
+      table (``_bond_lookup``), side-chain template library and per-backbone
+      iterators (``_sidechain_library``, ``_sidechain_iterators``,
+      ``_sidechain_strategy_cfg``), and terminal-group records with their
+      selection strategy and seeded RNG (``_terminal_records``,
+      ``_terminal_strategy``, ``_terminal_random``).
+
+    Because the caches are class attributes, :meth:`configure` must be called
+    before building whenever the polymer composition changes.
     """
     # 클래스 변수: 생성된 고분자 사슬의 총 원자, 결합, 각도, 이면각 수를 추적합니다.
     # 이 값들은 시뮬레이션 전체의 통계 및 검증에 사용될 수 있습니다.
@@ -68,10 +126,14 @@ class Polymer():
     def __init__(self, p_mon_num, p_length):
         """Store polymer dimensions and initialize the working box size.
 
+        Side effect: overwrites ``World.box_length`` with ``2 * p_length``
+        so the straight chain always fits with margin (see the Korean note
+        below on the historical once-only intent).
+
         Args:
             p_mon_num: Number of backbone monomers.
-            p_length: End-to-end length used for the initial straight-chain
-                coordinate interpolation.
+            p_length: End-to-end length (nm) used for the initial
+                straight-chain coordinate interpolation.
         """
         from hygel_martini.hydrogel_builder.main_components.Universe import World
 
@@ -89,7 +151,30 @@ class Polymer():
 
     @classmethod
     def configure(cls, config: dict | None):
-        """Cache template libraries and strategy iterators for polymer builds."""
+        """Cache template libraries and strategy iterators for polymer builds.
+
+        Parses the polymer config once and stores everything future builds
+        need as class attributes: backbone definitions and their sequence
+        iterator, the backbone-pair bond lookup, side-chain template
+        iterators keyed by backbone id, and terminal-group records with a
+        seeded RNG. Passing a falsy config resets all caches, which restores
+        the legacy single-backbone path.
+
+        Side-chain or terminal template loading failures are caught and
+        logged (with the affected feature disabled) rather than aborting the
+        whole build.
+
+        Args:
+            config: Polymer config dict with optional keys ``BACKBONES``,
+                ``BONDS``, ``MONOMERS``, ``TERMINALS``,
+                ``BACKBONE_SEQUENCE_STRATEGY`` / ``MONOMER_SEQUENCE_STRATEGY``
+                (both falling back to ``SEQUENCE_STRATEGY``),
+                ``TERMINAL_STRATEGY``, and ``default_bond_length`` (nm,
+                default 0.24). ``None`` clears the configuration.
+
+        Raises:
+            ValueError: If two backbone definitions share an id.
+        """
         cls._polymer_config = config or {}
         if not config:
             cls._backbone_iterator = None
@@ -171,11 +256,17 @@ class Polymer():
     def make_lines(self, random_seed):
         """Generate a reproducible straight-chain backbone path.
 
+        The chain midpoint is drawn uniformly in ``[0.5, 1.5] * p_length``
+        per axis and the direction is a random unit vector; each random draw
+        uses its own offset seed so the whole geometry is a pure function of
+        ``random_seed``.
+
         Args:
             random_seed: Seed used to choose the chain center and orientation.
 
         Returns:
-            np.ndarray: Interpolated backbone coordinates.
+            np.ndarray: ``(p_mon_num, 3)`` backbone coordinates (nm),
+            linearly interpolated between the chain endpoints.
         """
         # 1. 고분자 사슬의 중간 지점을 무작위로 결정합니다.
         # 시뮬레이션 박스 내에서 고분자 길이가 p_length인 고분자가 배치될 수 있도록
@@ -204,13 +295,33 @@ class Polymer():
         return interp3D(self.p_mon_num, pm_start_point, pm_last_point)
 
     def construct_atoms(self, random_seed):
-        """Dispatch to the template-driven or legacy atom-construction path."""
+        """Dispatch to the template-driven or legacy atom-construction path.
+
+        The template path is used whenever :meth:`configure` produced a
+        backbone iterator; otherwise the historical single-backbone routine
+        runs.
+
+        Args:
+            random_seed: Seed forwarded to :meth:`make_lines` for the chain
+                placement.
+        """
         if self._backbone_iterator is not None and self._backbone_defs:
             return self._construct_atoms_from_templates(random_seed)
         return self._legacy_construct_atoms(random_seed)
 
     def _legacy_construct_atoms(self, random_seed):
-        """Construct a polymer using the historical single-backbone settings."""
+        """Construct a polymer using the historical single-backbone settings.
+
+        Every backbone bead gets identical attributes from the
+        ``polymer_components.backbone`` config block; consecutive beads are
+        joined with the single configured harmonic bond, and the first/last
+        beads are marked with ``end_tag = 1``. Only the first polymer in the
+        World is supported — the multi-polymer overlap test was never
+        implemented (a Korean notice is printed instead).
+
+        Args:
+            random_seed: Seed forwarded to :meth:`make_lines`.
+        """
         from hygel_martini.hydrogel_builder.main_components.Universe import World
         # World에 고분자가 1개만 있는 경우 (즉, 현재 생성 중인 고분자가 첫 번째 고분자인 경우)
         if World.number_of_polymers == 1: 
@@ -253,7 +364,13 @@ class Polymer():
         return
 
     def _next_backbone_definition(self):
-        """Return the next backbone template according to the configured strategy."""
+        """Return the next backbone template according to the configured strategy.
+
+        Returns:
+            dict: The next backbone definition from the sequence iterator;
+            falls back to the first configured backbone when the iterator is
+            exhausted or absent, and to ``{}`` when none are configured.
+        """
         template = self._backbone_iterator.next() if self._backbone_iterator else None
         if template:
             return template
@@ -268,6 +385,14 @@ class Polymer():
         Consecutive bead pairs are then connected using chemistry-specific bond
         parameters when available, falling back to the configured default
         backbone bond otherwise.
+
+        Each atom is stamped with ``backbone_type`` (the template id) so the
+        side-chain stage can pick the matching template iterator later, and
+        the created atom ids are recorded in ``self._backbone_atom_ids`` for
+        terminal attachment, which this method triggers at the end.
+
+        Args:
+            random_seed: Seed forwarded to :meth:`make_lines`.
         """
         from hygel_martini.hydrogel_builder.main_components.Universe import World
         coords = self.make_lines(random_seed)
@@ -313,7 +438,17 @@ class Polymer():
         self._attach_terminals(World)
 
     def _select_terminal_templates(self):
-        """Choose left and right terminal templates according to strategy."""
+        """Choose left and right terminal templates according to strategy.
+
+        Both picks are ratio-weighted random draws from the terminal records
+        using the class RNG. Under the ``semi_random`` strategy the right
+        terminal excludes the left pick's template id when an alternative
+        exists, so the two chain ends prefer different chemistries.
+
+        Returns:
+            tuple: ``(left_template, right_template)``; ``(None, None)``
+            when no terminal templates are configured.
+        """
         if not self._terminal_records:
             return None, None
         strategy = (self._terminal_strategy.get('strategy') or 'random').lower()
@@ -344,7 +479,20 @@ class Polymer():
         return compute_template_positions(template.coords, origin, normal_vector, tangent_vector)
 
     def _create_template_atoms(self, template, positions, residue_override=None):
-        """Instantiate atoms for a placed template and return their IDs."""
+        """Instantiate atoms for a placed template and return their IDs.
+
+        Args:
+            template: Monomer/terminal template whose ``beads`` supply the
+                per-atom attributes (type, name, cgnr, mass, charge).
+            positions: World-frame coordinates (nm), one per template bead
+                and in the same order.
+            residue_override: Residue name that replaces each bead's own
+                when given (used to unify a placed group under one residue).
+
+        Returns:
+            list[int]: Global ``World`` atom ids in template bead order —
+            the mapping the bond-transfer step relies on.
+        """
         atom_ids = []
         for bead, pos in zip(template.beads, positions):
             new_atom = Attributes.Atom()
@@ -360,7 +508,30 @@ class Polymer():
         return atom_ids
 
     def _connect_template_bonds(self, template, created_atom_ids, backbone_atom_id):
-        """Transfer template-local topology terms to global polymer indices."""
+        """Transfer template-local topology terms to global polymer indices.
+
+        Registers, in order: the template's internal bonds, its bonds to the
+        host backbone bead, and then the rich sections (constraints,
+        exclusions, virtual sites, restraints, cmaptypes, polarization,
+        full dihedrals/impropers and any remaining raw sections). Index
+        remapping uses each bead's ``original_index`` (its index in the
+        source ITP) plus the template's ``backbone_original_index``, which
+        maps to the already-existing backbone atom. Rich-section failures
+        are caught and logged so a malformed extra section cannot abort the
+        build; bonds themselves are registered before that guarded block.
+
+        Args:
+            template: Placed template carrying beads and topology sections.
+            created_atom_ids: Global atom ids returned by
+                :meth:`_create_template_atoms`, in template bead order.
+            backbone_atom_id: Global id of the backbone bead this template
+                is grafted onto.
+
+        Raises:
+            ValueError: If a dihedral/improper entry carries fewer
+                parameters than its funct requires (raised inside the
+                guarded block, hence reported as a warning).
+        """
         from hygel_martini.hydrogel_builder.main_components.Universe import World
         # original_index -> global atom id (backbone 포함)
         orig_to_global = {}
@@ -375,6 +546,7 @@ class Polymer():
         template_graph = {}
 
         def _add_template_edge(i, j):
+            """Add an undirected edge between two original ITP indices."""
             if not isinstance(i, int) or not isinstance(j, int):
                 return
             template_graph.setdefault(i, set()).add(j)
@@ -393,6 +565,8 @@ class Polymer():
             _add_template_edge(c.get("i"), c.get("j"))
 
         def _template_path_length(start_idx, end_idx):
+            """BFS bond-path length between two original indices (None if
+            disconnected); used to spot 1-4 (and longer) exclusions."""
             if start_idx == end_idx:
                 return 0
             seen = {start_idx}
@@ -550,7 +724,18 @@ class Polymer():
             print(f"[경고] 폴리머 템플릿 부가 섹션 매핑 실패: {exc}")
 
     def _attach_terminals(self, World):
-        """Attach terminal templates to the first and last backbone beads."""
+        """Attach terminal templates to the first and last backbone beads.
+
+        Each end group is aligned along the local chain tangent (pointing
+        outward from the chain; a fixed +-x axis is used for single-bead
+        chains), instantiated, and wired to its backbone bead through the
+        template topology transfer. No-op when terminal templates or
+        backbone atom ids are absent.
+
+        Args:
+            World: The global Universe class (passed in to avoid a repeated
+                circular import).
+        """
         if not self._terminal_records or not getattr(self, '_backbone_atom_ids', None):
             return
         left_template, right_template = self._select_terminal_templates()
@@ -575,11 +760,25 @@ class Polymer():
             self._connect_template_bonds(right_template, created_atoms, right_atom.atom_id)
 
     def _construct_sidechains_from_templates(self):
-        """Attach polymer side-chain templates while avoiding local clashes."""
+        """Attach polymer side-chain templates while avoiding local clashes.
+
+        For every backbone bead (identified by its ``backbone_type`` tag)
+        the matching per-backbone iterator supplies the next side-chain
+        template. Placement samples up to ``NUM_CANDIDATE_VECTORS`` random
+        normal directions off the local backbone plane, rejects any
+        candidate that brings a template bead within
+        ``OVERLAP_THRESHOLD_FACTOR * mean_sep`` of a nearby non-bonded atom,
+        and keeps the valid candidate with the smallest inverse-square
+        crowding penalty. Beads with no bonds, no matching iterator, or no
+        clash-free candidate are skipped silently.
+        """
         from hygel_martini.hydrogel_builder.main_components.Universe import World
         if not self._sidechain_iterators or not self._sidechain_library:
             return
 
+        # Placement tuning knobs: candidate directions per bead, the clash
+        # distance as a fraction of mean_sep, and the neighbor-search radius
+        # in units of mean_sep.
         NUM_CANDIDATE_VECTORS = 72
         OVERLAP_THRESHOLD_FACTOR = 0.8
         SEARCH_RADIUS_FACTOR = 10.0
@@ -604,6 +803,8 @@ class Polymer():
             else:
                 b2 = b1
 
+            # Local backbone frame: interior beads use both neighbors; chain
+            # ends mirror the single neighbor to synthesize the third point.
             if backbone_atom.number_of_bonds > 1:
                 p1, p2, p3 = b1.position, backbone_atom.position, b2.position
             else:
@@ -622,6 +823,7 @@ class Polymer():
 
             tangent_vec = rij(p1, p3, World.box_length)
             if np.linalg.norm(tangent_vec) < 1e-8:
+                # Degenerate frame (coincident neighbors): fall back to +z.
                 tangent_vec = np.array([0.0, 0.0, 1.0])
 
             best_positions = None
@@ -657,6 +859,15 @@ class Polymer():
         The preferred path uses configured side-chain and terminal templates.
         If template libraries are unavailable, the method falls back to the
         older geometric side-chain placement routine.
+
+        The legacy fallback (the body below) attaches exactly one generic
+        side-chain bead per existing atom, choosing the placement geometry by
+        the atom's post-attachment bond count: 4 (crosslink junction), 3
+        (interior backbone), 2 (chain end), or 1 (isolated). Every branch
+        retries random normal-vector placements against a depth-2 bonded
+        neighborhood until no overlap remains or
+        ``simulation_parameters.overlap_check_limit`` attempts are exhausted
+        (then it accepts the last position with a printed warning).
         """
         if self._sidechain_iterators:
             return self._construct_sidechains_from_templates()
@@ -872,6 +1083,15 @@ class Polymer():
         Angle assignment first checks chemistry-specific overrides declared in
         the polymer configuration. If no override matches the atom-type set,
         the method applies the configured default angle parameters.
+
+        Candidate angles are enumerated purely from the bond table: every
+        atom that appears on both sides of some bond is treated as a center,
+        and one angle is created per unordered pair of its bonded neighbors.
+        A specific rule applies when its ``atom_types`` set intersects the
+        three atom types in the angle (first matching rule wins). Angle c0 is
+        in degrees, c1 in kJ/mol (GROMACS funct 1 convention). When neither
+        the cached polymer config nor ``polymer_components.angles`` exists, a
+        built-in 180 deg / 25 kJ/mol default is used.
         """
         from hygel_martini.hydrogel_builder.main_components.Universe import World # 순환 참조를 피하기 위해 함수 내에서 임포트합니다.
         

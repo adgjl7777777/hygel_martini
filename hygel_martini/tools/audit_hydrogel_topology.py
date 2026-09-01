@@ -5,6 +5,16 @@ The audit intentionally keeps chemistry-specific expectations out of the code.
 Pass expected chain patterns, linker residues, target residues, and count
 thresholds through CLI options so the same tool can check PEG, Pluronic, or
 other hydrogel validation cases.
+
+Standalone CLI (run as a script or ``python -m ...``); it only reads the
+given .itp and prints a summary (text or JSON) plus an issue list.
+Checks performed: connectivity (component count / largest-component
+fraction), backbone chain residue sequences against an expected
+RES:COUNT pattern, linker-internal vs dynamic (linker-to-non-linker)
+bond counts and their target residues, presence of linker-backbone
+junction angles/dihedrals, and completeness of the angle/dihedral
+sections against graph-theoretical counts derived from the bond list.
+Exit status is 1 only with ``--fail-on-issue`` when issues were found.
 """
 
 from __future__ import annotations
@@ -17,12 +27,18 @@ from typing import Iterable
 
 
 def _csv_tokens(value: str | None) -> set[str]:
+    """Split a comma-separated CLI value into a set of stripped tokens."""
     if not value:
         return set()
     return {token.strip() for token in value.split(",") if token.strip()}
 
 
 def _parse_pattern(value: str | None) -> list[tuple[str, int]]:
+    """Parse "RES:COUNT,RES:COUNT,..." into an ordered (residue, count) list.
+
+    Raises:
+        ValueError: For tokens without a ":" separator.
+    """
     if not value:
         return []
     pattern = []
@@ -38,6 +54,17 @@ def _parse_pattern(value: str | None) -> list[tuple[str, int]]:
 
 
 def parse_itp(path: Path):
+    """Parse the atoms/bonds/angles/dihedrals sections of a GROMACS .itp.
+
+    Minimal line-based parser: ";" comments are stripped, other sections
+    are ignored, and rows are kept only when the leading fields are
+    integer atom ids (so parameter-type lines are skipped).
+
+    Returns:
+        (atoms, bonds, angles, dihedrals): atoms maps id -> field dict
+        (type/resnr/residue/atom/charge/mass as strings); the bonded
+        lists hold 1-based id tuples plus the trailing parameter fields.
+    """
     atoms = {}
     bonds = []
     angles = []
@@ -70,6 +97,15 @@ def parse_itp(path: Path):
 
 
 def connected_components(atom_ids: Iterable[int], bonds: list[tuple[int, int, list[str]]]):
+    """Find connected components of the bond graph restricted to atom_ids.
+
+    Bonds touching atoms outside ``atom_ids`` are ignored, which lets the
+    caller analyze subgraphs (e.g. backbone-only chains).
+
+    Returns:
+        (components, adjacency): components as sorted id lists, largest
+        first; adjacency maps every atom in atom_ids to its neighbors.
+    """
     atom_set = set(atom_ids)
     adj = {atom_id: [] for atom_id in atom_set}
     for a, b, _params in bonds:
@@ -97,6 +133,13 @@ def connected_components(atom_ids: Iterable[int], bonds: list[tuple[int, int, li
 
 
 def path_order(component: list[int], adj: dict[int, list[int]]) -> list[int]:
+    """Walk a (near-)linear component from an endpoint, returning id order.
+
+    Starts at the lowest-id degree<=1 atom (or lowest id overall for a
+    cycle) and greedily follows the lowest-id unvisited neighbor; stops
+    if the walk revisits an atom, so branched or cyclic components yield
+    a partial order rather than looping forever.
+    """
     degrees = {atom_id: len([n for n in adj.get(atom_id, []) if n in component]) for atom_id in component}
     endpoints = [atom_id for atom_id, degree in degrees.items() if degree <= 1]
     start = min(endpoints or component)
@@ -115,6 +158,7 @@ def path_order(component: list[int], adj: dict[int, list[int]]) -> list[int]:
 
 
 def expected_sequence(pattern: list[tuple[str, int]]) -> list[str]:
+    """Expand (residue, count) pattern pairs into a flat residue sequence."""
     seq = []
     for residue, count in pattern:
         seq.extend([residue] * count)
@@ -122,6 +166,23 @@ def expected_sequence(pattern: list[tuple[str, int]]) -> list[str]:
 
 
 def audit(args):
+    """Run every audit check on the parsed .itp and print the summary.
+
+    Chain sequences are compared to the expected pattern in both
+    directions (a reversed chain is accepted).  Theoretical angle counts
+    come from per-atom degrees (deg*(deg-1)/2 per center); theoretical
+    dihedrals from unique bond-centered w-a-b-x quadruples, optionally
+    excluding PEO/PPO-hybrid ones via ``--exclude-hybrid-dihedrals``
+    (the residue-class sets used there are the only chemistry-flavored
+    heuristic in this tool).
+
+    Args:
+        args: Parsed CLI namespace from :func:`main`.
+
+    Returns:
+        Process exit code: 1 when issues were found and
+        ``--fail-on-issue`` is set, else 0.
+    """
     atoms, bonds, angles, dihedrals = parse_itp(args.itp)
     residues = {atom_id: atom["residue"] for atom_id, atom in atoms.items()}
 
@@ -323,6 +384,7 @@ def audit(args):
 
 
 def main() -> None:
+    """Parse CLI options and exit with the audit result code."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--itp", required=True, type=Path)
     parser.add_argument("--backbone-residues", default="")

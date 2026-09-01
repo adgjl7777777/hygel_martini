@@ -1,3 +1,19 @@
+"""Config loading for the relax workflows (separate from core.config).
+
+Owns the relax-specific config machinery used by ``generator``:
+
+- YAML (with recursive ``includes:``, later/outer values winning) or
+  JSON (includes rejected) loading with cyclic-include detection,
+- normalization of path-like string values anywhere in the tree:
+  ``${CONFIG_DIR}`` / ``${REPO_ROOT}`` substitution, env-var and ``~``
+  expansion, and resolution of relative paths against the config
+  file directory.
+
+Which keys count as paths is decided by name (_PATH_KEYS plus the
+_PATH_SUFFIXES endings), so stage runners can trust that those values
+are absolute.  No schema validation happens here.
+"""
+
 from __future__ import annotations
 
 import copy
@@ -7,6 +23,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 
+# Exact key names whose string values are treated as filesystem paths.
 _PATH_KEYS = {
     "system_top",
     "bonded_itp",
@@ -16,12 +33,20 @@ _PATH_KEYS = {
     "workdir",
     "log_dir",
 }
+# Key-name endings that also mark a value as a path.
 _PATH_SUFFIXES = ("_path", "_file", "_dir", "_gro", "_itp", "_root", "_mdp")
+# List-valued keys passed through verbatim as CLI argument strings.
 _PATH_LIST_KEYS = {"grompp_extra", "mdrun_extra"}
+# Keys never path-resolved even if the name looks path-like ("gmx" may
+# be a bare command name that must stay resolvable via PATH).
 _LITERAL_KEYS = {"gmx"}
 
 
 def _deep_merge(base: Dict[str, Any], incoming: Dict[str, Any]) -> Dict[str, Any]:
+    """Merge ``incoming`` into ``base`` in place (nested dicts recursively).
+
+    Non-dict values replace wholesale (deep-copied); returns ``base``.
+    """
     for key, value in incoming.items():
         if isinstance(value, dict) and isinstance(base.get(key), dict):
             _deep_merge(base[key], value)
@@ -31,6 +56,12 @@ def _deep_merge(base: Dict[str, Any], incoming: Dict[str, Any]) -> Dict[str, Any
 
 
 def _load_yaml_file(path: Path) -> Dict[str, Any]:
+    """Load one YAML file whose root must be a mapping (empty -> {}).
+
+    Raises:
+        ImportError: If PyYAML is not installed.
+        TypeError: If the document root is not a mapping.
+    """
     try:
         import yaml  # type: ignore
     except ImportError as exc:
@@ -44,6 +75,17 @@ def _load_yaml_file(path: Path) -> Dict[str, Any]:
 
 
 def _load_with_includes(path: Path, seen: set[Path] | None = None) -> Dict[str, Any]:
+    """Load a config file, expanding YAML ``includes:`` recursively.
+
+    Include entries resolve relative to the including file; later
+    includes override earlier ones, and the including file overrides
+    all of its includes.  JSON files are loaded directly and must not
+    carry an ``includes`` key.
+
+    Raises:
+        ValueError: On cyclic includes or ``includes`` in JSON.
+        TypeError: If any loaded root is not a mapping.
+    """
     if seen is None:
         seen = set()
     resolved = path.resolve()
@@ -76,12 +118,18 @@ def _load_with_includes(path: Path, seen: set[Path] | None = None) -> Dict[str, 
 
 
 def _build_context(config_path: Path) -> Dict[str, str]:
+    """Substitution context: CONFIG_DIR (config file dir) and REPO_ROOT.
+
+    REPO_ROOT is the installable package root two levels above this
+    module (the directory containing ``hygel_martini``).
+    """
     config_dir = str(config_path.resolve().parent)
     repo_root = str(Path(__file__).resolve().parents[2])
     return {"CONFIG_DIR": config_dir, "REPO_ROOT": repo_root}
 
 
 def _looks_like_path_key(key: str | None) -> bool:
+    """Decide by key name whether a string value should be path-resolved."""
     if not isinstance(key, str):
         return False
     if key in _PATH_KEYS:
@@ -90,6 +138,7 @@ def _looks_like_path_key(key: str | None) -> bool:
 
 
 def _resolve_path_value(value: str, context: Dict[str, str]) -> str:
+    """Expand env vars, ~, and ${TOKEN}s, then absolutize vs CONFIG_DIR."""
     expanded = os.path.expanduser(os.path.expandvars(value))
     for token, replacement in context.items():
         expanded = expanded.replace(f"${{{token}}}", replacement)
@@ -99,6 +148,11 @@ def _resolve_path_value(value: str, context: Dict[str, str]) -> str:
 
 
 def _normalize_tree(node: Any, context: Dict[str, str], parent_key: str | None = None) -> Any:
+    """Recursively normalize a config tree (see module docstring).
+
+    Path-like string values are resolved; lists under _PATH_LIST_KEYS
+    are stringified verbatim; everything else passes through unchanged.
+    """
     if isinstance(node, dict):
         return {
             key: _normalize_tree(value, context, key)
@@ -114,6 +168,17 @@ def _normalize_tree(node: Any, context: Dict[str, str], parent_key: str | None =
 
 
 def load_relax_config(config_path: str | Path) -> Dict[str, Any]:
+    """Load, include-merge, and path-normalize a relax config file.
+
+    Args:
+        config_path: .yaml/.yml/.json file; ``~`` is expanded.
+
+    Returns:
+        The normalized config dict with absolute path values.
+
+    Raises:
+        FileNotFoundError: If the file does not exist.
+    """
     path = Path(config_path).expanduser().resolve()
     if not path.exists():
         raise FileNotFoundError(f"Relax config not found: {path}")

@@ -1,6 +1,8 @@
 # hydrogel.yaml
-# 한글: 하이드로젤 골격/링커/사이드체인 정의
-# English: Hydrogel backbone/linker/side-chain definitions
+# 한글: 하이드로젤 골격/링커/사이드체인 정의. maker.yaml includes로 병합된다.
+# English: Hydrogel backbone/linker/side-chain definitions, merged via maker.yaml.
+# ${CONFIG_DIR}는 최상위 maker.yaml의 디렉터리 기준으로 해석된다.
+# ${CONFIG_DIR} resolves against the TOP maker.yaml's directory.
 
 monomer_definitions:
   MONOMERS:
@@ -14,21 +16,24 @@ monomer_definitions:
       backbone_id: BB2
       gro: ${CONFIG_DIR}/structure/tol.gro
       itp: ${CONFIG_DIR}/structure/tol.itp
+  # 모노머 배열 전략. Monomer sequence strategy along each chain.
   SEQUENCE_STRATEGY:
     strategy: random  # random | block | alternating | long_random
 
 hydrogel_components:
   backbone_definitions:
+    # 사슬을 이루는 CG bead 종. ratio는 두 종의 혼합 비율.
+    # CG bead species forming the chains; ratio sets their mixing proportion.
     BACKBONES:
       - id: BB1
         ratio: 1
         definition:
-          atom_type: C1
-          residue_name: BCK1
-          atom_name: B1
-          charge_group_number: 1
-          mass: 56
-          charge: 0.0
+          atom_type: C1           # Martini bead type / [atomtypes]에 있어야 함
+          residue_name: BCK1      # 출력 topology의 residue 이름 / residue name in output
+          atom_name: B1           # bead(atom) 이름 / bead (atom) name
+          charge_group_number: 1  # charge group 번호 / charge group index
+          mass: 56                # bead 질량 (amu); linker stub도 이 값을 상속 / mass (amu), inherited by stubs
+          charge: 0.0             # 전하 (e) / charge (e)
       - id: BB2
         ratio: 1
         definition:
@@ -38,6 +43,8 @@ hydrogel_components:
           charge_group_number: 1
           mass: 56
           charge: 0.0
+    # backbone bead 쌍별 결합. c0 = 평형 길이 (nm), c1 = 힘 상수 (kJ/mol/nm²).
+    # Backbone bond per bead pair; c0 = length (nm), c1 = force constant.
     BONDS:
       - between: [BB1, BB1]  # bond 길이/FC는 martini 기반 값
         bond_funct: 1
@@ -51,11 +58,14 @@ hydrogel_components:
         bond_funct: 1
         bond_c0: 0.47
         bond_c1: 1250
+    # backbone 각도 기본값 (도, kJ/mol/rad²). 180 = 직선 사슬 선호.
+    # Default backbone angle (degrees, kJ/mol/rad²); 180 favors straight chains.
     angles:
       default_angle:
         angle_funct: 1
         angle_c0: 180
         angle_c1: 25
+    # backbone bead 종의 배열 전략. Sequence strategy for backbone bead species.
     SEQUENCE_STRATEGY:
       strategy: random
 
@@ -81,12 +91,14 @@ hydrogel_components:
     #          target-specific entries and can be finalized by backbone.yaml
     #          patch rules.
     LINKERS:
+      # 세 링커 종: ratio가 상대 사용 빈도를 정한다.
+      # Three linker species; ratio sets their relative frequency.
       - id: SS_linker
         ratio: 1
         gro: ${CONFIG_DIR}/structure/LNK.gro
         itp: ${CONFIG_DIR}/structure/LNK.itp
-        linker_residue_name: LNK1
-        backbone_residue_name: LB1
+        linker_residue_name: LNK1   # 링커 내부 bead residue / internal linker residue name
+        backbone_residue_name: LB1  # stub bead가 출력에서 받는 residue / stub residue in output
         backbone_1:
           - between: BB1
             bond_funct: 1

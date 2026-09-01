@@ -1,3 +1,10 @@
+# maker_hard_em_shrink.yaml — 목표 박스까지 단계 축소하는 guarded shrink 진입 설정.
+# Entry config for the guarded stepwise box shrink (hard_em_shrink) to a target box.
+#
+# includes는 순서대로 deep-merge되고 이 파일이 마지막에 덮어쓴다. 값 안의
+# ${CONFIG_DIR}는 include된 파일이 아니라 이 maker 파일의 디렉터리 기준이다.
+# Includes are deep-merged in order, this file overriding last. ${CONFIG_DIR}
+# in values resolves against THIS maker file's directory, not the included file's.
 includes:
-  - config/common.yaml
-  - config/hard_em_shrink.yaml
+  - config/common.yaml           # 공용 도구/자원/입력 경로 / shared tools, resources, inputs
+  - config/hard_em_shrink.yaml   # shrink 단계 설정 / the shrink stage settings

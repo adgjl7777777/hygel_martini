@@ -1,25 +1,43 @@
+# 스키마 버전. schema_version/references/targets는 로드 시 필수 키다.
+# Schema version; schema_version/references/targets are required at load.
 schema_version: 1
+# template: true는 로더가 실행을 거부한다 — 실제 사용 시 false/삭제.
+# template: true is refused at load; set false / remove it for a real run.
 template: true
 
 # validation_manifest.yaml (템플릿)
 # 논문/실험 target 정의만 담습니다. 시뮬레이션 파일 경로를 넣지 않습니다.
 # 실제 사용 시 references와 targets를 프로젝트에 맞게 채우세요.
+# English: experimental targets only — never simulation file paths.
+# 비교 가능성은 선언적이다: 각 property의 comparable_to / not_comparable_to
+# 목록이 "이 실험값과 이 시뮬레이션 관측량을 비교해도 되는가"를 데이터로 정한다.
+# Comparability is declarative: comparable_to / not_comparable_to name the
+# simulation observables each experimental number may (not) be compared to.
 
+# 실험 참조 문헌 목록. target이 모르는 reference를 인용하면 로드가 실패한다.
+# Experimental references; a target citing an unknown reference fails to load.
 references:
   REF-1:
-    path: null
-    doi: 10.xxxx/xxxxxx
-    system: SYSTEM_NAME
+    path: null              # 로컬 사본 경로 (선택) / optional local copy path
+    doi: 10.xxxx/xxxxxx     # 문헌 DOI / reference DOI
+    system: SYSTEM_NAME     # 측정 대상 계 / measured system
     notes: 논문 설명
 
 targets:
   example_target:
+    # 위 references의 키를 인용 / cites a key of references above
     reference: REF-1
+    # 실험 조성/조건 기록 — 비교가 formulation-일치인지 판단하는 근거.
+    # The experimental formulation, so comparisons can be formulation-matched.
     formulation:
       polymer: POLYMER_NAME
-      mw_g_mol: 0
-      initial_polymer_wt_percent: 0
-      temperature_k: 310.15
+      mw_g_mol: 0                    # 고분자 분자량 (g/mol) / polymer MW (g/mol)
+      initial_polymer_wt_percent: 0  # 초기 고분자 wt% / initial polymer wt%
+      temperature_k: 310.15          # 측정 온도 (K) / measurement temperature (K)
+    # property별: value/uncertainty(또는 min/max), unit은 필수, definition은
+    # 측정 정의를 명시. 숫자가 없는 placeholder도 허용된다 (비교 시점에 재검사).
+    # Per property: value/uncertainty (or min/max), a mandatory unit, and a
+    # definition of what was measured; numeric values may be absent here.
     properties:
       equilibrium_mass_swelling_ratio:
         value: 0.0

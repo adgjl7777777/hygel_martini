@@ -3,6 +3,24 @@
 This module intentionally reports a local-clearance/probe-admissible-volume
 observable.  It is not a method-identical replacement for PoreBlazer, a
 percolating pore-limiting diameter, or an experimental mesh size.
+
+Owns the GRO coordinate parser (:func:`parse_gro_coords`), the periodic
+nearest-obstacle-surface clearance grid
+(:func:`periodic_clearance_grid`, mixed radii via per-group cKDTrees,
+chunked to bound memory), its distribution summaries
+(:func:`summarize_periodic_clearance`,
+:func:`calculate_periodic_clearance_distribution`,
+:func:`periodic_component_summary`), and two legacy single-radius
+wrappers (:func:`calculate_pore_size_distribution`,
+:func:`get_peak_pore_size` — the latter is the only function here
+returning a :class:`.result.PropertyResult`).  Called by the
+``pore_size`` and ``clearance`` extractor adapters and by
+:mod:`.analyzer`.  All lengths are nm.
+
+Gate behavior: :func:`get_peak_pore_size` refuses with
+``insufficient_data`` when no void grid points exist; the lower-level
+functions raise ``ValueError`` on malformed input and leave refusal to
+their callers.
 """
 
 from __future__ import annotations
@@ -21,13 +39,28 @@ _DEFAULT_CHUNK_SIZE = 250_000
 
 
 def parse_gro_coords(gro_file, selection_residue=None, selection_residues=None):
-    """
-    .gro 파일을 파싱해 지정 residue의 좌표와 box 크기를 반환.
+    """Parse a .gro file into selected-residue coordinates and box vector.
 
-    selection_residues : residue 이름 집합 (우선). 예: ["PEO", "HYDROGEL"]
-    selection_residue  : 단일 residue 이름 (selection_residues가 None일 때).
-    둘 다 None이면 기본값 {"PEO", "HYDROGEL"} 사용.
-    exact match만 허용 (substring match 금지).
+    Residue names are matched exactly (substring matching is
+    deliberately not allowed).  Atom lines whose coordinate columns
+    fail to parse are skipped silently; only the first three box-line
+    values are read, so the box is treated as orthorhombic.
+
+    Args:
+        gro_file: Path to a single-frame .gro file.
+        selection_residue: Single residue name (used only when
+            ``selection_residues`` is None).
+        selection_residues: Collection of residue names; takes
+            precedence.  Both None selects the default
+            ``{"PEO", "HYDROGEL"}``.
+
+    Returns:
+        Tuple ``(coords, box)`` — ``(n, 3)`` coordinates in nm for the
+        matched residues (possibly empty) and the ``(3,)`` box lengths
+        in nm.
+
+    Raises:
+        ValueError: Malformed atom-count line or unparsable box line.
     """
     if selection_residues is not None:
         allowed = set(selection_residues)
@@ -71,6 +104,7 @@ def parse_gro_coords(gro_file, selection_residue=None, selection_residues=None):
 
 
 def _validate_box(box_size: np.ndarray) -> np.ndarray:
+    """Coerce to a ``(3,)`` float box; require positive finite lengths."""
     box = np.asarray(box_size, dtype=float)
     if box.shape != (3,) or not np.all(np.isfinite(box)) or np.any(box <= 0):
         raise ValueError("box_size must contain three positive finite lengths")
@@ -81,6 +115,11 @@ def _grid_shape_and_spacing(
     box_size: np.ndarray,
     target_spacing: float,
 ) -> tuple[np.ndarray, np.ndarray]:
+    """Fit integer cell counts to the box; return shape and true spacing.
+
+    At least one cell per axis; the realized spacing may exceed the
+    target because the cell count is floored.
+    """
     if not np.isfinite(target_spacing) or target_spacing <= 0:
         raise ValueError("grid_spacing must be positive and finite")
     shape = np.maximum(np.floor(box_size / float(target_spacing)).astype(int), 1)
@@ -102,6 +141,27 @@ def periodic_clearance_grid(
     The returned field is positive in geometric void and negative inside an
     obstacle sphere. ``spacing`` is the actual grid spacing after fitting an
     integer number of cells to each box length.
+
+    Grid points are cell centers, evaluated in chunks of ``chunk_size``
+    points so peak memory stays bounded; a grid above ~5e6 points emits
+    a UserWarning suggesting coarser spacing.
+
+    Args:
+        obstacle_groups: Sequence of ``(positions_nm, radius_nm)``
+            pairs, one per bead-radius class; empty groups are skipped.
+        box_size: Orthorhombic box lengths in nm, shape ``(3,)``.
+        grid_spacing: Requested cell size in nm (realized spacing may
+            be larger).
+        chunk_size: Grid points per KD-tree query batch.
+
+    Returns:
+        Tuple ``(clearance, spacing)`` — signed nearest-surface
+        distance field in nm, shape per the fitted grid, and the
+        realized per-axis spacing in nm.
+
+    Raises:
+        ValueError: Bad box, non-positive chunk size, malformed or
+            non-finite positions/radii, or no non-empty obstacle group.
     """
     box = _validate_box(box_size)
     if not isinstance(chunk_size, (int, np.integer)) or int(chunk_size) <= 0:
@@ -152,6 +212,23 @@ def periodic_component_summary(mask: np.ndarray) -> dict[str, object]:
 
     This reports component size only. A face-merging component is not
     automatically labelled as a winding/percolating network.
+
+    Components are labeled with face (6-)connectivity, then labels that
+    touch through opposite box faces at matching voxels are merged with
+    a union-find pass — periodic wrap-around is honored without
+    claiming anything about winding.
+
+    Args:
+        mask: Non-empty 3-D boolean field (True = admissible voxel).
+
+    Returns:
+        Dict with ``n_periodic_components``,
+        ``largest_component_voxels``, and the largest component's
+        fraction of the whole grid and of the admissible voxels (all
+        zeros when the mask is empty of True voxels).
+
+    Raises:
+        ValueError: ``mask`` is not a non-empty 3-D array.
     """
     values = np.asarray(mask, dtype=bool)
     if values.ndim != 3 or values.size == 0:
@@ -166,15 +243,18 @@ def periodic_component_summary(mask: np.ndarray) -> dict[str, object]:
             "largest_component_fraction_of_admissible": 0.0,
         }
 
+    # Union-find over component labels; path halving keeps find cheap.
     parent = np.arange(n_labels + 1, dtype=int)
 
     def find(label: int) -> int:
+        """Return the root label, compressing the path as it walks."""
         while parent[label] != label:
             parent[label] = parent[parent[label]]
             label = int(parent[label])
         return label
 
     def union(first: int, second: int) -> None:
+        """Merge the components containing the two labels."""
         root_first = find(first)
         root_second = find(second)
         if root_first != root_second:
@@ -212,6 +292,25 @@ def summarize_periodic_clearance(
     ``probe_radius_nm`` is applied to centre clearance. The histogram therefore
     contains local obstacle-surface diameters at grid points that can admit the
     probe centre. It is not a pore-limiting diameter or a mesh-size estimate.
+
+    Args:
+        clearance_nm: Signed clearance field from
+            :func:`periodic_clearance_grid`, in nm.
+        probe_radius_nm: Probe radius in nm (default 0.1657, a water
+            probe); admissible points satisfy clearance >= this.
+        bins: Histogram bin count for the diameter distribution.
+
+    Returns:
+        Tuple ``(centres, hist, summary)`` — diameter bin centers in
+        nm, probability density, and a summary dict with grid/void/
+        admissible counts and fractions, periodic-component stats,
+        peak/max/percentile diameters in nm, and an interpretation
+        note.  With zero admissible points the arrays are empty and
+        the diameter statistics are zeros/empty (no refusal here).
+
+    Raises:
+        ValueError: Non-3-D/non-finite field, negative probe radius,
+            or non-positive ``bins``.
     """
     field = np.asarray(clearance_nm, dtype=float)
     probe_radius = float(probe_radius_nm)
@@ -268,7 +367,25 @@ def calculate_periodic_clearance_distribution(
     bins: int = 50,
     chunk_size: int = _DEFAULT_CHUNK_SIZE,
 ) -> tuple[np.ndarray, np.ndarray, dict[str, object]]:
-    """Calculate a mixed-radius periodic clearance distribution."""
+    """Calculate a mixed-radius periodic clearance distribution.
+
+    Convenience composition of :func:`periodic_clearance_grid` and
+    :func:`summarize_periodic_clearance`, adding grid provenance
+    (requested vs actual spacing, grid shape, per-group obstacle
+    counts/radii) to the summary.
+
+    Args:
+        obstacle_groups: ``(positions_nm, radius_nm)`` pairs.
+        box_size: Orthorhombic box lengths in nm.
+        grid_spacing: Requested grid spacing in nm.
+        probe_radius: Probe radius in nm.
+        bins: Histogram bin count.
+        chunk_size: Grid points per KD-tree query batch.
+
+    Returns:
+        Tuple ``(centres, hist, summary)`` as in
+        :func:`summarize_periodic_clearance`, with provenance added.
+    """
     clearance, actual_spacing = periodic_clearance_grid(
         obstacle_groups,
         box_size,
@@ -298,17 +415,27 @@ def calculate_pore_size_distribution(
     bead_radius=0.24,
     bins=50,
 ):
-    """
-    Grid 기반 void radius distribution 계산.
-    주의: Poreblazer와 방법론이 다름 (nearest polymer surface distance 기반).
+    """Compute a grid-based void radius distribution (legacy interface).
 
-    coords      : (N, 3) polymer bead 좌표 [nm]
-    box_size    : (3,) box 크기 [nm]  ※ orthorhombic만 지원
-    grid_spacing: grid 간격 [nm]
-    bead_radius : polymer bead 유효 반경 [nm]
-    bins        : histogram bin 수
+    Caution: methodology differs from Poreblazer — this is a
+    nearest-polymer-surface-distance grid, not a percolation analysis.
+    Internally delegates to
+    :func:`calculate_periodic_clearance_distribution` with a single
+    obstacle group and a zero probe radius, then converts diameters
+    back to radii for backward compatibility.
 
-    반환값: (bin_centers [nm], hist [probability density], metadata dict)
+    Args:
+        coords: ``(N, 3)`` polymer bead coordinates in nm.
+        box_size: ``(3,)`` box lengths in nm (orthorhombic only).
+        grid_spacing: Grid spacing in nm.
+        bead_radius: Effective polymer bead radius in nm.
+        bins: Histogram bin count.
+
+    Returns:
+        Tuple ``(bin_centers, hist, metadata)`` — void radius bin
+        centers in nm, probability density (rescaled for the
+        diameter->radius change of variable), and a metadata dict.
+        Empty coordinates return empty arrays with basic metadata.
     """
     coords_array = np.asarray(coords, dtype=float)
     meta = {
@@ -336,12 +463,28 @@ def calculate_pore_size_distribution(
 def get_peak_pore_size(
     coords, box_size, grid_spacing=0.2, bead_radius=0.24, bins=50
 ) -> PropertyResult:
-    """
-    peak pore diameter [nm] 를 PropertyResult 로 반환.
+    """Return the peak pore diameter (nm) as a gated PropertyResult.
 
-    validation_role = "proxy":
-        nearest_surface_grid (single frame) 는 Poreblazer trajectory 결과와
-        방법론이 다르므로 실험 target 과 직접 비교 불가.
+    Takes the mode of the void-radius histogram from
+    :func:`calculate_pore_size_distribution` and doubles it into a
+    diameter.  ``validation_role="proxy"``: the single-frame
+    nearest-surface grid differs methodologically from Poreblazer
+    trajectory results, so direct comparison with the experimental
+    target is disallowed; the ``pore_diameter_nm`` target alias is
+    attached for report mapping.
+
+    Args:
+        coords: ``(N, 3)`` polymer bead coordinates in nm.
+        box_size: ``(3,)`` box lengths in nm.
+        grid_spacing: Grid spacing in nm.
+        bead_radius: Effective bead radius in nm.
+        bins: Histogram bin count.
+
+    Returns:
+        PropertyResult ``pore_size_single_frame_grid`` — computed with
+        the peak diameter in nm, or ``insufficient_data`` when there
+        are zero void grid points (box fully filled, or the grid too
+        coarse).
     """
     bin_centers, hist, meta = calculate_pore_size_distribution(
         coords, box_size,

@@ -1,3 +1,4 @@
+"""Module runner: ``python -m hygel_martini.hydrogel_builder.relax`` -> cli.main."""
 from .cli import main
 
 

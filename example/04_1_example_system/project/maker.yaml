@@ -1,15 +1,30 @@
+# maker.yaml — 작은 DMAPS-SBMA 예시 시스템 (다이아몬드 경로) 진입 설정.
+# Entry config for the small DMAPS-SBMA example system (diamond path).
+#
 # includes: 파일 병합 순서 (위에서 아래 순서로 로드 후 마지막 이 파일이 덮어씀)
 # en: includes are loaded in order, then this file can override.
+# 주의: include된 파일 안의 ${CONFIG_DIR}는 그 파일이 아니라 이 maker.yaml의
+#       디렉터리 기준으로 해석된다.
+# Note: ${CONFIG_DIR} inside included files resolves against THIS maker.yaml's
+#       directory, not the included file's own location.
 includes:
-  - config/simulation.yaml
-  - config/hydrogel.yaml
-  - config/mdp.yaml
-  - config/add_series.yaml
-  - config/backbone.yaml
+  - config/simulation.yaml   # 실행 환경/GROMACS/가교 설정 / runtime, GROMACS, crosslinking
+  - config/hydrogel.yaml     # backbone/monomer/linker 화학 / chemistry definitions
+  - config/mdp.yaml          # EM MDP 값 / EM MDP parameters
+  - config/add_series.yaml   # 물 추가 단계 / water addition stage
+  - config/backbone.yaml     # 생성된 topology의 bonded 파라미터 patch 규칙 / bonded patch rules
 
+# 기록용 메타데이터. builder 코드는 이 블록을 읽지 않는다 (hygel_martini에
+# 소비자 없음) — 예제의 역할과 검증 상태를 사람에게 알리는 용도.
+# Record-keeping only; no code in hygel_martini consumes this block. It tells
+# a human what this example demonstrates and what has been validated.
 example_metadata:
   role: YAML construction and graph-contract example
   random_copolymer: DMAPS-SBMA
   long_linker_templates: [LDD, LSS, LDS]
+  # 연결성 감사를 통과한 빌드라는 뜻 (construction claim).
+  # The build passed the connectivity audit (a construction claim).
   validated_connected_hydrogel: true
+  # 물성 promotion gate는 통과하지 않았다 — 물성 주장에 쓰지 말 것.
+  # Property promotion gates were NOT passed — do not cite property claims.
   property_promotion_allowed: false

@@ -1,3 +1,17 @@
+"""Command-line entry point for the stage-03 (qm_to_martini) workflow.
+
+This module owns argument parsing and console reporting for the
+``hygel-qm-to-martini`` command. Shared config-related flags come from
+``hygel_martini.core.config.add_qm_to_martini_cli_args``; the actual work
+is delegated to ``generator.run_qm_to_martini`` (which dispatches to
+``pipeline.run_pipeline`` / ``run_postprocess_only`` / tool checks).
+
+Inputs: a YAML config path (``--config``) plus mode flags
+(``--dump-default-config``, ``--postprocess-only``, ``--check-tools``).
+Outputs: pipeline artifacts under the configured ``out_root`` and status
+lines on stdout; ``--check-tools`` exits nonzero when a tool is missing.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -11,6 +25,7 @@ from .generator import run_qm_to_martini
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
+    """Build the argparse parser: shared config flags plus stage-03 modes."""
     parser = argparse.ArgumentParser(
         description="03 workflow: generate Martini/Bartender cases from QM, ORCA, or xTB relaxation inputs."
     )
@@ -30,6 +45,18 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    """Console-script entry point.
+
+    Mutually exclusive-by-precedence modes: ``--dump-default-config``
+    writes ``DEFAULT_CONFIG`` to the ``--config`` path and returns;
+    ``--check-tools`` prints per-tool resolution status and exits 1 on any
+    missing tool; ``--postprocess-only`` reports screening outputs; the
+    default mode reports generated cases and the summary path.
+
+    Raises:
+        ValueError: ``--dump-default-config`` without ``--config``.
+        SystemExit: a ``--check-tools`` failure (exit code 1).
+    """
     parser = build_arg_parser()
     args = parser.parse_args()
 

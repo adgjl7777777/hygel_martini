@@ -1,3 +1,21 @@
+"""One-stop per-system analysis facade over the individual analyzers.
+
+Owns :class:`HydrogelAnalyzer`, which bundles composition/swelling
+(:mod:`.swelling`), volume-stability (:mod:`.equilibration`), and
+single-frame pore-size (:mod:`.pore_size`) analyses for one built
+system, plus a console reporter with a target-comparison gate.  Used
+directly and by :mod:`.parametric` for state-point sweeps; construct
+from explicit paths or from a YAML config via
+:meth:`HydrogelAnalyzer.from_config`.
+
+Gate behavior in :meth:`HydrogelAnalyzer.analyze`: every property
+always appears in the result dict, but with an honest status — a
+missing energy XVG or GRO yields ``missing_required_md``, parse or
+selection problems yield ``invalid_input``, unexpected errors yield
+``analysis_failed`` — rather than being silently skipped.  The
+reporter additionally blocks target comparison for any result whose
+``direct_experiment_comparison_allowed`` is False.
+"""
 import os
 from .swelling import SwellingAnalyzer
 from .pore_size import parse_gro_coords, get_peak_pore_size
@@ -7,6 +25,14 @@ from .result import PropertyResult
 
 
 class HydrogelAnalyzer:
+    """Aggregate analyzer for one hydrogel system's files.
+
+    Holds file paths and analysis settings; a
+    :class:`.swelling.SwellingAnalyzer` is built eagerly from top/itp
+    at construction, while energy/pore analyses run lazily in
+    :meth:`analyze` against whichever files exist.
+    """
+
     def __init__(
         self,
         top_file,
@@ -31,24 +57,38 @@ class HydrogelAnalyzer:
         equilibration_window=0.2,
         start_time_ps=0,
     ):
-        """
-        top_file                : system.top 경로
-        itp_file                : hydrogel itp 경로
-        gro_file                : 참조 .gro 경로
-        energy_xvg              : 기존 energy.xvg 경로
-        pore_selection_residues : pore 분석에 사용할 residue 이름 목록 (None → {"PEO","HYDROGEL"})
-        polymer_residue_name    : ITP 파싱 시 residue 필터 (None = 전체)
-        polymer_atom_name       : ITP 파싱 시 atom 이름 필터 (None = 전체)
-        solvent_molecule_names   : top [ molecules ]에서 solvent 이름 (str 또는 list[str])
-        polymer_bead_mass       : polymer bead 질량 [amu]. 기본값 45.0 (M3 PEO SN3r)
-        solvent_bead_mass       : solvent bead 질량 [amu]. 기본값 72.0 (Martini W)
-        polymer_bead_vol_nm3    : polymer bead 부피 [nm³]. 기본값 0.065 (FF 의존)
-        pore_grid_spacing_nm    : pore grid 간격 [nm]
-        pore_bead_radius_nm     : pore bead 유효 반경 [nm]
-        pore_bins               : pore histogram bin 수
-        equilibration_threshold : 안정성 판정 최대 상대 drift
-        equilibration_window    : drift 계산에 사용할 끝 부분 비율
-        start_time_ps           : 평균 계산에 사용할 시작 시간 [ps]
+        """Store paths/settings and parse composition from top/itp.
+
+        Args:
+            top_file: Path to ``system.top``.
+            itp_file: Path to the hydrogel ``.itp``.
+            gro_file: Optional reference ``.gro`` (enables pore-size
+                analysis).
+            energy_xvg: Optional existing ``energy.xvg`` (enables
+                volume-fraction/stability analysis).
+            pore_selection_residues: Residue names used for the pore
+                analysis (None -> the pore parser's default
+                ``{"PEO", "HYDROGEL"}``).
+            polymer_residue_name: Residue filter for ITP bead counting
+                (None counts all).
+            polymer_atom_name: Atom-name filter for ITP bead counting
+                (None counts all).
+            solvent_molecule_names: Solvent name(s) in the top
+                ``[ molecules ]`` section (str or list of str).
+            polymer_bead_mass: Polymer bead mass in amu (default 45.0,
+                Martini 3 PEO SN3r).
+            solvent_bead_mass: Solvent bead mass in amu (default 72.0,
+                Martini W).
+            polymer_bead_vol_nm3: Polymer bead volume in nm^3 (default
+                0.065, force-field dependent).
+            pore_grid_spacing_nm: Pore grid spacing in nm.
+            pore_bead_radius_nm: Effective pore bead radius in nm.
+            pore_bins: Pore histogram bin count.
+            equilibration_threshold: Maximum relative drift for the
+                stability verdict.
+            equilibration_window: Trailing fraction of the series used
+                for the drift fit.
+            start_time_ps: Default start time (ps) for time averages.
         """
         self.top_file = top_file
         self.itp_file = itp_file
@@ -75,9 +115,31 @@ class HydrogelAnalyzer:
 
     @classmethod
     def from_config(cls, config_path):
-        """
-        YAML 설정 파일로부터 HydrogelAnalyzer를 생성한다.
-        파일 경로는 config_path 기준 상대 경로로 해석된다.
+        """Build a HydrogelAnalyzer from a YAML configuration file.
+
+        Relative file paths are resolved against the config file's
+        directory.  A ``gromacs.executable`` entry is exported to the
+        ``GMX_BIN`` environment variable (YAML wins over environment;
+        nothing is hardcoded).  Required values refuse loudly: null
+        polymer/solvent bead masses and, for the ``bead_volume``
+        method, a null ``bead_volume_nm3`` raise instead of being
+        defaulted (reading masses from the ITP is not implemented);
+        any ``volume_fraction.method`` other than ``bead_volume`` is
+        also rejected.
+
+        Args:
+            config_path: YAML file with ``files``, ``gromacs``,
+                ``components``, ``mass``, ``volume_fraction``,
+                ``pore_size``, and ``equilibration`` sections (each
+                optional except where noted above).
+
+        Returns:
+            Configured instance; the parsed config and its path are
+            kept on ``_config`` / ``_config_path``.
+
+        Raises:
+            ValueError: A required mass/volume value is null or the
+                volume-fraction method is unsupported.
         """
         import yaml
 
@@ -87,6 +149,7 @@ class HydrogelAnalyzer:
         cfg_dir = os.path.dirname(os.path.abspath(config_path))
 
         def resolve(p):
+            """Resolve a config path against the config directory."""
             if not p:
                 return None
             return p if os.path.isabs(str(p)) else os.path.join(cfg_dir, str(p))
@@ -202,9 +265,25 @@ class HydrogelAnalyzer:
         output_xvg='energy.xvg',
         terms=None,
     ):
-        """
-        gmx energy로 edr 파일에서 Volume 등을 xvg로 추출.
-        cwd는 edr_file 위치 기준으로 자동 설정.
+        """Extract energy terms from an .edr into an XVG via ``gmx energy``.
+
+        The subprocess runs with the .edr file's directory as its
+        working directory, so a relative ``output_xvg`` lands next to
+        the .edr; on success ``self.energy_xvg`` is pointed at the new
+        file.
+
+        Args:
+            edr_file: GROMACS energy file to extract from.
+            output_xvg: Output XVG path (relative to the .edr's
+                directory when not absolute).
+            terms: Energy term names fed to ``gmx energy`` (default
+                Volume, Potential, Density).
+
+        Returns:
+            The ``output_xvg`` path as given.
+
+        Raises:
+            RuntimeError: The ``gmx energy`` invocation failed.
         """
         if terms is None:
             terms = ['Volume', 'Potential', 'Density']
@@ -224,11 +303,25 @@ class HydrogelAnalyzer:
             raise RuntimeError(f"gmx energy 실행 실패: {e}") from e
 
     def analyze(self, start_time_ps=None) -> dict[str, PropertyResult]:
-        """
-        사용 가능한 파일로 분석 수행.
-        start_time_ps: None 이면 생성자에서 설정한 값 사용.
+        """Run every analysis the available files permit.
 
-        반환값: {property_name: PropertyResult}
+        Always computes the composition summary (needs no MD output).
+        With an existing energy XVG it adds ``polymer_volume_fraction``
+        and a ``volume_stability`` verdict on the post-``start_time_ps``
+        volume frames (fewer than 10 frames -> ``insufficient_data``;
+        no Volume column -> ``invalid_input``).  With an existing GRO
+        it adds ``pore_size_single_frame_grid``.  Every property gets
+        an entry regardless — absent files are reported as
+        ``missing_required_md`` and errors as ``invalid_input`` /
+        ``analysis_failed``; nothing raises out of this method for
+        per-property failures.
+
+        Args:
+            start_time_ps: Averaging start time in ps; None uses the
+                constructor value.
+
+        Returns:
+            Mapping of property name to its PropertyResult.
         """
         if start_time_ps is None:
             start_time_ps = self.start_time_ps
@@ -346,6 +439,20 @@ class HydrogelAnalyzer:
         return results
 
     def report(self, results: dict[str, PropertyResult], targets=None):
+        """Print a console summary of results, optionally versus targets.
+
+        Non-computed statuses are printed with their reason/error and
+        missing inputs instead of a value; computed results show value,
+        validation role, and selected metadata keys.  When ``targets``
+        is given, each target is compared through the gate logic of
+        :func:`_report_targets` (results that disallow direct
+        experimental comparison are shown as blocked, not compared).
+
+        Args:
+            results: Output of :meth:`analyze`.
+            targets: Optional mapping of target property name to a
+                spec dict (``value``/``tolerance`` or ``min``/``max``).
+        """
         print("\n" + "=" * 50)
         print("         Hydrogel Property Analysis")
         print("=" * 50)
@@ -386,6 +493,13 @@ class HydrogelAnalyzer:
 
 
 def _find_result_for_target(results: dict[str, PropertyResult], target_key: str):
+    """Match a target key to a result directly or via ``target_aliases``.
+
+    Returns:
+        Tuple ``(result, result_key)`` — the matched PropertyResult and
+        the key it lives under, or ``(None, None)`` when nothing
+        matches.
+    """
     pr = results.get(target_key)
     if pr is not None:
         return pr, target_key
@@ -399,13 +513,23 @@ def _find_result_for_target(results: dict[str, PropertyResult], target_key: str)
 
 
 def _format_status(status: str) -> str:
+    """Render a status token for console display (underscores -> spaces)."""
     return status.replace('_', ' ').upper()
 
 
 def _report_targets(results: dict, targets: dict):
-    """
-    targets dict 의 각 property 를 results 의 PropertyResult 와 비교.
-    direct_experiment_comparison_allowed=False 인 property 는 비교를 블록한다.
+    """Compare each target spec against its matching PropertyResult.
+
+    Per target: no matching result prints "no result"; a non-computed
+    status is skipped with that status; a result with
+    ``direct_experiment_comparison_allowed=False`` is explicitly
+    blocked (its role and note are shown instead of a comparison).
+    Only then is the value compared — against ``value`` +- ``tolerance``
+    or a ``min``/``max`` range — and marked OK/MISS.
+
+    Args:
+        results: Property name -> PropertyResult mapping.
+        targets: Target name -> spec dict; falsy specs are skipped.
     """
     for target_key, target_spec in targets.items():
         if not target_spec:

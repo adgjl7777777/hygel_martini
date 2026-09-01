@@ -1,3 +1,33 @@
+"""Screening postprocess for Bartender ITP outputs (stage-03 final step).
+
+This module owns the "screening" stage of the ``qm_to_martini`` workflow:
+it re-parses every Bartender ``gmx_out.itp`` under the configured output
+roots (including commented-out candidate lines), applies the configured
+per-section screening rules (preferred function number, RMSD ceiling,
+force-metric floor, bond-vs-constraint policy, overlap deduplication),
+and writes both the complete candidate inventory and the screened result.
+
+Callers: ``pipeline.run_pipeline`` / ``pipeline.run_postprocess_only``
+invoke ``run_screening_postprocess`` when
+``bartender_pipeline.postprocess.screening.enabled`` is true.
+
+Inputs: the resolved config dict plus ``gmx_out.itp`` / ``case.json``
+files under the postprocess roots. Outputs (per root, in the resolved
+output directory): ``all_terms.json`` / ``all_terms.itp`` (inventory),
+``screened_summary.json`` / ``screened_forcefield.itp`` (screened set),
+per-section CSV tables and PDF diagnostic plots, and
+``screening_report.json``.
+
+Invariants:
+
+- Parsing is purely textual: units are whatever GROMACS uses for each
+  section (nm, kJ/mol/nm^2, deg, kJ/mol ...); no unit conversion happens.
+- The "force metric" is a scalar screening proxy derived from the force
+  constants of a line (see ``_force_values_and_metric``), not a physical
+  observable.
+- Screening never edits the source ITPs; all outputs are new files.
+"""
+
 from __future__ import annotations
 
 import csv
@@ -10,6 +40,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 
+# ITP section name -> number of atom-index columns before the funct column.
 SECTION_INFO = {
     "bonds": 2,
     "constraints": 2,
@@ -17,10 +48,15 @@ SECTION_INFO = {
     "dihedrals": 4,
     "impropers": 4,
 }
+# Canonical output ordering for every per-section table/ITP block.
 SECTION_ORDER = ("bonds", "constraints", "angles", "dihedrals", "impropers")
+# Extracts the "rmsd: <float>" annotation Bartender writes into ITP comments.
 RMSD_RE = re.compile(r"rmsd:\s*([0-9]*\.?[0-9]+)", re.IGNORECASE)
+# Maximum candidate points per PDF plot page (extra points paginate).
 PLOT_MAX_POINTS = 10
 
+# (section, funct) -> (human name, LaTeX equation, parameter note) used as
+# plot annotations; unknown combinations fall back via _potential_title.
 POTENTIAL_INFO = {
     ("bonds", 1): (
         "harmonic bond",
@@ -81,6 +117,7 @@ POTENTIAL_INFO = {
 
 
 def _as_list(value: Any) -> List[Any]:
+    """Coerce a scalar / list / tuple / None config value into a list."""
     if value is None:
         return []
     if isinstance(value, (list, tuple)):
@@ -89,6 +126,7 @@ def _as_list(value: Any) -> List[Any]:
 
 
 def _parse_float(value: str) -> Optional[float]:
+    """Parse a float token, returning None for non-numeric input."""
     try:
         return float(value)
     except (TypeError, ValueError):
@@ -96,10 +134,19 @@ def _parse_float(value: str) -> Optional[float]:
 
 
 def _canon_indices(indices: Sequence[int]) -> Tuple[int, ...]:
+    """Return the order-independent canonical form of a bead-index tuple."""
     return tuple(sorted(int(value) for value in indices))
 
 
 def _find_case_json(start: Path) -> Optional[Path]:
+    """Locate the nearest ``case.json`` at or above ``start`` (max 8 levels).
+
+    Args:
+        start: directory to start from (usually an ITP's parent).
+
+    Returns:
+        Path of the first ``case.json`` found, or None.
+    """
     current = start.resolve()
     for _ in range(8):
         candidate = current / "case.json"
@@ -112,6 +159,11 @@ def _find_case_json(start: Path) -> Optional[Path]:
 
 
 def _relative_to_or_name(path: Path, base: Optional[Path]) -> Path:
+    """Return ``path`` relative to ``base``, or just its basename.
+
+    The basename fallback is used when ``base`` is None or ``path`` lies
+    outside it, so callers always get a usable (possibly flat) label.
+    """
     if base is None:
         return Path(path.name)
     try:
@@ -121,6 +173,11 @@ def _relative_to_or_name(path: Path, base: Optional[Path]) -> Path:
 
 
 def _format_number(value: Optional[float]) -> str:
+    """Format a number compactly for plot labels ("NA" for None/non-finite).
+
+    Uses scientific notation outside [0.01, 10000), one decimal above 100,
+    and 3 significant digits otherwise.
+    """
     if value is None or not math.isfinite(float(value)):
         return "NA"
     value = float(value)
@@ -134,6 +191,17 @@ def _format_number(value: Optional[float]) -> str:
 
 
 def _chunk_sizes(total: int, limit: int = PLOT_MAX_POINTS) -> List[int]:
+    """Split ``total`` items into near-equal chunk sizes of at most ``limit``.
+
+    The smaller chunks come first so the sizes differ by at most one.
+
+    Args:
+        total: number of items to split (<=0 yields an empty list).
+        limit: maximum items per chunk.
+
+    Returns:
+        Chunk sizes summing to ``total``.
+    """
     if total <= 0:
         return []
     chunk_count = math.ceil(total / limit)
@@ -143,6 +211,7 @@ def _chunk_sizes(total: int, limit: int = PLOT_MAX_POINTS) -> List[int]:
 
 
 def _chunk_rows(rows: Sequence[Dict[str, Any]], limit: int = PLOT_MAX_POINTS) -> List[List[Dict[str, Any]]]:
+    """Partition term rows into plot pages of at most ``limit`` rows each."""
     chunks: List[List[Dict[str, Any]]] = []
     start = 0
     for size in _chunk_sizes(len(rows), limit):
@@ -152,6 +221,11 @@ def _chunk_rows(rows: Sequence[Dict[str, Any]], limit: int = PLOT_MAX_POINTS) ->
 
 
 def _potential_title(section: str, funct: int) -> Tuple[str, str, str]:
+    """Look up plot annotations (name, equation, params) for a potential.
+
+    Falls back to a generic placeholder for unannotated (section, funct)
+    combinations instead of raising.
+    """
     return POTENTIAL_INFO.get(
         (section, funct),
         (
@@ -163,6 +237,17 @@ def _potential_title(section: str, funct: int) -> Tuple[str, str, str]:
 
 
 def _axis_bounds(values: Sequence[float], threshold: Optional[float], *, zero_floor: bool = True) -> Tuple[float, float]:
+    """Compute padded y-axis limits that include the data and the cutoff.
+
+    Args:
+        values: finite data values to cover.
+        threshold: optional cutoff line to keep visible (ignored when
+            non-finite or None).
+        zero_floor: clamp the lower bound to 0 when all data is >= 0.
+
+    Returns:
+        (lo, hi) axis limits; (0, 1) when there is nothing to show.
+    """
     finite = list(values)
     if threshold is not None and math.isfinite(float(threshold)):
         finite.append(float(threshold))
@@ -188,6 +273,11 @@ def _axis_bounds(values: Sequence[float], threshold: Optional[float], *, zero_fl
 
 
 def _selected_key(row: Dict[str, Any]) -> Tuple[str, str, Tuple[int, ...], int]:
+    """Build the identity key used to match a plotted row to a screened term.
+
+    Keyed on (source file, section, index tuple in original order, funct)
+    so the same bonded term from different ITPs stays distinguishable.
+    """
     return (
         str(row.get("source", "")),
         str(row.get("section", "")),
@@ -211,6 +301,32 @@ def _write_pdf_plot(
     global_start_index: int = 0,
     total_count: Optional[int] = None,
 ) -> None:
+    """Render one screening-diagnostic PDF page for a (section, funct) group.
+
+    The page shows two aligned panels (force_metric on top, RMSD below)
+    with candidate points ordered by plot index, selected/screened points
+    highlighted, and the cutoff line plus shaded reject region drawn only
+    when the page mixes passing and failing points.
+
+    Args:
+        path: output PDF path (parent directories are created).
+        title: page headline, e.g. "bonds funct 1".
+        rows: parsed term rows for this page (already chunked).
+        selected_keys: identity keys (see ``_selected_key``) of terms that
+            survived screening.
+        section: ITP section name, used for potential annotation lookup.
+        funct: GROMACS function number of this group.
+        force_threshold: force-metric floor (pass when metric >= value).
+        rmsd_threshold: RMSD ceiling (pass when RMSD <= value), or None.
+        page_index: 1-based page number within the group.
+        page_count: total pages for the group.
+        global_start_index: 0-based offset of this page's first row in the
+            full group ordering (for point numbering).
+        total_count: total rows in the group (defaults to offset+len(rows)).
+
+    Raises:
+        RuntimeError: matplotlib is not installed.
+    """
     try:
         import matplotlib
 
@@ -261,6 +377,7 @@ def _write_pdf_plot(
     )
 
     def finite_values(key: str) -> List[float]:
+        """Collect the finite numeric values of ``key`` across the rows."""
         values = []
         for row in rows:
             value = row.get(key)
@@ -269,6 +386,17 @@ def _write_pdf_plot(
         return values
 
     def cutoff_state(values: List[float], threshold: Optional[float], mode: str) -> Tuple[str, bool, bool]:
+        """Classify how the cutoff relates to the panel's values.
+
+        Args:
+            values: finite panel values.
+            threshold: cutoff value, or None.
+            mode: "min" (pass when value >= cutoff) or "max" (<= cutoff).
+
+        Returns:
+            (status label, mixed pass/fail, all rejected) — the cutoff
+            line/shading is drawn only in the mixed case.
+        """
         if threshold is None or not math.isfinite(float(threshold)) or not values:
             return "no finite cutoff", False, False
         if mode == "min":
@@ -282,9 +410,11 @@ def _write_pdf_plot(
         return f"cutoff = {_format_number(float(threshold))}", True, False
 
     def format_axis(value: float, _pos: int) -> str:
+        """Matplotlib tick formatter delegating to ``_format_number``."""
         return _format_number(value)
 
     def draw_panel(ax: Any, *, key: str, label: str, threshold: Optional[float], pass_mode: str) -> None:
+        """Draw one metric panel: grid, cutoff region, line, and points."""
         values = finite_values(key)
         status, mixed, all_reject = cutoff_state(values, threshold, pass_mode)
         threshold_for_axis = threshold if mixed else None
@@ -380,9 +510,30 @@ def _write_pdf_plot(
 
 
 class ScreeningProcessor:
-    """Parse Bartender ITP outputs and write full plus screened postprocess data."""
+    """Parse Bartender ITP outputs and write full plus screened postprocess data.
+
+    Configured once from ``bartender_pipeline.postprocess.screening`` and
+    then applied to one or more output roots via ``process``. Screening
+    keeps, per section: terms of the preferred function number (or any,
+    for "bartender"), with RMSD <= ``rmsd_max``, force metric >= the
+    per-section floor, respecting the bond/constraint policy, and at most
+    one term per canonical index tuple (best RMSD wins, force metric
+    breaks ties).
+    """
 
     def __init__(self, cfg: Dict[str, Any]):
+        """Resolve and normalize all screening settings from the config.
+
+        Args:
+            cfg: full resolved pipeline config; only ``paths`` and
+                ``bartender_pipeline.postprocess.screening`` are used.
+                A scalar ``thresholds.force_metric_min`` is broadcast to
+                every section.
+
+        Raises:
+            ValueError: unsupported ``bond_constraint_mode`` or
+                ``candidate_source`` value.
+        """
         self.cfg = cfg
         self.paths_cfg = cfg.get("paths", {})
         self.post_cfg = cfg.get("bartender_pipeline", {}).get("postprocess", {})
@@ -411,6 +562,19 @@ class ScreeningProcessor:
 
     @staticmethod
     def _normalize_bond_constraint_mode(raw: Any) -> str:
+        """Map user aliases onto a canonical bond/constraint policy.
+
+        Args:
+            raw: user-supplied ``screening.bond_constraint_mode`` value.
+
+        Returns:
+            One of "bartender" (keep whichever section Bartender chose),
+            "ignore_constraints" (drop [constraints] terms), or
+            "ignore_bonds" (drop [bonds] terms).
+
+        Raises:
+            ValueError: value does not map to a supported mode.
+        """
         mode = str(raw or "bartender").strip().lower()
         aliases = {
             "both": "bartender",
@@ -432,6 +596,18 @@ class ScreeningProcessor:
 
     @staticmethod
     def _normalize_candidate_source(raw: Any) -> str:
+        """Map user aliases onto a canonical candidate-source policy.
+
+        Args:
+            raw: user-supplied ``screening.candidate_source`` value.
+
+        Returns:
+            "active" (only uncommented, Bartender-selected lines) or
+            "all" (commented-out candidate lines included).
+
+        Raises:
+            ValueError: value does not map to a supported mode.
+        """
         mode = str(raw or "active").strip().lower()
         aliases = {
             "bartender": "active",
@@ -450,6 +626,7 @@ class ScreeningProcessor:
         return mode
 
     def _term_is_allowed_by_candidate_source(self, term: Dict[str, Any]) -> bool:
+        """Check the term against the candidate-source policy ("all"/"active")."""
         if self.candidate_source == "all":
             return True
         return self._term_is_bartender_active(term)
@@ -460,6 +637,24 @@ class ScreeningProcessor:
         funct: int,
         numeric_params: Sequence[float],
     ) -> tuple[List[float], Optional[float], str]:
+        """Extract force-constant values and reduce them to a scalar metric.
+
+        For bonds/constraints/angles and funct-1/2 dihedrals/impropers the
+        force constant is the second numeric parameter (fallback: last),
+        so the metric is a single value. For every other potential all
+        numeric parameters count and ``multi_constant_metric`` decides the
+        reduction: "l2", "mean_abs", "first", "none"/"disabled" (metric
+        None), or the default "max_abs".
+
+        Args:
+            section: ITP section name.
+            funct: GROMACS function number.
+            numeric_params: numeric parameters after the funct column, in
+                GROMACS units for that potential.
+
+        Returns:
+            (force values used, scalar metric or None, method label).
+        """
         values: List[float] = []
         method = "single"
         if section in {"bonds", "constraints", "angles"}:
@@ -494,6 +689,23 @@ class ScreeningProcessor:
         return values, metric, method
 
     def _parse_itp_line(self, line: str, section: str, n_idx: int) -> Optional[Dict[str, Any]]:
+        """Parse one ITP data line (commented or active) into a term record.
+
+        Leading ``;`` markers are stripped but remembered as ``commented``
+        so Bartender's rejected candidates remain analyzable. Lines whose
+        content does not start with a digit (headers, prose comments) are
+        skipped. The Bartender ``rmsd:`` annotation is pulled from the
+        inline comment (fallback: anywhere in the raw line).
+
+        Args:
+            line: raw ITP line.
+            section: current section name.
+            n_idx: number of atom-index columns for this section.
+
+        Returns:
+            Term dict (indices, funct, params, force metric, rmsd,
+            commented flag, raw line, section) or None for non-term lines.
+        """
         raw = line.rstrip("\n")
         stripped = raw.strip()
         if not stripped:
@@ -544,6 +756,20 @@ class ScreeningProcessor:
         }
 
     def _parse_itp(self, itp_path: Path, out_root: Path) -> Dict[str, List[Dict[str, Any]]]:
+        """Parse a whole ``gmx_out.itp`` into per-section term lists.
+
+        Each term is tagged with provenance: absolute source path, path
+        relative to ``out_root``, a ``<sequence_stem>:<job_dir>`` tag, and
+        the owning ``case.json`` (best effort; parse failures leave the
+        case data empty rather than aborting).
+
+        Args:
+            itp_path: Bartender output ITP to parse.
+            out_root: postprocess root used for relative source labels.
+
+        Returns:
+            Section name -> list of term dicts (only known sections).
+        """
         parsed: Dict[str, List[Dict[str, Any]]] = {section: [] for section in SECTION_ORDER}
         current_section = None
         case_json = _find_case_json(itp_path.parent)
@@ -576,13 +802,16 @@ class ScreeningProcessor:
         return parsed
 
     def _get_overlap_key(self, term: Dict[str, Any]) -> Tuple[Any, ...]:
+        """Return the (section, sorted indices) key used for overlap dedup."""
         return (term["section"], _canon_indices(tuple(term["indices"])))
 
     @staticmethod
     def _term_is_bartender_active(term: Dict[str, Any]) -> bool:
+        """True when Bartender kept the line active (not commented out)."""
         return not bool(term["commented"])
 
     def _term_is_allowed_by_bond_constraint_mode(self, term: Dict[str, Any]) -> bool:
+        """Apply the bond/constraint policy to one term's section."""
         section = term["section"]
         if section == "constraints" and self.bond_constraint_mode == "ignore_constraints":
             return False
@@ -616,6 +845,25 @@ class ScreeningProcessor:
         return int(term["funct"]) == preferred_funct
 
     def _threshold_for(self, section: str, funct: int, terms: Sequence[Dict[str, Any]]) -> float:
+        """Resolve the effective force-metric floor for a (section, funct).
+
+        In "absolute" mode the configured per-section value is returned as
+        is. In "relative(_to_section_max)" mode the configured value is a
+        fraction of the largest finite metric among the given terms with
+        the same section/funct; with no such metrics the floor is +inf
+        (everything rejected).
+
+        Args:
+            section: ITP section name (fallback config key: "bonds").
+            funct: GROMACS function number (relative mode only).
+            terms: candidate pool the relative maximum is taken from.
+
+        Returns:
+            Minimum acceptable force metric.
+
+        Raises:
+            ValueError: unknown ``force_metric_min_mode``.
+        """
         raw = self.fc_min_cfg.get(section, self.fc_min_cfg.get("bonds", 0.0))
         raw_value = float(raw)
         if self.threshold_mode in {"relative", "relative_to_max", "relative_to_section_max"}:
@@ -634,6 +882,20 @@ class ScreeningProcessor:
         return raw_value
 
     def _screen_terms(self, all_terms: Dict[str, List[Dict[str, Any]]]) -> Dict[str, List[Dict[str, Any]]]:
+        """Apply the full screening pipeline per section.
+
+        Filter order: bond/constraint policy -> candidate source ->
+        preferred funct -> RMSD ceiling -> force-metric floor. Survivors
+        are ranked by (RMSD asc, force metric desc) and the first term per
+        canonical index tuple wins; the accepted set is finally re-sorted
+        by (section, indices, funct) for stable output.
+
+        Args:
+            all_terms: parsed terms per section (all sources combined).
+
+        Returns:
+            Section name -> accepted term list.
+        """
         screened_results: Dict[str, List[Dict[str, Any]]] = {section: [] for section in SECTION_ORDER}
 
         for section in SECTION_ORDER:
@@ -682,6 +944,12 @@ class ScreeningProcessor:
         return screened_results
 
     def _info_terms(self, all_terms: Dict[str, List[Dict[str, Any]]]) -> Dict[str, List[Dict[str, Any]]]:
+        """Select which terms go into the inspection outputs (json/itp/plots).
+
+        With ``show_all_info`` every parsed term is included; otherwise
+        only terms passing the policy/funct filters (but not the RMSD or
+        force-metric thresholds) are kept.
+        """
         if self.show_all_info:
             return all_terms
         info: Dict[str, List[Dict[str, Any]]] = {section: [] for section in SECTION_ORDER}
@@ -698,6 +966,14 @@ class ScreeningProcessor:
         return info
 
     def _output_dir_for_root(self, out_root: Path) -> Path:
+        """Resolve where the postprocess outputs for one root are written.
+
+        When ``postprocess_output_root`` is configured, the input root's
+        path relative to ``postprocess_mirror_root`` is mirrored under it
+        (keeping multi-root runs separated). Otherwise ``output_dir``
+        (default ``postprocessing_result``) is used, relative to the input
+        root unless absolute.
+        """
         output_root_raw = self.paths_cfg.get("postprocess_output_root") or self.screen_cfg.get("output_root")
         mirror_root_raw = self.paths_cfg.get("postprocess_mirror_root") or self.screen_cfg.get("mirror_root")
         if output_root_raw:
@@ -712,12 +988,19 @@ class ScreeningProcessor:
 
     @staticmethod
     def _json_terms(terms: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Strip the raw ITP line from term dicts for JSON serialization."""
         rows = []
         for term in terms:
             rows.append({key: value for key, value in term.items() if key != "raw"})
         return rows
 
     def _write_all_terms_itp(self, path: Path, all_terms: Dict[str, List[Dict[str, Any]]]) -> None:
+        """Write the inspection ITP: every kept term with provenance comments.
+
+        Each term is echoed verbatim (original commented state preserved)
+        preceded by a comment line recording source, metric, and RMSD; the
+        file is documentation, not a runnable topology.
+        """
         lines = [
             "; Bartender terms kept for postprocess inspection.",
             "; Original comment state is preserved in the line body.",
@@ -740,6 +1023,11 @@ class ScreeningProcessor:
         path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
     def _write_itp(self, path: Path, results: Dict[str, List[Dict[str, Any]]]) -> None:
+        """Write the screened force field as an ITP with header settings.
+
+        Active (uncommented) term lines are regenerated from the parsed
+        fields, each annotated with its RMSD, force metric, and source tag.
+        """
         lines = [
             "; Screened forcefield using Hygel Martini post-processor",
             f"; bond_constraint_mode = {self.bond_constraint_mode}",
@@ -769,6 +1057,19 @@ class ScreeningProcessor:
         all_terms: Dict[str, List[Dict[str, Any]]],
         screened: Dict[str, List[Dict[str, Any]]],
     ) -> None:
+        """Write per-(section, funct) CSV tables and paginated PDF plots.
+
+        Rows are grouped by function number and ordered by (source tag,
+        indices). The plotted cutoff uses only rows that would reach the
+        threshold stage of screening (falling back to all rows when none
+        qualify). Stale plot files for the same group are removed before
+        new pages are written. No-op when ``write_plots`` is false.
+
+        Args:
+            out_dir: postprocess output directory (plots go to ``plots/``).
+            all_terms: inspection term set to tabulate/plot.
+            screened: screened result used to highlight selected points.
+        """
         if not self.write_plots:
             return
         plot_dir = out_dir / "plots"
@@ -861,6 +1162,18 @@ class ScreeningProcessor:
                     start_index += len(chunk)
 
     def process(self, out_root: Path) -> Dict[str, Any]:
+        """Run the full screening postprocess for one output root.
+
+        Parses every ``gmx_out.itp`` under ``out_root``, screens the
+        combined term pool, and writes all inventory/screened/plot outputs
+        plus ``screening_report.json`` into the resolved output directory.
+
+        Args:
+            out_root: pipeline output root to scan.
+
+        Returns:
+            The report payload (settings, per-section counts, file paths).
+        """
         out_root = out_root.resolve()
         all_terms: Dict[str, List[Dict[str, Any]]] = {section: [] for section in SECTION_ORDER}
         input_files = sorted(out_root.rglob("gmx_out.itp"))
@@ -926,6 +1239,13 @@ class ScreeningProcessor:
 
 
 def _resolve_postprocess_roots(cfg: Dict[str, Any]) -> List[Path]:
+    """Collect the postprocess roots from ``paths`` config, deduplicated.
+
+    Sources, in order: expanded ``out_root_glob`` patterns, then
+    ``out_roots`` (list) or, only when that is absent, the single
+    ``out_root``. Order is preserved; duplicates (by resolved path) are
+    dropped.
+    """
     paths_cfg = cfg.get("paths", {})
     roots: List[Path] = []
     for pattern in _as_list(paths_cfg.get("out_root_glob")):
@@ -947,6 +1267,20 @@ def _resolve_postprocess_roots(cfg: Dict[str, Any]) -> List[Path]:
 
 
 def run_screening_postprocess(cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """Run the screening postprocess over every configured output root.
+
+    Entry point used by ``pipeline``; one ``ScreeningProcessor`` is shared
+    across roots so all roots see identical screening settings.
+
+    Args:
+        cfg: full resolved pipeline config.
+
+    Returns:
+        ``{"root_count", "outputs"}`` with one report per root.
+
+    Raises:
+        ValueError: no postprocess root is configured.
+    """
     processor = ScreeningProcessor(cfg)
     roots = _resolve_postprocess_roots(cfg)
     if not roots:

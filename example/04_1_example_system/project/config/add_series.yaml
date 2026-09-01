@@ -1,10 +1,26 @@
 # add_series.yaml
-# 한글: add_polymer / add_molecule / add_water / add_small_ion 설정
-# English: add_polymer / add_molecule / add_water / add_small_ion settings
+# 한글: add_polymer / add_molecule / add_water / add_small_ion 설정.
+#       이 예제는 물 추가 단계만 쓴다 (자유 사슬/소분자/이온 블록은 생략 =
+#       해당 단계 건너뜀). maker.yaml includes로 병합된다.
+# English: add_polymer / add_molecule / add_water / add_small_ion settings.
+#          Only the water stage is used here; omitting the other blocks skips
+#          those stages. Merged via maker.yaml's includes list.
 
 add_series_parameters:
+  # 물 추가 단계: gel_weight_fraction을 맞추도록 물 bead 수를 질량 수지로 계산.
+  # Water stage: bead count is solved from a mass balance to hit the target wt%.
   add_water:
+    # full = 가교제 질량을 dry gel 질량에 포함해 계산.
+    # full = include crosslinker mass in the dry-gel mass.
     mode: full
+    # system.top [molecules]의 물 이름 / water molecule name in system.top
     molecule_name: W
+    # Martini 물 bead type (W = 물 4분자, 72 amu). Martini water bead type.
     water_bead_type: W
+    # 목표 젤 중량 분율: dry gel / (gel + water). 산정 방식은
+    # simulation.yaml의 gel_weight_fraction_mode가 정한다 (여기는 지정이 없어
+    # 로더의 legacy 기본을 따른다).
+    # Target gel weight fraction, dry gel over total; accounting follows
+    # simulation.yaml's gel_weight_fraction_mode (unset here, so the loader's
+    # legacy default applies).
     gel_weight_fraction: 0.1

@@ -1,3 +1,8 @@
+# postprocess.yaml — screening-only config for finished stage-03 Bartender
+# jobs. Passed as the top config to run_qm_to_martini.sh --postprocess-only
+# (or via STAGE=postprocess run_cds_iteration.sh).
+# ${CONFIG_DIR} resolves against the TOP config file's directory.
+
 paths:
   # Point this at one existing qm_to_martini output root.
   # To process several roots at once from Python, use out_roots: [...] or out_root_glob.

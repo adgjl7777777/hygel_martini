@@ -4,8 +4,10 @@
 # templates (BCK1/BCK2 attachment atoms), nrexcl=3, template [pairs],
 # parameterless crossing angles/dihedrals resolved from structure/forcefield.itp.
 # Chemistry and parameters: see ../parameterization/build_templates.py.
+# Deep-merged in order; later files override earlier ones, this file overrides
+# all. ${CONFIG_DIR} in every included file resolves against THIS directory.
 includes:
-  - config/simulation.yaml
-  - config/mdp.yaml
-  - config/hydrogel.yaml
-  - config/network.yaml
+  - config/simulation.yaml   # runtime, GROMACS, all-atom mode, crosslinking
+  - config/mdp.yaml          # EM MDP parameters
+  - config/hydrogel.yaml     # strand template and junction chemistry
+  - config/network.yaml      # pcu net layout (no rewiring)

@@ -1,14 +1,26 @@
+# config/soft_md.yaml — short settling NPT MD after soft_em.
+# Included by maker_soft_md.yaml after common.yaml: one grompp + one mdrun
+# with the mdp below, using tools/runtime/paths from common.yaml.
+# Consumed by hygel_martini.hydrogel_builder.relax.soft_md.
+
 workflow:
+  # Selects which relaxation stage runs: soft_em | soft_md | hard_em_shrink.
   mode: soft_md
 
 paths:
   # Continue from the converged soft_em output.
+  # ${CONFIG_DIR} resolves against the TOP maker file's directory (project/).
   start_gro: ${CONFIG_DIR}/../relax_output/soft_em/final.gro
   workdir: ${CONFIG_DIR}/../relax_output/soft_md
 
 soft_md:
+  # MD parameter file for the settling run (here: 1 ns NPT).
   mdp: ${CONFIG_DIR}/npt_1ns.mdp
+  # Common name for the run's output files (-deffnm); the result is
+  # <workdir>/<deffnm>.gro.
   deffnm: soft_md
+  # Max warnings grompp may absorb (-maxwarn).
   maxwarn: 1
+  # Extra CLI arguments appended verbatim to grompp / mdrun (list of strings).
   grompp_extra: []
   mdrun_extra: []

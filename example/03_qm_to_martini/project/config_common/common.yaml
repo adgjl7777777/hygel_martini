@@ -1,7 +1,17 @@
+# common.yaml — qm_to_martini stage-03 base config for the S (SBMA) case:
+# build the polymer geometry, xTB geometry optimization, then xTB MD
+# (md: xtb_nobartender stops before Bartender). Used directly as the top
+# config (bash run_qm_to_martini.sh config_common/common.yaml) and included
+# by every config_compare/*.yaml variant.
+# ${CONFIG_DIR} resolves against the directory of the TOP config file given
+# on the command line — for an including file like config_compare/*.yaml,
+# that is config_compare/, not this file's directory.
+
 paths:
   # Base directory for all relative paths below.
   # `${CONFIG_DIR}` is the directory that contains this file.
   base_dir: ${CONFIG_DIR}/..
+  # Per-case job directories are created under this root.
   out_root: ${CONFIG_DIR}/../geo_opt_S
 system:
   # Explicit polymer sequences to build.

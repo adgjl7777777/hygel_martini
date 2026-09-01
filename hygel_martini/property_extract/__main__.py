@@ -1,3 +1,26 @@
+"""CLI entry point: ``python -m hygel_martini.property_extract``.
+
+Dispatches to the package's analysis surfaces via subcommands:
+
+* ``analyze`` — run ``analysis_jobs.yaml`` through
+  :func:`.analysis_jobs.run_analysis`, optionally printing the
+  manifest comparison gate from ``validation_manifest.yaml``;
+* ``requirements`` — report the MD-requirement gate per job
+  (``--strict`` exits non-zero on any unmet requirement);
+* ``manifest`` — show which experimental targets a simulation
+  property maps to and whether direct comparison is allowed;
+* ``topology`` / ``mechanics-step`` / ``clearance-frame`` — run one
+  extractor/summary directly and emit JSON (``--output`` or stdout);
+  topology and clearance exit 2 on a failed gate or non-computed
+  status;
+* no subcommand — legacy ``--config property_extract.yaml`` mode
+  (kept for backward compatibility, warns toward the manifest path),
+  plus ``--check-gmx`` / ``--extract-only`` utility flags.
+
+Human-readable output goes to stdout; expected failures
+(FileNotFoundError/ValueError) are printed as ``[error]`` and exit 1
+instead of tracebacks.
+"""
 import argparse
 import json
 import os
@@ -5,6 +28,7 @@ import sys
 
 
 def _build_parser():
+    """Build the argument parser with all subcommands and legacy flags."""
     parser = argparse.ArgumentParser(
         prog="python -m hygel_martini.property_extract",
         description="hygel_martini 물성 추출 — YAML 설정 기반",
@@ -98,6 +122,16 @@ def _build_parser():
 
 
 def _legacy_main(args, parser):
+    """Handle the legacy no-subcommand path (Phase-A ``--config`` mode).
+
+    ``--check-gmx`` prints the GROMACS version and returns; otherwise a
+    ``--config`` YAML is required.  Builds a
+    :class:`.analyzer.HydrogelAnalyzer` from the config, extracts an
+    energy XVG when an .edr exists (``--extract-only`` stops there),
+    then runs and reports the analysis.  The config's ``targets``
+    section still works but is deprecated in favor of the validation
+    manifest, and a warning says so.
+    """
 
     if args.check_gmx:
         from .gmx_utils import run_gmx
@@ -122,6 +156,7 @@ def _legacy_main(args, parser):
     cfg_dir = os.path.dirname(os.path.abspath(args.config))
 
     def resolve(p):
+        """Resolve a config-relative path against the config directory."""
         if not p:
             return None
         return p if os.path.isabs(str(p)) else os.path.join(cfg_dir, str(p))
@@ -158,6 +193,15 @@ def _legacy_main(args, parser):
 
 
 def _analyze_main(args):
+    """Run the ``analyze`` subcommand: execute jobs and print results.
+
+    Prints every job with an honest status tag (missing/invalid/... or
+    the computed value plus its validation role and direct-comparison
+    flag).  When ``--manifest`` is given, additionally prints the
+    comparison gate per matched target: only ``same_property`` /
+    ``comparable_to`` relations are ever comparable, and even then the
+    result's own status and comparison flag can block it.
+    """
     from .analysis_jobs import run_analysis
 
     results = run_analysis(
@@ -222,6 +266,14 @@ def _analyze_main(args):
 
 
 def _requirements_main(args):
+    """Run the ``requirements`` subcommand: report the MD gate per job.
+
+    For each analysis job, checks the declared MD prerequisites via
+    :func:`.requirements.check_requirements` (the requirements YAML
+    defaults to ``md_requirements.yaml`` next to the analysis file) and
+    prints OK/MISSING with itemized missing/invalid inputs and jobs.
+    With ``--strict``, exits 1 when any job is unsatisfied.
+    """
     from .analysis_jobs import load_analysis_jobs
     from .requirements import check_requirements
 
@@ -261,6 +313,12 @@ def _requirements_main(args):
 
 
 def _manifest_main(args):
+    """Run the ``manifest`` subcommand: show target mappings for a property.
+
+    Prints each matched ``target.property`` with its relation and
+    whether that relation permits direct comparison; exits 1 when the
+    manifest has no mapping for the property.
+    """
     from .validation_manifest import (
         find_target_properties_for_simulation_property,
         load_manifest,
@@ -281,6 +339,10 @@ def _manifest_main(args):
 
 
 def _write_json_result(payload, output_path=None):
+    """Serialize a payload as sorted, indented JSON to a file or stdout.
+
+    Parent directories of ``output_path`` are created as needed.
+    """
     text = json.dumps(payload, indent=2, sort_keys=True) + "\n"
     if output_path:
         output = os.path.abspath(output_path)
@@ -292,6 +354,12 @@ def _write_json_result(payload, output_path=None):
 
 
 def _topology_main(args):
+    """Run the ``topology`` subcommand via the reduced-network extractor.
+
+    Emits the full PropertyResult as JSON and exits 2 when the audit
+    did not compute or the gate verdict is False, so shell pipelines
+    can treat a failed structural audit as a hard failure.
+    """
     from .extractors.topology import ReducedNetworkTopologyExtractor
 
     result = ReducedNetworkTopologyExtractor().compute(
@@ -309,6 +377,11 @@ def _topology_main(args):
 
 
 def _mechanics_step_main(args):
+    """Run the ``mechanics-step`` subcommand: paired-step XVG summary.
+
+    Emits the finite-rate paired-step summary dict as JSON; validation
+    failures surface as ValueError and are reported by ``main``.
+    """
     from .mechanics_analysis import paired_step_xvg_summary
 
     result = paired_step_xvg_summary(
@@ -324,6 +397,11 @@ def _mechanics_step_main(args):
 
 
 def _clearance_frame_main(args):
+    """Run the ``clearance-frame`` subcommand via the clearance extractor.
+
+    Emits the PropertyResult as JSON and exits 2 when the status is
+    anything other than ``computed``.
+    """
     from .extractors.clearance import PeriodicClearanceExtractor
 
     result = PeriodicClearanceExtractor().compute(
@@ -343,6 +421,13 @@ def _clearance_frame_main(args):
 
 
 def main():
+    """Parse arguments, dispatch the subcommand, and normalize errors.
+
+    Expected failures (FileNotFoundError, ValueError) become one-line
+    ``[error]`` messages on stderr with exit code 1; unexpected
+    exceptions propagate with a traceback.  Without a subcommand the
+    legacy ``--config`` mode is used.
+    """
     parser = _build_parser()
     args = parser.parse_args()
 

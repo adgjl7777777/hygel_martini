@@ -1,29 +1,53 @@
+# opls_existing_data.yaml — reuse existing OPLS/GROMACS MD trajectories for
+# Martini/Bartender bonded-term fitting (workflow stage 02, opls_to_martini).
+# Top config passed to run_existing_opls.sh / hygel-opls-to-martini; fill the
+# data/... paths under opls_data.cases with your own production data first.
+# ${CONFIG_DIR} resolves against the directory of the TOP config file given on
+# the command line (this file, normally), not of any included file.
+
 workflow:
+  # Pipeline selector consumed by param_opt.opls_to_martini: existing_data_fit
+  # = fit Bartender terms against already-existing MD data (no new MD here).
   mode: existing_data_fit
 
 paths:
+  # Anchor for relative paths elsewhere in this file (e.g. the data/... case
+  # entries). ${CONFIG_DIR} is this file's directory, so ".." = project/.
   base_dir: ${CONFIG_DIR}/..
+  # Per-case job directories are created under out_root/<label>/<mode_tag>/.
   out_root: ${CONFIG_DIR}/../opls_bartender_runs
 
   # These are used by --postprocess-only and by project/postprocess.sh-style calls.
+  # mirror_root is scanned for finished Bartender jobs; its directory layout is
+  # mirrored under output_root for the screening results.
   postprocess_mirror_root: ${CONFIG_DIR}/../opls_bartender_runs
   postprocess_output_root: ${CONFIG_DIR}/../postprocessing_result
 
 tools:
+  # GROMACS executable used for trjconv/energy during trajectory preparation.
   gmx: gmx_mpi
+  # GMXRC sourced by the generated shell scripts before running GROMACS.
   gmxrc_path: /opt/gromacs/2026/bin/GMXRC
 
 opls_data:
   trim:
     # Existing GROMACS trajectories are converted to multi-model PDB by gmx trjconv,
     # then trimmed using energy.xvg from gmx energy when an .edr file is available.
+    # auto_trim: detect and drop the pre-equilibration head of the trajectory.
     auto_trim: true
+    # Equilibration detection method; pymbar = timeseries.detect_equilibration.
     method: pymbar
+    # Always drop this many leading frames before detection (count).
     skip_frames: 0
+    # Analyze every nskip-th energy frame during detection (1 = all frames).
     nskip: 1
+    # Cap on the trimmed fraction: 1.0 allows trimming up to the whole series.
     max_trim_fraction: 1.0
+    # Pass pymbar's fast approximate statistical-inefficiency mode.
     fast: true
+    # gmx energy term whose time series drives the equilibration detection.
     energy_term: Potential
+    # Write trim diagnostic plots next to the prepared trajectory.
     write_plots: true
 
     # gmx trjconv selections. One item is enough for ordinary no-center output.
@@ -49,6 +73,9 @@ opls_data:
     run_trim: false
     run_bartender: false
 
+  # One entry per molecule/trajectory to fit. Relative paths resolve under
+  # paths.base_dir. label + mode_tag name the job directory
+  # (out_root/<label>/<mode_tag>/).
   cases:
     - label: S
       mode_tag: topology_n0
@@ -57,10 +84,10 @@ opls_data:
       # Martini/Bartender input with the candidate terms to fit.
       bartender_inp: data/S/S_topology_n0_bartender.inp
       # Existing OPLS/GROMACS production data.
-      trajectory: data/S/md.xtc
-      tpr: data/S/md.tpr
-      edr: data/S/md.edr
-      charge: 0
+      trajectory: data/S/md.xtc   # production trajectory / 기존 MD 궤적
+      tpr: data/S/md.tpr          # run input matching the trajectory
+      edr: data/S/md.edr          # energy file; enables auto_trim's detection
+      charge: 0                   # total molecular charge (e) passed to Bartender
 
     # One physical trajectory can be reused with multiple Bartender input variants.
     - label: S
@@ -85,33 +112,59 @@ bartender_pipeline:
   md: md
 
   bartender:
+    # Generate (and per execution.mode, run) the Bartender fitting job.
     enabled: true
+    # Bartender install root, exported as BTROOT.
     root: /opt/bartender-1.1.0
+    # Shell snippet sourced before Bartender runs (environment setup).
     env_script: /opt/bartender-1.1.0/bartender_config.sh
+    # Bartender executable path.
     binary: /opt/bartender-1.1.0/bartender
+    # CPU count passed to Bartender -cpus.
     cpus: 1
+    # Fallback total charge (e) when a case does not set its own.
     charge: 0
+    # Frame-skipping factor for the input trajectory (1 = every frame).
     skip: 1
+    # Name of the per-case Bartender job directory.
     output_dirname: bartender_job
 
+  # Screening of Bartender's fitted terms into a usable Martini ITP.
+  # Key-by-key reference: config/postprocess.yaml in this project carries the
+  # same block with full annotations; values here must stay in sync with it.
   postprocess:
     screening:
       enabled: true
+      # "bartender" = keep each candidate line's own funct number; a number
+      # would force one funct for deliberate potential-function comparisons.
       potentials:
         angles: "bartender"
         dihedrals: "bartender"
         impropers: "bartender"
+      # How [bonds]/[constraints] are combined: bartender = use both as
+      # Bartender left them (alternatives: ignore_constraints / ignore_bonds).
       bond_constraint_mode: "bartender"
+      # active = screen only lines Bartender left uncommented; all = treat
+      # commented alternatives as candidates too.
       candidate_source: "active"
+      # true keeps commented alternatives in all_terms.json/itp and plots.
       show_all_info: true
+      # Scalar "term strength" for multi-constant terms (RB dihedrals etc.):
+      # max_abs | l2 | mean_abs | first.
       multi_constant_metric: "max_abs"
+      # Write per-term CSV/PDF screening plots.
       write_plots: true
       thresholds:
+        # absolute = force_metric_min values are literal cutoffs
+        # (relative_to_section_max = fractions of the section's maximum).
         force_metric_min_mode: "absolute"
+        # Per-section lower cutoff on the term-strength metric; weaker terms
+        # are screened out.
         force_metric_min:
           bonds: 0.1
           constraints: 0.1
           angles: 0.1
           dihedrals: 0.1
           impropers: 0.1
+        # Maximum allowed fit RMSD; terms above are rejected.
         rmsd_max: 10.0

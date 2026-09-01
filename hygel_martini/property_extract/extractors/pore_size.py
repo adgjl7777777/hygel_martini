@@ -1,3 +1,15 @@
+"""Extractor adapter: single-frame grid pore size from a GRO file.
+
+Registers ``pore_size.nearest_surface_grid``, which wraps
+:func:`..pore_size.get_peak_pore_size` (nearest-surface-distance grid
+histogram) for the manifest runner.  Gate behavior: GRO parse failures
+and an empty polymer selection are reported as ``invalid_input``
+instead of raising, and every result carries the
+``pore_diameter_nm`` target alias so reporting can map it onto that
+target name.  ``validation_role="proxy"``: the method differs from
+Poreblazer-style trajectory analyses, so values are not directly
+comparable to them or to experiment.
+"""
 from __future__ import annotations
 from ._registry import BaseExtractor, register_extractor
 from ..result import PropertyResult
@@ -5,14 +17,30 @@ from ..result import PropertyResult
 
 @register_extractor("pore_size.nearest_surface_grid")
 class PoreSizeGridExtractor(BaseExtractor):
-    """
-    single-frame .gro의 nearest-surface-grid로 peak pore size를 계산한다.
-    validation_role=proxy: Poreblazer trajectory 결과와 방법론이 달라 직접 비교 불가.
+    """Peak pore size of one .gro frame via a nearest-surface grid.
+
+    Proxy observable only — methodology differs from Poreblazer
+    trajectory results, so no direct comparison is allowed.
     """
     extractor_name = "pore_size.nearest_surface_grid"
     required_inputs = ["gro"]
 
     def compute(self, inputs: dict, params: dict) -> PropertyResult:
+        """Parse the frame, then histogram grid-to-surface distances.
+
+        Args:
+            inputs: ``gro`` — single-frame coordinate file.
+            params: ``selection_residues`` (default PEO/HYDROGEL),
+                ``grid_spacing_nm`` (default 0.2 nm),
+                ``bead_radius_nm`` (scalar, or a per-type dict whose
+                first value is used; default 0.24 nm), and histogram
+                ``bins`` (default 50).
+
+        Returns:
+            PropertyResult for ``pore_size_single_frame_grid`` —
+            computed, or invalid_input / analysis_failed (never
+            raises).
+        """
         from ..pore_size import parse_gro_coords, get_peak_pore_size
 
         selection_residues = params.get("selection_residues") or ["PEO", "HYDROGEL"]

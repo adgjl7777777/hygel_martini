@@ -17,9 +17,9 @@ system:
 # 실제 경로로 수정 후 사용하세요.
 # ---------------------------------------------------------------------------
 files:
-  top:        /path/to/system.top
-  itp:        /path/to/initial_hydrogel.itp
-  gro:        /path/to/final_optimized_system.gro
+  top:        /path/to/system.top                    # grompp topology (조성 파악용 / composition source)
+  itp:        /path/to/initial_hydrogel.itp          # 하이드로젤 bonded topology / hydrogel bonded topology
+  gro:        /path/to/final_optimized_system.gro    # 분석할 좌표 frame / coordinate frame to analyze
   # --- production MD 완료 후 아래 경로 활성화 ---
   edr:        null   # production.edr 경로 (미완료 시 null)
   energy_xvg: energy.xvg   # gmx energy 출력 파일 (이 yaml 기준 상대 경로)
@@ -99,12 +99,14 @@ equilibration:
 # 직접 비교할 수 없음. 아래 값은 참고용.
 # ---------------------------------------------------------------------------
 targets:
+  # value ± tolerance 또는 min/max 범위로 판정한다.
+  # Judged as value ± tolerance, or as a min/max range.
   loading_qm:
-    value: 8.2
+    value: 8.2        # 실험 Qm (참고용, 위 주의 참조) / experimental Qm (see caveat above)
     tolerance: 0.3
   pore_diameter_nm:
-    value: 3.6
+    value: 3.6        # 실험 mesh/pore 직경 (nm) / experimental pore diameter (nm)
     tolerance: 0.4
   polymer_volume_fraction:
-    min: 0.10
+    min: 0.10         # 허용 범위 하한/상한 / accepted range bounds
     max: 0.11

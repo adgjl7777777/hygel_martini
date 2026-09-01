@@ -1,13 +1,31 @@
+# only_polymer_generation.yaml — build the polymer geometry only: no xTB
+# geometry optimization, no MD, no Bartender job. Useful to inspect the
+# assembled monomer sequence before spending any QM time.
+# Top config: bash run_qm_to_martini.sh config_common/only_polymer_generation.yaml
+# 한글: 고분자 xyz 조립만 수행하는 variant. xTB/ORCA/Bartender 단계 전부 생략.
+
+# common.yaml을 먼저 로드한 뒤 아래 키들이 그 값을 덮어쓴다. 경로 값의
+# ${CONFIG_DIR}는 include된 파일이 아니라 이 최상위 config의 디렉터리 기준이다
+# (여기서는 둘 다 config_common/이라 차이가 없다).
+# common.yaml is merged first, then the keys below override it. ${CONFIG_DIR}
+# resolves against THIS top config's directory, not the included file's
+# (identical here, both live in config_common/).
 includes:
   - common.yaml
 
 paths:
+  # Geometry-only outputs land here instead of common.yaml's geo_opt_S.
   out_root: ${CONFIG_DIR}/../polymer_only
 
 bartender_pipeline:
+  # 기하 최적화 생략 / skip the geometry-optimization stage entirely
   relaxation: off
+  # MD/Bartender job 생성 안 함 / create no MD or Bartender jobs
   md: off
+  # 케이스별 작업 디렉터리 이름 / per-case work directory name
   workdir_name: polymer_geometry_only
   execution:
+    # 생성만 하고 아무 스크립트도 즉시 실행하지 않는다.
+    # Generate only; run no scripts immediately.
     run_relaxation: false
     run_bartender: false

@@ -1,7 +1,14 @@
+# common_d.yaml — same stage-03 pipeline as common.yaml but for the D (DMAPS)
+# case: sequences: [D], its own out_root, and md: xtb, so Bartender consumes
+# the xTB MD trajectory in the same run instead of stopping before it.
+# Kept self-contained (no include of common.yaml), like common_c.yaml.
+# ${CONFIG_DIR} resolves against the TOP config file's directory.
+
 paths:
   # Base directory for all relative paths below.
   # `${CONFIG_DIR}` is the directory that contains this file.
   base_dir: ${CONFIG_DIR}/..
+  # Per-case job directories are created under this root.
   out_root: ${CONFIG_DIR}/../md_D
 system:
   # Explicit polymer sequences to build.

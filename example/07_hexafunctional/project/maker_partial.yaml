@@ -14,12 +14,19 @@ includes:
   - config/network.yaml
 
 simulation_parameters:
+  # 완전 전환 빌드의 output/과 분리해 둔다. Kept separate from the full build's output/.
   output_dir: ${CONFIG_DIR}/output_partial
   network_layout:
+    # rewiring 후 strand별 독립 형성 확률 (strand dilution 모델).
+    # Per-strand independent formation probability, applied after rewiring.
     conversion:
       fraction: 0.5
+      # 필수: 시드 없는 선택은 실행마다 달라진다.
+      # Required: unseeded selection differs on every run.
       seed: 3
 
+# simulation.yaml의 gate 설정을 보고 전용으로 덮어쓴다 (임계값 사실상 해제).
+# Overrides simulation.yaml's gating audit to report-only (thresholds disarmed).
 hydrogel_topology_connectivity_audit:
   enabled: true
   min_largest_component_fraction: 0.0

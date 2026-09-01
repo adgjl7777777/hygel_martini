@@ -3,6 +3,28 @@
 The water-addition stage uses an approximate mass-balance model rather than a
 target density. That keeps the logic independent of the current box size and
 lets the user specify the desired gel weight fraction directly in the config.
+
+Ownership and call sites
+    This module owns the *count estimation* only: it answers "how many
+    coarse-grained water beads should be inserted so the dry gel reaches the
+    configured ``gel_weight_fraction``". The actual insertion (Packmol /
+    GROMACS solvation) is performed by the calling build pipeline; the ion
+    stage that may later replace some of these waters lives in
+    :mod:`hygel_martini.hydrogel_builder.add_series.add_small_ion`.
+
+Inputs and outputs
+    All inputs come from the global :class:`Config` singleton
+    (``simulation_parameters``, ``add_series_parameters.add_water``, monomer
+    and linker definitions). The public entry point,
+    :func:`calculate_water_molecules`, returns a single integer bead count.
+
+Invariants
+    * Masses are in g/mol (amu), matching the Martini ITP conventions.
+    * ``gel_weight_fraction`` is dry-gel mass over total (gel + added) mass
+      and must lie strictly between 0 and 1.
+    * In the non-legacy accounting modes, one water bead is reserved per
+      planned ion so that later ``gmx genion`` replacement does not change
+      the total particle count budget.
 """
 
 import math
@@ -15,12 +37,18 @@ from hygel_martini.hydrogel_builder.core_utils.io.martini_parser import read_itp
 from hygel_martini.hydrogel_builder.core_utils.templates.monomer_loader import load_monomer_templates
 
 
+# Molecular masses (g/mol) per coarse-grained water bead type. Regular Martini
+# water (W / P4) maps 4 real waters onto one bead; SW maps 3 and TW maps 2.
 DEFAULT_WATER_MASSES = {
     "TW": 36.0,
     "SW": 54.0,
     "W": 72.0,
     "P4": 72.0,
 }
+# How planned ions are accounted for when converting the target added mass to
+# a water-bead count: "legacy" ignores ions entirely, "exclude_ions" reserves
+# replacement sites without changing the water mass, and "include_ions"
+# additionally subtracts the ion mass from the water mass budget.
 LEGACY_GEL_WEIGHT_FRACTION_MODE = "legacy"
 GEL_WEIGHT_FRACTION_MODES = {
     LEGACY_GEL_WEIGHT_FRACTION_MODE,
@@ -29,8 +57,21 @@ GEL_WEIGHT_FRACTION_MODES = {
 }
 
 def get_weighted_average_mass(*args):
-    """
-    Compute a ratio-weighted mean mass for configured components.
+    """Compute a ratio-weighted mean molecular mass for configured components.
+
+    Supports both component styles found in the config: inline definitions
+    (each entry carries a ``definition.beads`` list with explicit masses) and
+    GRO/ITP-based monomer templates, which are resolved through
+    :func:`load_monomer_templates` together with the backbone definitions.
+
+    Args:
+        *args: Key path into :class:`Config` that resolves to a component
+            list, e.g. ``('monomer_definitions', 'MONOMERS')``.
+
+    Returns:
+        float: Sum of per-component ``mass * ratio`` divided by the total
+        ratio, in g/mol. Returns 0 when no components are configured (a
+        warning is printed) or when all ratios are zero.
     """
     total_mass = 0
     total_ratio = 0
@@ -62,6 +103,7 @@ def get_weighted_average_mass(*args):
 
 
 def _safe_get_param(*keys, default=None):
+    """Fetch a config value by key path, returning ``default`` when absent."""
     try:
         return Config.get_param(*keys)
     except KeyError:
@@ -69,6 +111,19 @@ def _safe_get_param(*keys, default=None):
 
 
 def _resolve_gel_weight_fraction_mode(sim_params):
+    """Normalize and validate ``gel_weight_fraction_mode`` from the config.
+
+    Args:
+        sim_params: The ``simulation_parameters`` mapping from :class:`Config`.
+
+    Returns:
+        str: One of :data:`GEL_WEIGHT_FRACTION_MODES` (lower-cased, stripped);
+        defaults to ``"legacy"`` when the key is missing.
+
+    Raises:
+        ValueError: If the configured mode is not a recognized member of
+            :data:`GEL_WEIGHT_FRACTION_MODES`.
+    """
     mode = str(sim_params.get("gel_weight_fraction_mode", LEGACY_GEL_WEIGHT_FRACTION_MODE)).strip().lower()
     if mode not in GEL_WEIGHT_FRACTION_MODES:
         raise ValueError(
@@ -79,6 +134,19 @@ def _resolve_gel_weight_fraction_mode(sim_params):
 
 
 def _load_definition_lookup(itp_paths):
+    """Build a molecule-name -> ITP definition map from candidate ITP files.
+
+    Missing paths are skipped and parse failures are swallowed on purpose:
+    the caller only needs whichever definitions can be resolved, and later
+    files silently override earlier ones for duplicate molecule names.
+
+    Args:
+        itp_paths: Iterable of ITP file paths (entries may be None/empty).
+
+    Returns:
+        dict: Molecule name -> parsed definition (with per-bead masses filled
+        in from the runtime ``atom_type_masses`` map when not explicit).
+    """
     definitions = {}
     mass_map = Config.get_runtime("atom_type_masses", {})
     for itp_path in itp_paths:
@@ -97,6 +165,24 @@ def _load_definition_lookup(itp_paths):
 
 
 def _estimate_ion_usage(sim_params):
+    """Predict how many ions the later ion stage will insert, and their mass.
+
+    Re-runs the same compensation logic the ion stage uses
+    (:func:`resolve_effective_ion_plan`) so that the water budget can account
+    for waters that ``gmx genion`` will replace with ions.
+
+    Args:
+        sim_params: The ``simulation_parameters`` mapping (supplies the random
+            seed and the GROMACS include dir used to locate the ion ITP).
+
+    Returns:
+        tuple[int, float]: ``(total ion count, total ion mass in g/mol)``.
+        ``(0, 0.0)`` when no ions are configured.
+
+    Raises:
+        ValueError: If a configured ion's mass cannot be resolved from any of
+            the candidate ITP files.
+    """
     ion_params = _safe_get_param("add_series_parameters", "add_small_ion", default={}) or {}
     if not ion_params.get("ions"):
         return 0, 0.0
@@ -141,8 +227,30 @@ def _estimate_ion_usage(sim_params):
     return total_ion_count, total_ion_mass
 
 def calculate_water_molecules(mode):
-    """
-    Estimate how many coarse-grained water beads should be inserted.
+    """Estimate how many coarse-grained water beads should be inserted.
+
+    Derives the dry gel mass from the configured composition (assuming the
+    historical diamond-lattice layout: 16 chains of ``segment_length``
+    monomers and 8 crosslinkers per ``(number_of_cells / 2)**3`` conventional
+    cells), then solves the mass balance
+    ``gel_wt = gel_mass / (gel_mass + added_mass)`` for the added solvent
+    mass. When the composition yields no mass (e.g. backbone-defined gels
+    whose MONOMERS list is empty), the mass of the already-built World is
+    used instead. Depending on ``gel_weight_fraction_mode``, water beads may
+    be reserved (and their mass discounted) for ions inserted later.
+
+    Args:
+        mode: ``'full'`` to include crosslinker mass in the dry gel mass, any
+            other value (monomer-only builds) to count monomers alone.
+
+    Returns:
+        int: Number of water beads to insert (includes reserved ion-
+        replacement sites in the non-legacy modes).
+
+    Raises:
+        ValueError: If ``water_bead_type`` is unknown, if
+            ``gel_weight_fraction`` is outside (0, 1), if the dry gel mass
+            resolves to zero, or if configured ion masses cannot be resolved.
     """
     sim_params = Config.get_param('simulation_parameters')
     add_water_params = Config.get_param('add_series_parameters', 'add_water')
@@ -170,11 +278,15 @@ def calculate_water_molecules(mode):
     print(f"Weighted avg. bis-linker mass: {mass_bis:.2f}")
     print(f"Selected water bead: {water_bead_type} (Mass: {mass_water:.2f})")
 
+    # Diamond-lattice bookkeeping: 16 chains (4 half-bonds on each of the
+    # 8 lattice sites, shared pairwise -> 16) of nmer monomers per
+    # conventional cell; the box spans (num_cell / 2)^3 conventional cells.
     unit_mer = nmer * 4 * 4
     tot_mer = unit_mer * (num_cell / 2)**3
     pol_mass = tot_mer * mass_monomer
 
     if mode == 'full':
+        # 8 crosslinker junctions per conventional diamond cell.
         tot_bis_mass = 8 * (num_cell / 2)**3 * mass_bis
         total_gel_mass = pol_mass + tot_bis_mass
     else: # monomer_only
@@ -220,6 +332,9 @@ def calculate_water_molecules(mode):
         if gel_fraction_mode == "include_ions":
             water_mass = max(target_added_mass - planned_ion_mass, 0.0)
 
+    # Legacy mode reproduces the historical truncating division exactly; the
+    # newer modes round up so the target fraction is met after genion swaps
+    # reserved waters for ions.
     if gel_fraction_mode == LEGACY_GEL_WEIGHT_FRACTION_MODE:
         n_water = int(water_mass / mass_water)
     else:

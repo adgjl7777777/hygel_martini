@@ -1,4 +1,18 @@
-"""Thin workflow entry helper for OPLS-to-Martini case generation."""
+"""Thin workflow entry helper for OPLS-to-Martini case generation.
+
+Owns the stage-02 dispatch logic: after loading the config (merged over
+``DEFAULT_CONFIG``) and applying CLI ``--set`` overrides, it routes to
+one of four branches in priority order:
+
+1. ``--postprocess-only``  -> ``fitting.run_postprocess_only``
+2. ``--check-gmx`` / ``--check-bartender``
+                           -> ``fitting.check_existing_data_tools``
+3. ``workflow.mode`` is an existing-data-fit alias
+                           -> ``fitting.run_existing_data_fit``
+4. otherwise (constructor) -> ``builder.build_cases``
+
+Called by ``cli.main`` and re-exported from the package ``__init__``.
+"""
 
 from __future__ import annotations
 
@@ -16,7 +30,22 @@ def run_opls_to_martini(
     config_path: str | Path,
     overrides: argparse.Namespace | None = None,
 ) -> tuple[Dict[str, Any], Dict[str, Any]]:
-    """Load an opls_to_martini maker file, apply optional overrides, and build cases."""
+    """Load an opls_to_martini config, apply overrides, and run one branch.
+
+    Args:
+        config_path: User config path, merged over ``DEFAULT_CONFIG``.
+        overrides: Parsed CLI namespace; supplies ``--set`` overrides and
+            the branch-selecting flags (postprocess_only, check_gmx,
+            check_bartender).  May be None for programmatic use.
+
+    Returns:
+        Tuple ``(cfg, result)``: the effective merged config and the
+        result dict of whichever workflow branch was executed.
+
+    Raises:
+        ValueError: If constructor-mode sanity checks fail
+            (``replicas`` or ``sample_nsteps`` below 1).
+    """
     cfg = load_config(Path(config_path), DEFAULT_CONFIG)
     if overrides is not None:
         cfg = apply_cli_overrides(cfg, overrides)

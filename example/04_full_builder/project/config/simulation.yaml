@@ -179,10 +179,25 @@ simulation_parameters:
   # ---------------------------------------------------------------------------
   # Side-chain 배치 성능 (Side-chain placement tuning)
   # ---------------------------------------------------------------------------
+
+  # 후보 배치 방향 수 (회전 후보). 클수록 정확하지만 느림.
+  # Number of candidate orientations for side-chain placement.
   sidechain_num_candidates: 72
+
+  # 후보 중 겹침 허용 상대 임계값 (1.0 = 본드길이 그대로, <1 = 더 엄격).
+  # Relative overlap threshold for side-chain candidates (1.0 = bond length).
   sidechain_overlap_threshold_factor: 0.8
+
+  # 후보 탐색 반경 배율.
+  # Search radius multiplier for nearby atom detection.
   sidechain_search_radius_factor: 10.0
+
+  # 인근 원자 탐색 최대 수. 큰 시스템에서 성능 제한.
+  # Max nearby atoms to check for overlap. Limits cost on large systems.
   sidechain_nearby_atom_limit: 800
+
+  # 원자 수가 이보다 많으면 side-chain 배치를 자동 간략 모드로 전환.
+  # Switch to fast side-chain mode when total atoms exceed this.
   sidechain_auto_threshold: 20000
 
   # ---------------------------------------------------------------------------

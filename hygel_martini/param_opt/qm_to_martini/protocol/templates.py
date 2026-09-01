@@ -1,4 +1,21 @@
-"""Built-in project skeletons for the evidence-gated protocol."""
+"""Built-in project skeletons for the evidence-gated protocol.
+
+This module owns the initial content written by
+``hygel-parameter-protocol init``: the ``protocol.yaml`` template, the
+draft ``contract.yaml`` with a full E0-E6 gate ladder of conservative
+default criteria, the project README, and the evidence-file template.
+
+Callers: ``protocol.engine.init_project`` copies these into a fresh
+project directory; nothing else should mutate them (``contract_template``
+deep-copies the gate list per call for that reason).
+
+Every artifact starts as a placeholder (all-zero SHA-256,
+``placeholder: true``); the user must replace inputs, criteria, and
+thresholds before sealing — the templates deliberately contain no
+scientific numbers of their own. Templates must stay consistent with the
+rules in ``protocol.schema`` (gate order, outcome labels, operator
+shapes) or ``validate`` will reject the freshly initialized project.
+"""
 
 from __future__ import annotations
 
@@ -8,10 +25,23 @@ from typing import Any, Dict
 from .schema import GATE_ORDER, SCHEMA_VERSION
 
 
+# All-zero digest marking an artifact whose real file is not installed yet.
 PLACEHOLDER_SHA256 = "0" * 64
 
 
 def protocol_template(project_id: str, title: str, claim_domain: str) -> Dict[str, Any]:
+    """Build the initial ``protocol.yaml`` payload.
+
+    Args:
+        project_id: identifier of the decision track.
+        title: human-readable project title.
+        claim_domain: bounded domain of any eventual claim.
+
+    Returns:
+        Protocol document with active iteration "v001" and the fixed
+        policy block (strict sequence, weakest link, E6 feedback
+        prohibited, correction cap 2).
+    """
     return {
         "schema_version": SCHEMA_VERSION,
         "project": {
@@ -31,6 +61,7 @@ def protocol_template(project_id: str, title: str, claim_domain: str) -> Dict[st
 
 
 def _artifact(artifact_id: str, path: str) -> Dict[str, Any]:
+    """Build a placeholder artifact spec (zero digest, placeholder true)."""
     return {
         "id": artifact_id,
         "path": path,
@@ -48,6 +79,20 @@ def _criterion(
     on_fail: str,
     on_inconclusive: str = "DATA_LIMITED",
 ) -> Dict[str, Any]:
+    """Build one frozen-criterion mapping for the contract template.
+
+    Args:
+        criterion_id: globally unique criterion id.
+        description: what the criterion asserts.
+        operator: one of the ``schema.OPERATORS`` (default "truthy").
+        expected: frozen expected value; only emitted for operators that
+            require one (i.e. not "truthy"/"status").
+        on_fail: terminal label when the criterion fails.
+        on_inconclusive: terminal label for an inconclusive observation.
+
+    Returns:
+        Criterion dict as embedded in the gate templates.
+    """
     criterion = {
         "id": criterion_id,
         "description": description,
@@ -61,7 +106,21 @@ def _criterion(
 
 
 def contract_template(project_id: str) -> Dict[str, Any]:
-    """Return a conservative contract that must be customized before sealing."""
+    """Return a conservative contract that must be customized before sealing.
+
+    The draft contains: TYPE_I iteration "v001" with no parent, the five
+    placeholder scientific-identity artifacts, the four standard data
+    groups (only the confirmation group sealed), a design block full of
+    REPLACE markers, the complete E0-E6 gate ladder with default
+    truthy/status criteria and terminal labels, and the default permitted
+    repair / prohibited-after-seal lists.
+
+    Args:
+        project_id: identifier recorded as ``project_id``.
+
+    Returns:
+        Contract document dict (gates deep-copied per call).
+    """
 
     gates = [
         {
@@ -287,6 +346,7 @@ def contract_template(project_id: str) -> Dict[str, Any]:
     }
 
 
+# README.md installed at the root of every initialized project.
 PROJECT_README = """# Sealed bonded-parameter decision project
 
 This directory is one scientific decision track.  It may represent one bond,
@@ -327,6 +387,8 @@ edit an existing ledger row; create a new protocol iteration instead.
 """
 
 
+# evidence_template.yaml payload: users copy it per gate, fill in the
+# exact criterion observations, and attach checksummed artifacts.
 EVIDENCE_TEMPLATE = {
     "schema_version": SCHEMA_VERSION,
     "project_id": "REPLACE_PROJECT_ID",

@@ -1,4 +1,19 @@
-"""Contact-graph aggregation primitives with explicit cutoff provenance."""
+"""Contact-graph aggregation primitives with explicit cutoff provenance.
+
+Owns :func:`chain_contact_graph`, which turns per-chain site
+coordinates plus a distance cutoff into a chain-level contact graph
+(via one periodic cKDTree over all sites), and
+:class:`ContactGraphResult`, the frozen container for its connected
+components and per-edge contact multiplicities.  Used for
+aggregation/micellization analysis on frames of multi-chain systems.
+
+The site selection and the cutoff are part of the observable
+definition — the result records the cutoff, and callers must report
+the selection alongside any numbers.  Coordinates, box, and cutoff
+share the caller's length unit (nm in this package's pipelines).
+Invalid selections or cutoffs raise ``ValueError``; refusal semantics
+belong to callers.
+"""
 
 from __future__ import annotations
 
@@ -12,16 +27,31 @@ from .geometry import orthorhombic_box_lengths, wrap_positions
 
 @dataclass(frozen=True)
 class ContactGraphResult:
+    """Connected-component decomposition of one chain contact graph.
+
+    Fields:
+        components: Connected components as tuples of chain indices,
+            each sorted ascending; components ordered largest first
+            (ties broken by index order).  Isolated chains appear as
+            singleton components.
+        edge_contact_counts: For each contacting chain pair
+            ``(i, j)`` with ``i < j``, the number of inter-chain site
+            pairs within the cutoff (contact multiplicity).
+        cutoff: Contact distance cutoff used (caller's length unit);
+            kept so the observable definition travels with the result.
+    """
     components: tuple[tuple[int, ...], ...]
     edge_contact_counts: dict[tuple[int, int], int]
     cutoff: float
 
     @property
     def largest_component_size(self) -> int:
+        """Chain count of the largest aggregate (0 for no chains)."""
         return len(self.components[0]) if self.components else 0
 
     @property
     def n_components(self) -> int:
+        """Number of aggregates, counting isolated chains."""
         return len(self.components)
 
 
@@ -35,6 +65,26 @@ def chain_contact_graph(
     ``chain_site_positions`` may contain PPO-only sites, all polymer sites, or
     another preregistered selection.  That selection and the cutoff remain part
     of the observable definition and must be reported with results.
+
+    Sites are wrapped into the orthorhombic box and queried with one
+    periodic cKDTree over all chains; two chains are adjacent when any
+    inter-chain site pair lies within ``cutoff`` (minimum image).
+    Connected components are then found by depth-first search.
+
+    Args:
+        chain_site_positions: One ``(n_i, 3)`` coordinate array per
+            chain (each non-empty), caller's length unit.
+        box: Orthorhombic box accepted by
+            :func:`.geometry.orthorhombic_box_lengths`.
+        cutoff: Contact distance (same unit); must be positive.
+
+    Returns:
+        ContactGraphResult with components (largest first), per-edge
+        contact multiplicities, and the cutoff echoed back.
+
+    Raises:
+        ValueError: Non-positive cutoff, or a chain selection that is
+            empty or not of shape ``(n, 3)``.
     """
     if cutoff <= 0:
         raise ValueError("cutoff must be positive")

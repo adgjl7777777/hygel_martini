@@ -1,5 +1,35 @@
 #!/usr/bin/env python3
-"""Create visual diagnostics for a postprocess summary sweep."""
+"""Create visual diagnostics for a postprocess summary sweep.
+
+This script owns the plot suite for a screening-threshold sweep analysis
+directory: it reads ``tables/variant_summary.csv`` (one row per screening
+variant: potential set x RMSD cutoff x force profile) and
+``tables/case_summary.csv`` (one row per variant x label/mode case) and
+renders coverage bar charts, threshold-grid heatmaps, coverage-vs-error
+scatter plots, RMSE and force-metric suites, per-case heatmaps,
+threshold-response curves, and a README describing the outputs.
+
+Callers: run as a standalone CLI (``python -m ... <result_dir>``) or via
+``analysis.compare_sweeps``-style tooling; nothing in the pipeline
+imports it at runtime.
+
+Inputs: an analysis result directory with a ``tables/`` subfolder and an
+optional curated ``tables/recommended_plot_review_variants.tsv``.
+Outputs: PDF+PNG pairs under ``<result_dir>/plots_summary`` (or
+``--out-dir``), organized into ``rmse_metrics/``, ``force_metrics/``,
+``case_heatmaps/``, and ``threshold_curves/`` subfolders.
+
+Conventions:
+
+- Variant ids follow ``<potential>_R<rmsd>_<force_profile>`` (see
+  ``VARIANT_RE``); ``enrich_variants`` derives the split columns plus
+  per-case averages and force/cutoff margins.
+- Count plots come in two forms: ``*_sum`` (summed over cases) and
+  ``*_avg_per_case`` (divided by ``case_count``).
+- "RMSE/RMSD" values are the Bartender fit quality numbers collected by
+  the sweep; the dashed value-6 line is a visual guide, not a rule.
+- Stale outputs from earlier naming schemes are deleted on each run.
+"""
 
 from __future__ import annotations
 
@@ -18,7 +48,9 @@ import numpy as np
 import pandas as pd
 
 
+# Splits "<potential>_R<rmsd>_<force_profile>" variant ids into parts.
 VARIANT_RE = re.compile(r"^(?P<potential>.+?)_R(?P<rmsd>[^_]+)_(?P<profile>.+)$")
+# Fixed bar colors per accepted-term section (stacked coverage plots).
 SECTION_COLORS = {
     "accepted_bonds": "#3b6ea8",
     "accepted_constraints": "#6f9e59",
@@ -27,6 +59,7 @@ SECTION_COLORS = {
     "accepted_impropers": "#8f6ab8",
 }
 ACCEPTED_SECTIONS = ["bonds", "constraints", "angles", "dihedrals", "impropers"]
+# Cycled scatter/bar colors, one per potential set (order of appearance).
 POTENTIAL_PALETTE = [
     "#27647b",
     "#ad5d2d",
@@ -35,6 +68,7 @@ POTENTIAL_PALETTE = [
     "#7c6d38",
     "#4e708c",
 ]
+# Column/row orderings for case heatmaps (term-generation mode, label).
 MODE_ORDER = [
     "init_only",
     "topology_n0",
@@ -50,6 +84,7 @@ SUPTITLE_Y = 0.965
 
 
 def natural_key(text: str) -> tuple[int, str]:
+    """Sort key ordering "P2" before "P10"; unnumbered names sort last."""
     match = re.match(r"^[A-Za-z]+(\d+)", str(text))
     if match:
         return int(match.group(1)), str(text)
@@ -57,6 +92,7 @@ def natural_key(text: str) -> tuple[int, str]:
 
 
 def clean_number(value: object) -> str:
+    """Format a value compactly: NA, integers without .0, else %g."""
     if pd.isna(value):
         return "NA"
     try:
@@ -69,22 +105,31 @@ def clean_number(value: object) -> str:
 
 
 def rmsd_label(value: object) -> str:
+    """Render an RMSD cutoff as the compact "R<value>" tag."""
     return f"R{clean_number(value)}"
 
 
 def compact_force(value: str) -> str:
+    """Humanize a force-profile id by replacing underscores with spaces."""
     return str(value).replace("_", " ")
 
 
 def compact_variant_label(row: pd.Series) -> str:
+    """Two-line variant label: potential set over cutoff + force profile."""
     return f"{row['potential_set']}\n{rmsd_label(row['rmsd_max_cutoff'])} {compact_force(row['force_profile'])}"
 
 
 def one_line_variant_label(row: pd.Series) -> str:
+    """Single-line variant label for horizontal bar-chart tick labels."""
     return f"{row['potential_set']} | {rmsd_label(row['rmsd_max_cutoff'])} {compact_force(row['force_profile'])}"
 
 
 def potential_label(row: pd.Series) -> str:
+    """Two-line potential label with the angle/dihedral/improper functs.
+
+    All-"bartender" functs collapse to the "Bartender" tag; otherwise the
+    second line reads "A<f> D<f> I<f>".
+    """
     potential = str(row["potential_set"])
     angle = clean_number(row.get("angles_funct", ""))
     dihedral = clean_number(row.get("dihedrals_funct", ""))
@@ -95,6 +140,21 @@ def potential_label(row: pd.Series) -> str:
 
 
 def enrich_variants(df: pd.DataFrame) -> pd.DataFrame:
+    """Derive the plotting columns from the raw variant summary table.
+
+    Splits ``variant_id`` into ``potential_set`` and ``force_profile``
+    (stripping a trailing ``_M<metric>`` suffix when present), coerces the
+    known metric columns to numeric, and adds derived columns:
+    ``accepted_*_avg_per_case`` (counts / ``case_count``) and
+    ``<section>_force_min_over_cutoff`` (min force metric / cutoff, >1
+    means the force threshold passed with margin).
+
+    Args:
+        df: raw ``variant_summary.csv`` frame.
+
+    Returns:
+        A new enriched copy; the input is not modified.
+    """
     records: list[dict[str, str]] = []
     for idx, variant_id in df["variant_id"].astype(str).items():
         match = VARIANT_RE.match(variant_id)
@@ -162,42 +222,51 @@ def enrich_variants(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def coverage_col(section: str, average: bool) -> str:
+    """Return the count column name for a section (sum or per-case avg)."""
     base = f"accepted_{section}"
     return f"{base}_avg_per_case" if average else base
 
 
 def count_label(average: bool) -> str:
+    """Human label describing the count form used in axis/legend text."""
     return "average per label/mode case" if average else "sum over label/mode cases"
 
 
 def count_stem_suffix(average: bool) -> str:
+    """Filename suffix distinguishing the two count forms."""
     return "avg_per_case" if average else "sum"
 
 
 def count_fmt(average: bool) -> str:
+    """Annotation number format: 2 sig figs for averages, integers for sums."""
     return ".2g" if average else ".0f"
 
 
 def grid_shape(count: int) -> tuple[int, int]:
+    """Subplot grid shape: single axes, else two columns of ceil(n/2) rows."""
     if count <= 1:
         return 1, 1
     return math.ceil(count / 2), 2
 
 
 def potential_order(df: pd.DataFrame) -> list[str]:
+    """Distinct potential sets in natural (numbered) order."""
     return sorted(df["potential_set"].dropna().unique(), key=natural_key)
 
 
 def force_order(df: pd.DataFrame) -> list[str]:
+    """Distinct force profiles in natural (numbered) order."""
     return sorted(df["force_profile"].dropna().unique(), key=natural_key)
 
 
 def rmsd_order(df: pd.DataFrame) -> list[float]:
+    """Distinct RMSD cutoffs from loose (largest) to strict (smallest)."""
     values = pd.to_numeric(df["rmsd_max_cutoff"], errors="coerce").dropna().unique()
     return sorted(values, reverse=True)
 
 
 def potential_label_map(df: pd.DataFrame) -> dict[str, str]:
+    """Map each potential set to its display label (from its first row)."""
     labels: dict[str, str] = {}
     for pot in potential_order(df):
         row = df[df["potential_set"] == pot].iloc[0]
@@ -206,6 +275,7 @@ def potential_label_map(df: pd.DataFrame) -> dict[str, str]:
 
 
 def save_figure(fig: plt.Figure, out_dir: Path, stem: str) -> None:
+    """Save a figure as both ``<stem>.pdf`` and ``<stem>.png`` and close it."""
     out_dir.mkdir(parents=True, exist_ok=True)
     # Keep the explicit canvas so centered suptitles stay visually centered in
     # both PDF and PNG. Tight cropping can shift titles when colorbars or long
@@ -216,6 +286,11 @@ def save_figure(fig: plt.Figure, out_dir: Path, stem: str) -> None:
 
 
 def cleanup_stale_plot_outputs(out_dir: Path) -> None:
+    """Delete outputs from older naming schemes and generated subfolders.
+
+    Prevents a re-run from leaving a mixture of current and outdated plot
+    files; only files this script itself generates are targeted.
+    """
     stale_stems = [
         "01_loose_screen_coverage",
         "02_accepted_angles_heatmap",
@@ -260,6 +335,15 @@ def cleanup_stale_plot_outputs(out_dir: Path) -> None:
 
 
 def annotate_heatmap(ax: plt.Axes, data: np.ndarray, fmt: str, threshold: float) -> None:
+    """Write cell values onto a heatmap, skipping non-finite cells.
+
+    Args:
+        ax: target axes with the image already drawn.
+        data: the plotted 2D array.
+        fmt: ``format()`` spec for the cell text.
+        threshold: values above this get white text (dark cells), the
+            rest dark text.
+    """
     for y in range(data.shape[0]):
         for x in range(data.shape[1]):
             value = data[y, x]
@@ -270,6 +354,7 @@ def annotate_heatmap(ax: plt.Axes, data: np.ndarray, fmt: str, threshold: float)
 
 
 def annotation_box() -> dict[str, object]:
+    """Shared bbox style for scatter-plot callout annotations."""
     return {
         "boxstyle": "round,pad=0.22",
         "facecolor": "white",
@@ -289,6 +374,23 @@ def plot_heatmap_grid(
     fmt: str,
     log_scale: bool = False,
 ) -> None:
+    """Render one metric as a grid of heatmaps, one panel per potential set.
+
+    Each panel pivots the metric over (force profile rows) x (RMSD cutoff
+    columns, loose to strict); the color scale is shared across panels and
+    a single colorbar is attached. Missing cells render gray.
+
+    Args:
+        df: enriched variant table.
+        out_dir: output directory.
+        metric: column to plot.
+        title: figure suptitle.
+        colorbar_label: label for the shared colorbar.
+        stem: output filename stem.
+        cmap_name: matplotlib colormap name.
+        fmt: cell-annotation number format.
+        log_scale: use a log color norm and mask non-positive values.
+    """
     pots = potential_order(df)
     forces = force_order(df)
     rmsds = rmsd_order(df)
@@ -363,6 +465,18 @@ def plot_heatmap_grid(
 
 
 def plot_loose_screen_coverage(df: pd.DataFrame, out_dir: Path, average: bool = False) -> None:
+    """Plot per-potential coverage under the loosest screen (plot 01).
+
+    Left panel: stacked accepted-term counts per section at the largest
+    RMSD cutoff and first (loosest) force profile, annotated with the
+    angle/dihedral counts. Right panel: number of cases with zero accepted
+    angles/dihedrals, with an "all 24 cases" guide line.
+
+    Args:
+        df: enriched variant table.
+        out_dir: output directory.
+        average: plot per-case averages instead of sums.
+    """
     max_rmsd = df["rmsd_max_cutoff"].max()
     loose_force = force_order(df)[0]
     sub = df[(df["rmsd_max_cutoff"] == max_rmsd) & (df["force_profile"] == loose_force)].copy()
@@ -429,10 +543,22 @@ def plot_loose_screen_coverage(df: pd.DataFrame, out_dir: Path, average: bool = 
 
 
 def color_map_for_potentials(df: pd.DataFrame) -> dict[str, str]:
+    """Assign each potential set a palette color (cycled, stable order)."""
     return {pot: POTENTIAL_PALETTE[i % len(POTENTIAL_PALETTE)] for i, pot in enumerate(potential_order(df))}
 
 
 def plot_tradeoff_scatter(df: pd.DataFrame, out_dir: Path, average: bool = False) -> None:
+    """Scatter accepted-angle coverage against P90 fit error (plot 05).
+
+    One point per variant, colored by potential set, sized by accepted
+    dihedral count, with a hard-coded set of named variants annotated when
+    present in the table.
+
+    Args:
+        df: enriched variant table.
+        out_dir: output directory.
+        average: use per-case average counts instead of sums.
+    """
     fig, ax = plt.subplots(figsize=(12.8, 7.4))
     colors = color_map_for_potentials(df)
     angle_col = coverage_col("angles", average)
@@ -499,6 +625,20 @@ def plot_tradeoff_scatter(df: pd.DataFrame, out_dir: Path, average: bool = False
 
 
 def read_recommended_variants(result_dir: Path, df: pd.DataFrame) -> pd.DataFrame:
+    """Select the variants highlighted in "recommended candidates" plots.
+
+    Uses the curated ``tables/recommended_plot_review_variants.tsv`` list
+    (order preserved) when it exists; otherwise falls back to every
+    potential family at the three middle RMSD cutoffs (7.5/6.0/5.0) with
+    the F1-F3 force profiles.
+
+    Args:
+        result_dir: sweep result directory.
+        df: enriched variant table to select from.
+
+    Returns:
+        The selected rows, ordered for display (may be empty).
+    """
     recommended = result_dir / "tables" / "recommended_plot_review_variants.tsv"
     if recommended.exists():
         ids = [line.strip() for line in recommended.read_text(encoding="utf-8").splitlines()[1:] if line.strip()]
@@ -523,6 +663,18 @@ def read_recommended_variants(result_dir: Path, df: pd.DataFrame) -> pd.DataFram
 
 
 def plot_recommended_candidates(df: pd.DataFrame, result_dir: Path, out_dir: Path, average: bool = False) -> None:
+    """Bar-compare the recommended variants on coverage and RMSE (plot 06).
+
+    Four aligned horizontal-bar panels (accepted angles, accepted
+    dihedrals, P90 and max RMSE/RMSD) sharing one variant axis; bars are
+    colored by potential set. No-op when nothing is selected.
+
+    Args:
+        df: enriched variant table.
+        result_dir: sweep result directory (for the curated list).
+        out_dir: output directory.
+        average: use per-case average counts instead of sums.
+    """
     selected = read_recommended_variants(result_dir, df)
     if selected.empty:
         return
@@ -565,12 +717,15 @@ def plot_recommended_candidates(df: pd.DataFrame, result_dir: Path, out_dir: Pat
 
 
 def metric_available(df: pd.DataFrame, metric: str) -> bool:
+    """True when the column exists and has at least one numeric value."""
     if metric not in df:
         return False
     return pd.to_numeric(df[metric], errors="coerce").notna().any()
 
 
 def plot_rmse_metric_heatmaps(df: pd.DataFrame, out_dir: Path) -> None:
+    """Render the RMSE/RMSD heatmap set (plots 04*): all/angle/dihedral,
+    P90 and max, skipping metrics absent from the table."""
     specs = [
         (
             "all_rmse_p90",
@@ -631,6 +786,12 @@ def plot_rmse_metric_heatmaps(df: pd.DataFrame, out_dir: Path) -> None:
 
 
 def plot_rmse_recommended_candidates(df: pd.DataFrame, result_dir: Path, out_dir: Path) -> None:
+    """Bar-compare recommended variants on six RMSE/RMSD metrics (plot 06).
+
+    Long candidate lists are split into chunks of 18 rows, one figure per
+    chunk under ``recommended_candidates/`` (stale parts are deleted
+    first). No-op when nothing is selected or no metric is available.
+    """
     selected = read_recommended_variants(result_dir, df)
     if selected.empty:
         return
@@ -699,6 +860,11 @@ def plot_rmse_recommended_candidates(df: pd.DataFrame, result_dir: Path, out_dir
 
 
 def plot_rmse_threshold_curves(df: pd.DataFrame, out_dir: Path, potential_set: str) -> None:
+    """Plot RMSE/RMSD versus cutoff for one potential set (plot 07).
+
+    One line per force profile; the x axis runs loose to strict. No-op
+    when the potential set is absent or no metric is available.
+    """
     selected = df[df["potential_set"] == potential_set].copy()
     if selected.empty:
         return
@@ -753,6 +919,9 @@ def plot_rmse_threshold_curves(df: pd.DataFrame, out_dir: Path, potential_set: s
 
 
 def plot_rmse_metric_suite(df: pd.DataFrame, result_dir: Path, out_dir: Path) -> None:
+    """Render the complete RMSE suite under ``<out_dir>/rmse_metrics``:
+    heatmaps, tradeoff scatters (both count forms), candidate bars, and
+    per-potential threshold curves."""
     rmse_dir = out_dir / "rmse_metrics"
     plot_rmse_metric_heatmaps(df, rmse_dir)
     for average in (False, True):
@@ -765,6 +934,8 @@ def plot_rmse_metric_suite(df: pd.DataFrame, result_dir: Path, out_dir: Path) ->
 
 
 def plot_force_metric_heatmaps(df: pd.DataFrame, out_dir: Path) -> None:
+    """Render the force-metric heatmap set (plots 09-11), log-scaled since
+    force constants span orders of magnitude; absent metrics are skipped."""
     specs = [
         (
             "all_force_p90",
@@ -826,6 +997,18 @@ def plot_force_metric_heatmaps(df: pd.DataFrame, out_dir: Path) -> None:
 
 
 def plot_force_error_scatter(df: pd.DataFrame, out_dir: Path, section: str) -> None:
+    """Scatter force-metric diagnostics for one section (plot 12).
+
+    Left panel: force-threshold margin (min force / cutoff, log x, guide
+    at 1) versus P90 fit error, sized by accepted count. Right panel:
+    accepted count versus P90 force metric (log y). No-op when the needed
+    columns are missing.
+
+    Args:
+        df: enriched variant table.
+        out_dir: output directory.
+        section: "angles" or "dihedrals".
+    """
     margin_col = f"{section}_force_min_over_cutoff"
     p90_col = f"{section}_force_p90"
     count_col = f"accepted_{section}"
@@ -902,6 +1085,13 @@ def plot_force_error_scatter(df: pd.DataFrame, out_dir: Path, section: str) -> N
 
 
 def plot_force_recommended_candidates(df: pd.DataFrame, result_dir: Path, out_dir: Path) -> None:
+    """Bar-compare recommended variants on force metrics (plot 13).
+
+    Log-scaled horizontal bars in chunks of 18 candidates per figure
+    (written under ``recommended_candidates/``, stale parts deleted);
+    ``*_over_cutoff`` panels carry a guide line at 1. No-op when nothing
+    is selected or no metric is available.
+    """
     selected = read_recommended_variants(result_dir, df)
     if selected.empty:
         return
@@ -976,6 +1166,12 @@ def plot_force_recommended_candidates(df: pd.DataFrame, result_dir: Path, out_di
 
 
 def plot_force_threshold_curves(df: pd.DataFrame, out_dir: Path, potential_set: str) -> None:
+    """Plot force metrics versus cutoff for one potential set (plot 14).
+
+    One line per force profile on log-scaled y axes; the x axis runs
+    loose to strict. No-op when the potential set is absent or no metric
+    is available.
+    """
     selected = df[df["potential_set"] == potential_set].copy()
     if selected.empty:
         return
@@ -1030,6 +1226,9 @@ def plot_force_threshold_curves(df: pd.DataFrame, out_dir: Path, potential_set: 
 
 
 def plot_force_metric_suite(df: pd.DataFrame, result_dir: Path, out_dir: Path) -> None:
+    """Render the complete force-metric suite under
+    ``<out_dir>/force_metrics``: heatmaps, angle/dihedral scatters,
+    candidate bars, and per-potential threshold curves."""
     force_dir = out_dir / "force_metrics"
     plot_force_metric_heatmaps(df, force_dir)
     for section in ["angles", "dihedrals"]:
@@ -1042,6 +1241,17 @@ def plot_force_metric_suite(df: pd.DataFrame, result_dir: Path, out_dir: Path) -
 
 
 def plot_case_heatmap(case_df: pd.DataFrame, out_dir: Path, variant_id: str) -> None:
+    """Plot label x mode heatmaps for one variant's cases (plot 07_case).
+
+    Three panels (accepted angles, accepted dihedrals, max RMSE/RMSD)
+    pivoted over case labels (rows, ``LABEL_ORDER``) and term-generation
+    modes (columns, ``MODE_ORDER``). No-op for an unknown variant id.
+
+    Args:
+        case_df: raw ``case_summary.csv`` frame.
+        out_dir: output directory.
+        variant_id: the variant to slice out.
+    """
     selected = case_df[case_df["variant_id"] == variant_id].copy()
     if selected.empty:
         return
@@ -1094,6 +1304,8 @@ def plot_case_heatmap(case_df: pd.DataFrame, out_dir: Path, variant_id: str) -> 
 
 
 def case_heatmap_variant_ids(result_dir: Path, variant_df: pd.DataFrame, requested_variant: str | None) -> list[str]:
+    """Recommended variant ids (deduplicated, order kept) plus the
+    explicitly requested one when it is not already included."""
     selected = read_recommended_variants(result_dir, variant_df)
     ids = list(dict.fromkeys(str(value) for value in selected["variant_id"].tolist()))
     if requested_variant and requested_variant not in ids:
@@ -1102,6 +1314,18 @@ def case_heatmap_variant_ids(result_dir: Path, variant_df: pd.DataFrame, request
 
 
 def plot_threshold_curves(df: pd.DataFrame, out_dir: Path, potential_set: str, average: bool = False) -> None:
+    """Plot coverage and P90 error versus cutoff for one potential (plot 08).
+
+    Three panels (accepted angles, accepted dihedrals, P90 RMSE/RMSD),
+    one line per force profile, x axis loose to strict. No-op when the
+    potential set is absent.
+
+    Args:
+        df: enriched variant table.
+        out_dir: output directory.
+        potential_set: potential family to plot.
+        average: use per-case average counts instead of sums.
+    """
     selected = df[df["potential_set"] == potential_set].copy()
     if selected.empty:
         return
@@ -1145,6 +1369,7 @@ def plot_threshold_curves(df: pd.DataFrame, out_dir: Path, potential_set: str, a
 
 
 def write_plot_readme(out_dir: Path, result_dir: Path) -> None:
+    """Write ``README.md`` describing the plot outputs and reading order."""
     title = result_dir.name.replace("_", " ").title()
     lines = [
         f"# {title} Plots",
@@ -1174,6 +1399,13 @@ def write_plot_readme(out_dir: Path, result_dir: Path) -> None:
 
 
 def main() -> None:
+    """CLI entry point: load the sweep tables and render every plot group.
+
+    Requires ``tables/variant_summary.csv`` and ``tables/case_summary.csv``
+    in the given result directory (SystemExit otherwise); cleans stale
+    outputs, renders the coverage/heatmap/RMSE/force/case/threshold plot
+    groups in both count forms where applicable, and writes the README.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("result_dir", type=Path, help="Analyze result directory, e.g. analyze/results/01_summary_sweep")
     parser.add_argument("--out-dir", type=Path, default=None, help="Plot output directory. Default: result_dir/plots_summary")

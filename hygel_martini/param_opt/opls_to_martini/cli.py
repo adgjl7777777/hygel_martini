@@ -1,3 +1,12 @@
+"""Command-line entry point for the stage-02 (OPLS -> Martini) workflow.
+
+Adds the workflow-specific flags (``--postprocess-only``, ``--check-gmx``,
+``--check-bartender``) on top of the shared config arguments, then
+dispatches to :func:`run_opls_to_martini` and prints a result summary
+matching the workflow branch that ran (tool check, postprocess-only,
+existing-data fit, or constructor case generation).
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -11,6 +20,7 @@ from .writers import write_text
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
+    """Build the argparse parser: shared config args plus 02-only flags."""
     parser = argparse.ArgumentParser(
         description="02 workflow: generate Martini constructor cases from OPLS-side inputs."
     )
@@ -34,6 +44,14 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    """Run the opls_to_martini CLI.
+
+    Handles ``--dump-default-config`` locally (writes DEFAULT_CONFIG as
+    JSON and returns); every other invocation is delegated to
+    :func:`run_opls_to_martini`, and the returned result dict is printed
+    according to which workflow branch produced it.  Tool checks exit
+    with status 1 when a configured tool is missing.
+    """
     parser = build_arg_parser()
     args = parser.parse_args()
 

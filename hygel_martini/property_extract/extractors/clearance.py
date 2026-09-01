@@ -1,3 +1,16 @@
+"""Extractor adapter: periodic local-clearance distribution on a frame.
+
+Registers ``clearance.periodic_grid``, which wraps
+:func:`..pore_size.calculate_periodic_clearance_distribution` for the
+manifest runner.  Measures, on a periodic grid over one GRO frame, the
+largest probe diameter locally admissible at each grid point, and
+reports the median (p50) as the headline value.  Gate behavior: a
+selection that matches zero obstacle beads refuses with
+``invalid_input``.  ``validation_role="proxy"``: this is a probe-
+admissible clearance/volume measure — not a unique pore, a
+pore-limiting diameter, or an experimental mesh size (the metadata
+carries that claim boundary verbatim).
+"""
 from __future__ import annotations
 
 from ._registry import BaseExtractor, register_extractor
@@ -12,6 +25,23 @@ class PeriodicClearanceExtractor(BaseExtractor):
     required_inputs = ["gro"]
 
     def compute(self, inputs: dict, params: dict) -> PropertyResult:
+        """Compute the clearance distribution and report its median.
+
+        Args:
+            inputs: ``gro`` — single-frame coordinate file with box.
+            params: ``selection_residues`` (obstacle set, default
+                PEO/HYDROGEL), ``bead_radius_nm`` (default 0.24 nm),
+                ``grid_spacing_nm`` (default 0.2 nm),
+                ``probe_radius_nm`` (default 0.1657 nm), histogram
+                ``bins`` (default 50), and ``chunk_size`` (grid points
+                per distance batch, memory knob).
+
+        Returns:
+            Computed PropertyResult ``local_clearance_diameter_p50_nm``
+            (value in nm; 0.0 when the percentile list is empty);
+            metadata keeps the full summary, the explicit obstacle
+            definition, and the claim boundary.
+        """
         from ..pore_size import (
             calculate_periodic_clearance_distribution,
             parse_gro_coords,

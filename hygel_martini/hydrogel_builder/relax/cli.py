@@ -1,3 +1,13 @@
+"""Command-line entry point for the post-build relaxation workflow.
+
+Owns the ``hygel-relax`` console script (also reachable as
+``python -m hygel_martini.hydrogel_builder.relax``): it resolves the
+relax config path (``--config`` beats the positional argument; default
+``maker_soft_em.yaml``) and delegates to ``generator.run_relax_workflow``,
+which dispatches on ``workflow.mode``.  A missing config exits with
+status 2 instead of a traceback.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -5,6 +15,7 @@ from pathlib import Path
 
 
 def main() -> None:
+    """Parse the config location and run one relaxation stage."""
     parser = argparse.ArgumentParser(
         prog="hygel-relax",
         description="Run the hydrogel_builder relaxation workflow from a maker YAML/JSON file.",

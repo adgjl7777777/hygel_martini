@@ -1,23 +1,43 @@
+# config/hard_em_shrink.yaml — guarded stepwise box shrink to a target size.
+# Included by maker_hard_em_shrink.yaml after common.yaml. Each step scales
+# the box down by shrink_fraction and runs EM; a step is accepted only if the
+# structure stays finite and Fmax <= fmax_max, otherwise an optional short NVT
+# recovery run is tried before the step is retried smaller. Progress is kept
+# in last_valid.gro so an interrupted run can resume.
+# Consumed by hygel_martini.hydrogel_builder.relax.hard_em_shrink.
+
 workflow:
+  # Selects which relaxation stage runs: soft_em | soft_md | hard_em_shrink.
   mode: hard_em_shrink
 
 paths:
   # Start from a builder output. Change this path if you use another project.
+  # ${CONFIG_DIR} resolves against the TOP maker file's directory (project/).
   start_gro: ${CONFIG_DIR}/../../../04_1_example_system/project/output/final_system.gro
   workdir: ${CONFIG_DIR}/../relax_output/hard_em_shrink
 
 hard_em_shrink:
+  # EM parameter file used at every accepted shrink step.
   minim_mdp: ${CONFIG_DIR}/minim.mdp
+  # Short NVT run used to recover a step whose EM failed the guards
+  # (only when nvt_recovery_enabled below is true).
   nvt_recovery_mdp: ${CONFIG_DIR}/nvt_hard_shrink_recovery_100ps.mdp
 
   # Replace 20.0 with the target cubic dense-state box for your formulation.
   # Do not use this mode to expand a box.
+  # Target box edge (nm); a scalar means cubic, a three-value list per axis.
   target_box_nm: 20.0
+  # Fractional box-length reduction per step (0.01 = 1% per step).
   shrink_fraction: 0.01
+  # Smallest step the retry halving may reach before the run gives up.
   min_shrink_fraction: 0.00125
+  # Guard: a step is accepted only if EM ends with Fmax <= this (kJ/mol/nm).
   fmax_max: 1000.0
+  # Upper bound on shrink steps (safety stop).
   max_steps: 300
+  # Whether to try the NVT recovery run when a step fails its EM guards.
   nvt_recovery_enabled: true
+  # Max warnings grompp may absorb (-maxwarn).
   maxwarn: 2
 
   # Set true after interruption to resume from last_valid.gro.

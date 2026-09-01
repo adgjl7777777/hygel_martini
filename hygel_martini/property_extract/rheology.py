@@ -1,13 +1,27 @@
+"""Shear viscosity analysis from GROMACS energy XVGs.
+
+Owns the implemented NEMD steady-shear estimator
+(:func:`analyze_shear_rate_viscosity`, one viscosity per shear-rate
+run from the mean off-diagonal pressure) and the unimplemented
+Green-Kubo placeholder (:func:`calculate_viscosity_green_kubo`), which
+refuses by raising instead of returning a guess.  Called by the NEMD
+extractor adapter (:mod:`.extractors.rheology_nemd`), which supplies
+the trend-only claim boundary; this module itself returns bare arrays
+and raises ``ValueError`` on missing stress columns or zero rates.
+"""
 import numpy as np
 from .gmx_utils import parse_xvg
 
 
 def calculate_viscosity_green_kubo(energy_xvg, temperature, volume_nm3, dt_ps):
-    """
-    Green-Kubo 관계식을 이용한 전단 점도 계산.
-    eta = (V / kT) * integral <Pxy(0)Pxy(t)> dt
+    """Placeholder: Green-Kubo shear viscosity.
 
-    미구현: GROMACS 'gmx energy -vis' 또는 별도 ACF 적분 구현 필요.
+    Intended relation: ``eta = (V / kT) * integral <Pxy(0) Pxy(t)> dt``.
+
+    Raises:
+        NotImplementedError: Always — needs GROMACS ``gmx energy -vis``
+            or a dedicated stress-ACF integration; nothing is computed
+            silently.
     """
     raise NotImplementedError(
         "Green-Kubo 점도 계산 미구현. "
@@ -16,16 +30,23 @@ def calculate_viscosity_green_kubo(energy_xvg, temperature, volume_nm3, dt_ps):
 
 
 def analyze_shear_rate_viscosity(energy_xvgs, shear_rates_ps_inv):
-    """
-    NEMD 전단 점도 분석.
+    """Compute NEMD steady-shear viscosities, one per shear-rate run.
 
-    energy_xvgs     : xvg 파일 경로 목록
-    shear_rates_ps_inv : 전단 속도 목록 [ps^-1]
-    반환값          : 점도 배열 [Pa·s]
+    For each (xvg, rate) pair: ``eta = |<Pxy>| / shear_rate`` using the
+    ``Pres-XY`` column (``Pres-YX`` as fallback).  Unit conversions:
+    Pxy bar -> Pa (*1e5); shear rate ps^-1 -> s^-1 (*1e12).  Pairing is
+    positional via ``zip``, so both lists must be ordered consistently.
 
-    단위 변환:
-        Pxy [bar] → Pa (*1e5)
-        shear rate [ps^-1] → s^-1 (*1e12)
+    Args:
+        energy_xvgs: Energy XVG paths, one per shear-rate run.
+        shear_rates_ps_inv: Applied shear rates in ps^-1, same order.
+
+    Returns:
+        Array of viscosities in Pa*s, one per input pair.
+
+    Raises:
+        ValueError: No Pres-XY/Pres-YX column in a file, or a zero
+            shear rate (division undefined).
     """
     viscosities = []
     for xvg, sr in zip(energy_xvgs, shear_rates_ps_inv):

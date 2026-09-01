@@ -5,6 +5,24 @@ block-uncertainty calculations used by the Series-01 validation workflow.
 They return finite-rate apparent responses. They do not relabel those
 responses as equilibrium, plateau, storage, zero-frequency, or experimental
 moduli.
+
+Layers, from file to statistics:
+
+* :func:`read_labeled_xvg` — strict labeled-column XVG reader;
+* :func:`paired_step_window_summary` / :func:`paired_step_xvg_summary`
+  — windowed +/- step-shear summaries (the latter is what the
+  ``mechanics.paired_step_xvg`` extractor wraps);
+* :func:`analyze_paired_ramp` — block-mean analysis of aligned +/-
+  finite ramps with a signal-resolution gate;
+* :func:`analyze_cycle_blocks` — cycle-block bootstrap uncertainty and
+  gate checks for periodic (G', G'') responses;
+* :func:`summarize_equal_realizations` and :func:`holm_adjust` —
+  realization-level statistics helpers.
+
+Units: times ps, pressures bar, stresses/moduli MPa, temperatures K.
+Every summary embeds its ``claim_boundary`` string, and any malformed
+or misaligned input raises ``ValueError`` — nothing is summarized from
+inconsistent data; refusal statuses are applied by the extractor layer.
 """
 
 from __future__ import annotations
@@ -19,11 +37,25 @@ from .mechanics import paired_step_shear_response
 from .timeseries import read_xvg
 
 
+# Default five equal ramp-fraction blocks; blocks starting at >= 0.2
+# form the "active" window used for the ramp signal gate.
 DEFAULT_RAMP_FRACTION_EDGES = (0.0, 0.2, 0.4, 0.6, 0.8, 1.0)
 
 
 def read_labeled_xvg(path: str | Path) -> dict[str, np.ndarray]:
-    """Read a GROMACS XVG into named columns, requiring complete legends."""
+    """Read a GROMACS XVG into named columns, requiring complete legends.
+
+    Args:
+        path: XVG path with a time column plus legended value columns.
+
+    Returns:
+        Dict mapping ``"Time"`` and each legend string to its column
+        as a 1-D float array.
+
+    Raises:
+        ValueError: Fewer than two columns, a legend count that does
+            not match the value columns, or any non-finite value.
+    """
     legends, values = read_xvg(path)
     if values.ndim != 2 or values.shape[1] < 2:
         raise ValueError(f"{path}: expected time plus at least one value column")
@@ -52,7 +84,31 @@ def paired_step_window_summary(
     window_start_ps: float,
     window_end_ps: float,
 ) -> dict[str, object]:
-    """Summarize a matched +/- step-shear response over a registered window."""
+    """Summarize a matched +/- step-shear response over a registered window.
+
+    Combines the three time-aligned pressure traces with
+    :func:`.mechanics.paired_step_shear_response` and averages inside
+    ``[window_start_ps, window_end_ps]``.  The even/odd ratio and even
+    residual diagnose nonlinearity shared by both step directions.
+
+    Args:
+        time_ps: Monotonic 1-D time axis in ps.
+        baseline_pressure_bar: Unsheared pressure trace (bar).
+        positive_pressure_bar: Trace after the +gamma step (bar).
+        negative_pressure_bar: Trace after the -gamma step (bar).
+        gamma: Applied engineering shear strain (non-zero).
+        window_start_ps: Averaging-window start (ps).
+        window_end_ps: Averaging-window end (ps, >= start).
+
+    Returns:
+        Summary dict — observable name, echoed window/gamma, sample
+        count, mean/SD/first-sample apparent response in MPa, odd/even
+        pressure diagnostics in bar, and the claim-boundary string.
+
+    Raises:
+        ValueError: Non-monotonic time, inverted window, mismatched
+            series shapes, zero gamma, or an empty window.
+    """
     time = np.asarray(time_ps, dtype=float)
     if time.ndim != 1 or time.size < 2 or np.any(np.diff(time) < 0):
         raise ValueError("time_ps must be a monotonic one-dimensional series")
@@ -109,7 +165,30 @@ def paired_step_xvg_summary(
     window_start_ps: float,
     window_end_ps: float,
 ) -> dict[str, object]:
-    """Read three aligned labeled XVGs and summarize one pressure component."""
+    """Read three aligned labeled XVGs and summarize one pressure component.
+
+    File-level front end for :func:`paired_step_window_summary`; the
+    three time axes must agree to within 1e-8 ps.  This is the routine
+    wrapped by the ``mechanics.paired_step_xvg`` extractor.
+
+    Args:
+        baseline_xvg: XVG of the unsheared run.
+        positive_xvg: XVG of the +gamma step run.
+        negative_xvg: XVG of the -gamma step run.
+        component: Legend name of the pressure-tensor column (e.g.
+            ``Pres-XY``), must exist in all three files.
+        gamma: Applied engineering shear strain (non-zero).
+        window_start_ps: Averaging-window start (ps).
+        window_end_ps: Averaging-window end (ps).
+
+    Returns:
+        The window summary plus the component name and the three file
+        paths for provenance.
+
+    Raises:
+        ValueError: A missing component, misaligned time axes, or any
+            window-summary validation failure.
+    """
     sources = [
         read_labeled_xvg(path)
         for path in (baseline_xvg, positive_xvg, negative_xvg)
@@ -155,7 +234,40 @@ def analyze_paired_ramp(
     target_temperature_k: float,
     fraction_edges: Sequence[float] = DEFAULT_RAMP_FRACTION_EDGES,
 ) -> tuple[list[dict[str, float]], list[dict[str, float]], dict[str, object]]:
-    """Analyze aligned +/- finite ramps using block means along the ramp."""
+    """Analyze aligned +/- finite ramps using block means along the ramp.
+
+    Forms the antisymmetric (paired) and symmetric stress combinations
+    of the two branches, normalizes by the final strain amplitude,
+    averages within ramp-fraction blocks, and evaluates a resolution
+    gate: block SNR >= 2 over the active window (fractions >= 0.2),
+    branch temperatures within 1 K on average and 20 K at worst of the
+    target.
+
+    Args:
+        plus: Mapping with 1-D ``time_ps``, ``temperature_k`` (K), and
+            ``stress_mpa`` series for the +amplitude branch (>= 6
+            samples each).
+        minus: Same keys for the -amplitude branch; time axes must
+            align with ``plus`` to 1e-6 ps.
+        target_amplitude: Final strain amplitude (> 0) used for
+            normalization.
+        ramp_ps: Nominal ramp duration in ps; the last time sample
+            must equal it to 1e-6 ps.
+        target_temperature_k: Thermostat set point in K.
+        fraction_edges: Strictly increasing block edges spanning 0 to
+            1 (default five equal blocks).
+
+    Returns:
+        Tuple ``(points, blocks, summary)`` — per-sample rows,
+        per-block statistics (each block needs >= 3 samples), and the
+        gate summary with ``checks`` / ``ramp_signal_gate_pass`` and
+        the claim-boundary string.
+
+    Raises:
+        ValueError: Any validation failure — bad amplitudes/edges,
+            unusable or non-finite series, misaligned or non-monotonic
+            time, wrong ramp end, or an under-sampled block.
+    """
     edges = tuple(float(value) for value in fraction_edges)
     if target_amplitude <= 0 or ramp_ps <= 0:
         raise ValueError("amplitude and ramp duration must be positive")
@@ -208,6 +320,8 @@ def analyze_paired_ramp(
 
     blocks: list[dict[str, float]] = []
     for index, (start, end) in enumerate(zip(edges, edges[1:])):
+        # Half-open blocks [start, end) except the last, which closes at
+        # 1.0 (with a tiny tolerance) so the final sample is not dropped.
         mask = (
             (fraction >= start)
             & (
@@ -296,7 +410,39 @@ def analyze_cycle_blocks(
     bootstrap_samples: int = 100_000,
     bootstrap_seed: int = 20_260_728,
 ) -> tuple[list[dict[str, float]], dict[str, object]]:
-    """Estimate periodic-response uncertainty from contiguous cycle blocks."""
+    """Estimate periodic-response uncertainty from contiguous cycle blocks.
+
+    Per-cycle G'/G'' values are averaged within contiguous blocks of
+    ``block_size_cycles``, then block means are bootstrapped (seeded,
+    resampling blocks with replacement) to obtain 95% CIs for G', G'',
+    and the elastic fraction |G'|/|G*|.  Gate checks assert enough
+    blocks, an elastic fraction consistent with a fluid-like response
+    (point value <= 0.10, bootstrap 95% upper <= 0.20, G' CI containing
+    zero), a resolved positive G'' (CI lower > 0, relative halfwidth
+    <= 0.30), and first-vs-last half complex drift <= 0.30.
+
+    Args:
+        g_prime_mpa: Per-cycle storage response G' in MPa (1-D).
+        g_double_prime_mpa: Per-cycle loss response G'' in MPa,
+            same length.
+        block_size_cycles: Cycles per block; must divide the retained
+            cycle count exactly.
+        minimum_blocks: Minimum acceptable block count (>= 2).
+        bootstrap_samples: Bootstrap resamples (>= 1000).
+        bootstrap_seed: RNG seed, recorded in the summary for
+            reproducibility.
+
+    Returns:
+        Tuple ``(rows, summary)`` — per-block means (MPa) with cycle
+        offsets, and a summary with bootstrap CIs, drift/variability
+        diagnostics, ``checks``, ``overall_block_gate_pass``, and the
+        claim-boundary string.
+
+    Raises:
+        ValueError: Mismatched/non-finite inputs, invalid block or
+            bootstrap configuration, indivisible cycle count, or too
+            few blocks.
+    """
     gp = np.asarray(g_prime_mpa, dtype=float)
     gpp = np.asarray(g_double_prime_mpa, dtype=float)
     if gp.ndim != 1 or gpp.ndim != 1 or len(gp) != len(gpp):
@@ -415,7 +561,27 @@ def analyze_cycle_blocks(
 def summarize_equal_realizations(
     realization_values: Mapping[str, Sequence[float]],
 ) -> dict[str, object]:
-    """Give each realization equal weight after averaging within realization."""
+    """Give each realization equal weight after averaging within realization.
+
+    The statistical unit is the network realization: samples within a
+    realization are first averaged, and only the realization means
+    enter the cross-realization mean/SD/SEM — within-realization
+    samples are never counted as independent realizations (the summary
+    carries this claim boundary).
+
+    Args:
+        realization_values: Mapping of realization name to its 1-D
+            sequence of finite scalar samples (at least two
+            realizations).
+
+    Returns:
+        Dict with per-realization counts and means, the equal-weight
+        mean, realization sample SD and SEM, and the claim boundary.
+
+    Raises:
+        ValueError: Fewer than two realizations, or a realization with
+            empty/non-finite/non-1-D samples.
+    """
     if len(realization_values) < 2:
         raise ValueError("at least two realizations are required")
     means: dict[str, float] = {}
@@ -445,7 +611,21 @@ def summarize_equal_realizations(
 
 
 def holm_adjust(pvalues: Sequence[float]) -> list[float]:
-    """Return Holm family-wise-error adjusted p-values."""
+    """Return Holm family-wise-error adjusted p-values.
+
+    Step-down Holm-Bonferroni: the k-th smallest p-value is multiplied
+    by ``(m - k + 1)``, capped at 1, with a running maximum enforcing
+    monotonicity; adjusted values are returned in the input order.
+
+    Args:
+        pvalues: Non-empty 1-D sequence of p-values in [0, 1].
+
+    Returns:
+        Adjusted p-values, same order and length as the input.
+
+    Raises:
+        ValueError: Empty/non-1-D input or values outside [0, 1].
+    """
     values = np.asarray(pvalues, dtype=float)
     if values.ndim != 1 or values.size == 0:
         raise ValueError("pvalues must be a non-empty one-dimensional sequence")

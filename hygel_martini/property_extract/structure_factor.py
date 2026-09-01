@@ -3,6 +3,17 @@
 The functions in this module calculate observables only.  They do not convert
 ``2*pi/q`` into a pore or mesh size and do not decide whether a simulation is
 commensurate with a scattering experiment.
+
+Owns three pure-numpy layers: cloud-in-cell density deposition
+(:func:`cic_density_grid`), the FFT-based ``S(q)`` over all
+reciprocal-lattice modes with optional CIC-window deconvolution
+(:func:`fft_structure_factor`) plus its radial binning
+(:func:`radial_bin_structure_factor`), and an exact direct-summation
+``S(q)`` along the box axes (:func:`reciprocal_axis_structure_factor`)
+for cross-checking the gridded estimate.  Lengths follow the caller's
+coordinate unit, so ``q`` is in the reciprocal of that unit (1/nm for
+nm coordinates).  Malformed inputs raise ``ValueError`` — refusal
+semantics live in the calling layer.
 """
 
 from __future__ import annotations
@@ -15,6 +26,7 @@ from .geometry import orthorhombic_box_lengths
 
 
 def _validate_positions(positions: np.ndarray) -> np.ndarray:
+    """Coerce to a float ``(n, 3)`` array; reject empty/non-finite input."""
     pos = np.asarray(positions, dtype=float)
     if pos.ndim != 2 or pos.shape[1] != 3 or len(pos) == 0:
         raise ValueError("positions must be a non-empty array with shape (n,3)")
@@ -24,6 +36,7 @@ def _validate_positions(positions: np.ndarray) -> np.ndarray:
 
 
 def _validate_grid_shape(grid_shape: int | Sequence[int]) -> tuple[int, int, int]:
+    """Expand an int to a cubic shape; require three integers >= 4."""
     if isinstance(grid_shape, int):
         shape = (grid_shape, grid_shape, grid_shape)
     else:
@@ -42,6 +55,24 @@ def cic_density_grid(
 
     The returned grid contains particle counts, so its sum equals the number of
     input particles.  Coordinates are wrapped into the orthorhombic box.
+
+    Each particle's weight is split over its 8 surrounding cells with
+    trilinear (first-order B-spline) weights, wrapped periodically.
+
+    Args:
+        positions: Particle coordinates, shape ``(n, 3)``.
+        box: Orthorhombic box accepted by
+            :func:`.geometry.orthorhombic_box_lengths`.
+        grid_shape: Cells per axis — an int (cubic) or three ints,
+            each >= 4.
+
+    Returns:
+        Float64 count grid of shape ``grid_shape``.
+
+    Raises:
+        ValueError: Invalid positions or grid shape.
+        RuntimeError: Deposited weights fail to sum to the particle
+            count (internal conservation check).
     """
     pos = _validate_positions(positions)
     lengths = orthorhombic_box_lengths(box)
@@ -84,6 +115,22 @@ def fft_structure_factor(
     separable CIC assignment window is deconvolved from the Fourier amplitude.
     Comparisons should still be restricted below the grid Nyquist region and
     repeated at more than one grid resolution.
+
+    Args:
+        positions: Particle coordinates, shape ``(n, 3)``.
+        box: Orthorhombic box specification.
+        grid_shape: Cells per axis (int or three ints, each >= 4).
+        q_max: Optional upper cut on |q| (reciprocal length unit);
+            must be finite and positive when given.
+        deconvolve_cic: Divide out the per-dimension ``sinc**2`` CIC
+            window before squaring (default True).
+
+    Returns:
+        Tuple ``(q_magnitude, structure)`` — flat arrays over the kept
+        modes (zero mode always excluded), unsorted in q.
+
+    Raises:
+        ValueError: Invalid positions, grid shape, or ``q_max``.
     """
     pos = _validate_positions(positions)
     lengths = orthorhombic_box_lengths(box)
@@ -128,7 +175,23 @@ def radial_bin_structure_factor(
     structure_factor: np.ndarray,
     bin_edges: np.ndarray,
 ) -> dict[str, np.ndarray]:
-    """Radially average reciprocal modes into explicit ``q`` bins."""
+    """Radially average reciprocal modes into explicit ``q`` bins.
+
+    Args:
+        q_magnitude: Mode magnitudes (any shape; flattened).
+        structure_factor: Matching per-mode ``S(q)`` values.
+        bin_edges: Strictly increasing 1-D bin edges; modes outside
+            the outer edges are dropped.
+
+    Returns:
+        Dict of per-bin arrays: ``q_lower``/``q_upper``/``q_center``,
+        ``mean_structure_factor`` (NaN for empty bins), and
+        ``n_modes`` counts.
+
+    Raises:
+        ValueError: Size mismatch, empty input, non-increasing edges,
+            or non-finite values.
+    """
     q = np.asarray(q_magnitude, dtype=float).ravel()
     s = np.asarray(structure_factor, dtype=float).ravel()
     edges = np.asarray(bin_edges, dtype=float)
@@ -163,6 +226,23 @@ def reciprocal_axis_structure_factor(
 
     Only reciprocal-lattice vectors ``q = 2*pi*n/L_axis`` are used, which keeps
     the finite periodic cell and directional comparison explicit.
+
+    Direct summation over particles (no grid, no assignment window),
+    so this also serves as an exact cross-check of
+    :func:`fft_structure_factor` at the shared modes.
+
+    Args:
+        positions: Particle coordinates, shape ``(n, 3)``.
+        box: Orthorhombic box specification.
+        max_mode: Highest integer mode ``n`` per axis (>= 1).
+
+    Returns:
+        Dict with ``mode`` (1..max_mode) and, per axis label,
+        ``q_<axis>`` (reciprocal length unit) and ``S_<axis>``.
+
+    Raises:
+        ValueError: Invalid positions or non-positive/non-integer
+            ``max_mode``.
     """
     pos = _validate_positions(positions)
     lengths = orthorhombic_box_lengths(box)

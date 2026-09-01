@@ -1,8 +1,16 @@
+# maker.yaml — 다이아몬드(f=4) full hydrogel builder 진입 설정.
+# 실행: bash hygel_martini/bash_settings/hydrogel_builder/run_full_builder.sh maker.yaml
+# Entry config for the diamond (f=4) full hydrogel build.
+#
 # includes: 파일 병합 순서 (위에서 아래 순서로 로드 후 마지막 이 파일이 덮어씀)
 # en: includes are loaded in order, then this file can override.
+# 주의: include된 파일 안의 ${CONFIG_DIR}는 그 파일이 아니라 이 maker.yaml의
+#       디렉터리 기준으로 해석된다.
+# Note: ${CONFIG_DIR} inside included files resolves against THIS maker.yaml's
+#       directory, not the included file's own location.
 includes:
-  - config/simulation.yaml
-  - config/hydrogel.yaml
-  - config/mdp.yaml
-  - config/add_series.yaml
-  - config/backbone.yaml
+  - config/simulation.yaml   # 실행 환경/GROMACS/가교 설정 / runtime, GROMACS, crosslinking
+  - config/hydrogel.yaml     # backbone/monomer/linker 화학 / chemistry definitions
+  - config/mdp.yaml          # EM MDP 값 / EM MDP parameters
+  - config/add_series.yaml   # polymer/molecule/water/ion 추가 단계 / addition stages
+  - config/backbone.yaml     # 생성된 topology의 bonded 파라미터 patch 규칙 / bonded patch rules

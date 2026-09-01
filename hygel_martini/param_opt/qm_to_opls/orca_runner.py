@@ -1,3 +1,16 @@
+"""ORCA input generation for stage 01 (QM -> OPLS preparation).
+
+Owns the enumeration of monomer sequences (N-mers built with the shared
+polymer_maker geometry logic) and the writing of one ORCA geometry-
+optimization input per sequence.  Called by ``generator.run_qm_to_opls``
+with the merged workflow config.
+
+Outputs, per sequence name ``<seq>`` under ``paths.out_root``:
+``<seq>/<seq>_opt.inp`` (ORCA input) and ``<seq>/<seq>_capped.xyz``
+(H-capped geometry).  Coordinates are in Angstrom throughout (ASE
+convention); ORCA itself is not executed here.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -8,9 +21,20 @@ from ase.io import write
 from ..polymer_maker.maker import _sequence_output_stem, load_monomer_library
 
 def generate_orca_inputs(cfg: Dict[str, Any]) -> None:
-    """
-    Generates ORCA input files for N-mers (up to 200 atoms).
-    Automatically caps Br with H using existing maker.py logic.
+    """Generate ORCA optimization inputs for all monomer combinations.
+
+    Enumerates sequences of length 1..10 over the configured monomer
+    symbols (full cartesian product, so duplicates like "AA" are
+    included), builds each capped geometry, and writes an ORCA input
+    plus capped XYZ per sequence.  Sequences whose atom count exceeds
+    the 200-atom cap are skipped; enumeration stops at the first length
+    where no sequence fits.  Build failures are reported to stderr and
+    skipped rather than aborting the whole run.
+
+    Args:
+        cfg: Merged workflow config; uses ``paths`` (base_dir,
+            out_root), ``monomers`` (symbol -> xyz file), ``system``
+            (n_torsion_mode) and ``dft`` (ORCA keywords) sections.
     """
     base_dir = Path(cfg["paths"]["base_dir"]).resolve()
     out_root = Path(cfg["paths"]["out_root"]).resolve()
@@ -65,9 +89,23 @@ def generate_orca_inputs(cfg: Dict[str, Any]) -> None:
             break
 
 def _build_atoms_for_dft(sequence, monomer_dict, n_torsion):
-    """
-    Internal helper that mirrors maker.build_polymer but returns ASE Atoms.
-    Used for Phase 1 DFT input generation.
+    """Build an H-capped N-mer geometry as ASE Atoms.
+
+    Mirrors ``polymer_maker.maker.build_polymer``: monomers are joined
+    head-to-tail by aligning connector vectors, rotating each new unit
+    by a growing torsion angle (>=90 degrees per step) and removing the
+    consumed connector atoms; remaining connectors are then replaced by
+    H via ``cap_ends_with_hydrogen``.  Returns Atoms directly instead
+    of writing an XYZ file, for DFT input generation.
+
+    Args:
+        sequence: Monomer symbols in chain order.
+        monomer_dict: Symbol -> template ASE Atoms (with connectors).
+        n_torsion: Number of torsion steps; sets the per-monomer
+            rotation increment ``max(90, 360 / n_torsion)`` degrees.
+
+    Returns:
+        ase.Atoms of the capped chain (positions in Angstrom).
     """
     import numpy as np
     from ..polymer_maker.maker import cap_ends_with_hydrogen, get_connection_info
@@ -91,6 +129,7 @@ def _build_atoms_for_dft(sequence, monomer_dict, n_torsion):
         current_angle += angle_increment 
         new_monomer.rotate(current_angle, v_target, center=new_monomer.positions[c0_new])
 
+        # 1.513 Angstrom: fixed backbone C-C bond length for the new junction.
         target_pos = chain.positions[current_tail_c_idx] + (v_target / np.linalg.norm(v_target)) * 1.513
         translation_vec = target_pos - new_monomer.positions[c0_new]
         new_monomer.translate(translation_vec)
@@ -109,6 +148,13 @@ def _build_atoms_for_dft(sequence, monomer_dict, n_torsion):
     return cap_ends_with_hydrogen(chain)
 
 def _write_orca_file(name, atoms, dft_cfg, out_root):
+    """Write one ORCA optimization input and its capped XYZ.
+
+    Assembles the ORCA keyword line from ``dft_cfg`` (method, basis,
+    dispersion, solvent, extra flags) plus %pal/%geom blocks, appends
+    the coordinate block, and writes ``<out_root>/<name>/<name>_opt.inp``
+    and ``<name>_capped.xyz`` (directory created if needed).
+    """
     header = f"! {dft_cfg.get('method', '')} {dft_cfg.get('basis_set', '')} {dft_cfg.get('dispersion', '')} {dft_cfg.get('solvent', '')} {dft_cfg.get('extra_flags', '')}\n"
     header += "%pal\n"
     header += f"   nprocs {dft_cfg.get('nprocs', 1)}\n"

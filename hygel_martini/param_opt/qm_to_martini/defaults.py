@@ -1,3 +1,20 @@
+"""Built-in default configuration for the stage-03 (qm_to_martini) pipeline.
+
+This module owns ``DEFAULT_CONFIG``, the complete default settings tree
+that ``cli.main --dump-default-config`` writes out and that user YAML
+configs are conceptually diffs against. Keys mirror the sections consumed
+by ``config.resolve_*`` (``paths``, ``system``, ``monomers``,
+``bartender_pipeline`` with its xtb/orca/bartender/postprocess subtrees).
+
+Callers: ``cli`` (config dump) imports ``DEFAULT_CONFIG``; the monomer
+defaults are derived from ``polymer_maker.maker.DEFAULT_MONOMER_FILES``
+so the two stay in sync.
+
+Units follow the consuming tools: xTB MD uses K/ps/fs (``temp_k``,
+``time_ps``, ``dump_fs``, ``step_fs``); Bartender uses ps/K. Values here
+are pipeline defaults, not scientific recommendations.
+"""
+
 from __future__ import annotations
 
 from typing import Any, Dict
@@ -6,6 +23,14 @@ from ..polymer_maker.maker import DEFAULT_MONOMER_FILES
 
 
 def _default_monomers() -> Dict[str, Dict[str, Any]]:
+    """Derive default per-monomer entries from the built-in monomer library.
+
+    Each library XYZ ``<stem>.xyz`` gets an init-template default of
+    ``<stem>_init.inp`` plus a neutral singlet electronic state.
+
+    Returns:
+        Monomer token -> {xyz, init_template, charge, multiplicity}.
+    """
     monomers: Dict[str, Dict[str, Any]] = {}
     for symbol, xyz_name in DEFAULT_MONOMER_FILES.items():
         stem = xyz_name[:-4] if xyz_name.endswith(".xyz") else xyz_name

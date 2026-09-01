@@ -10,19 +10,27 @@
 # reacted-form sulfur (no thiol hydrogen; H charge folded into S). Topology
 # and mechanics benchmark only -- chemically faithful partial conversion
 # needs per-stub cap atoms, which the builder does not have yet.
+# Deep-merged in order; later files override earlier ones, this file overrides
+# all. ${CONFIG_DIR} in every included file resolves against THIS directory.
 includes:
-  - config/simulation.yaml
-  - config/mdp.yaml
-  - config/hydrogel.yaml
-  - config/network.yaml
+  - config/simulation.yaml   # runtime, GROMACS, all-atom mode, crosslinking
+  - config/mdp.yaml          # EM MDP parameters
+  - config/hydrogel.yaml     # strand template and junction chemistry
+  - config/network.yaml      # pcu net layout (no rewiring)
 
 simulation_parameters:
+  # Kept separate from the full build's output/.
   output_dir: ${CONFIG_DIR}/output_partial
   network_layout:
+    # Strand dilution: each strand forms independently with this probability
+    # (1/6 = the experimental SH conversion). Unformed strands are removed.
     conversion:
       fraction: 0.166667
+      # Required: unseeded selection differs on every run.
       seed: 3
 
+# Overrides simulation.yaml's gating audit to report-only (thresholds
+# disarmed): below the gel point, fragmentation is the expected outcome.
 hydrogel_topology_connectivity_audit:
   enabled: true
   min_largest_component_fraction: 0.0

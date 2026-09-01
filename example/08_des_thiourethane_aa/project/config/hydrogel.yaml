@@ -1,5 +1,8 @@
 # One strand chemistry, one junction chemistry -- the experimental pair.
+# Included from maker.yaml; ${CONFIG_DIR} resolves against the TOP maker.yaml's
+# directory, not this file's.
 monomer_definitions:
+  # No per-monomer side chains: the strand arrives as one whole molecule below.
   MONOMERS: []
   SEQUENCE_STRATEGY:
     strategy: random
@@ -11,6 +14,9 @@ hydrogel_components:
       # carbonyl carbons exposed as attachment atoms BCK1/BCK2.
       - id: STR1
         ratio: 1
+        # 'template' (instead of 'definition') selects whole-strand mode: the
+        # molecule is placed rigidly and everything in the ITP survives into
+        # the combined topology. The net layout accepts exactly one such entry.
         template:
           gro: ${CONFIG_DIR}/structure/STR.gro
           itp: ${CONFIG_DIR}/structure/STR.itp
@@ -25,8 +31,13 @@ hydrogel_components:
         ratio: 1
         gro: ${CONFIG_DIR}/structure/HEXR.gro
         itp: ${CONFIG_DIR}/structure/HEXR.itp
+        # Residue name of the junction's non-stub atoms in the output topology.
         linker_residue_name: HEX
+        # Residue name the stub atoms report as their bonded-partner residue.
         backbone_residue_name: STR
+        # One entry per stub: admissible target strand plus the external
+        # crosslink bond (c0 nm, c1 kJ/mol/nm^2). With a whole-strand target
+        # the stub sulfurs keep their ITP mass (no Martini mass override).
         stubs:
           - [{between: STR1, bond_funct: 1, bond_c0: 0.1715, bond_c1: 187443.2}]
           - [{between: STR1, bond_funct: 1, bond_c0: 0.1715, bond_c1: 187443.2}]

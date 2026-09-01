@@ -1,3 +1,15 @@
+"""Extractor adapter: polymer volume fraction from an energy XVG.
+
+Registers ``swelling.volume_from_energy``, which wraps
+:meth:`..swelling.SwellingAnalyzer.analyze_trajectory` for the
+manifest runner.  Combines the as-built composition (from ``top`` +
+``itp``) with the equilibrated box volume read from the ``Volume``
+column of ``energy_xvg``.  Gate behavior: an unsupported ``method`` or
+a missing ``bead_volume_nm3`` parameter refuses with
+``invalid_input`` before any file is analyzed; analyzer ValueErrors
+(e.g. missing Volume column) are also reported as ``invalid_input``
+rather than raised.
+"""
 from __future__ import annotations
 from ._registry import BaseExtractor, register_extractor
 from ..result import PropertyResult
@@ -5,14 +17,28 @@ from ..result import PropertyResult
 
 @register_extractor("swelling.volume_from_energy")
 class SwellingVolumeExtractor(BaseExtractor):
-    """
-    energy.xvg의 Volume 컬럼으로 polymer_volume_fraction을 계산한다.
-    method: bead_volume 만 지원한다.
+    """Compute polymer_volume_fraction from the energy.xvg Volume column.
+
+    Only ``method: bead_volume`` (polymer volume = bead count times a
+    per-bead volume in nm^3) is implemented; any other method string is
+    refused as invalid input.
     """
     extractor_name = "swelling.volume_from_energy"
     required_inputs = ["top", "itp", "energy_xvg"]
 
     def compute(self, inputs: dict, params: dict) -> PropertyResult:
+        """Analyze the volume time series; refuse on bad parameters.
+
+        Args:
+            inputs: ``top``, ``itp``, and ``energy_xvg`` paths.
+            params: Must contain ``bead_volume_nm3`` (nm^3 per polymer
+                bead); optional bead masses (amu), selection names, and
+                ``start_time_ps`` to discard pre-equilibration frames.
+
+        Returns:
+            PropertyResult with role ``direct`` — computed, or
+            invalid_input / analysis_failed on error (never raises).
+        """
         method = params.get("method", "bead_volume")
         if method != "bead_volume":
             return PropertyResult.invalid_input(

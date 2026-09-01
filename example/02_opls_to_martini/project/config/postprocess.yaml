@@ -1,5 +1,21 @@
+# postprocess.yaml — 완료된 Bartender job 하나의 screening 전용 설정.
+# 실행 예: bash postprocess.sh (또는 run_opls_to_martini.sh --postprocess-only).
+# English: screening-only config for one finished Bartender job; passed as the
+# top config to postprocess.sh / --postprocess-only runs.
+# ${CONFIG_DIR}는 명령줄에 준 최상위 config(이 파일)의 디렉터리 기준이다.
+# ${CONFIG_DIR} resolves against the TOP config file given on the command line.
+#
+# screening 키들의 상세 설명은 같은 폴더 opls_existing_data.yaml의 postprocess
+# 블록 주석과 동일하다 — 값도 그 파일과 일치시켜 유지한다.
+# The screening keys mirror the annotated postprocess block in
+# opls_existing_data.yaml; keep the values in sync with that file.
+
 paths:
+  # screening할 완료 job 디렉터리 (out_root/<label>/<mode_tag>).
+  # The finished job directory to screen (out_root/<label>/<mode_tag>).
   out_root: ${CONFIG_DIR}/../opls_bartender_runs/S/topology_n0
+  # mirror_root의 디렉터리 구조를 output_root 아래에 그대로 복제해 결과를 쓴다.
+  # mirror_root's layout is mirrored under output_root for the results.
   postprocess_mirror_root: ${CONFIG_DIR}/../opls_bartender_runs
   postprocess_output_root: ${CONFIG_DIR}/../postprocessing_result
 
@@ -7,22 +23,37 @@ bartender_pipeline:
   postprocess:
     screening:
       enabled: true
+      # "bartender" = 각 후보 라인의 funct 번호를 그대로 유지.
+      # "bartender" = keep each candidate line's own funct number.
       potentials:
         angles: "bartender"
         dihedrals: "bartender"
         impropers: "bartender"
+      # [bonds]/[constraints] 처리: bartender = 둘 다 Bartender가 남긴 대로.
+      # How bonds/constraints combine: bartender = both, as Bartender left them.
       bond_constraint_mode: "bartender"
+      # active = 주석 처리되지 않은 라인만 screening.
+      # active = screen only lines Bartender left uncommented.
       candidate_source: "active"
+      # true = 주석 처리된 대안도 all_terms.json/plot에 보존.
+      # true = keep commented alternatives in all_terms.json and plots.
       show_all_info: true
+      # 다중 상수 항의 세기 대표값: max_abs | l2 | mean_abs | first.
+      # Strength metric for multi-constant terms.
       multi_constant_metric: "max_abs"
+      # 항별 screening plot (CSV/PDF) 출력. Write per-term screening plots.
       write_plots: true
       thresholds:
+        # absolute = 아래 값이 문자 그대로의 하한 cutoff.
+        # absolute = the values below are literal lower cutoffs.
         force_metric_min_mode: "absolute"
+        # 섹션별 힘-세기 하한: 이보다 약한 항은 걸러낸다.
+        # Per-section strength cutoff; weaker terms are screened out.
         force_metric_min:
           bonds: 0.1
           constraints: 0.1
           angles: 0.1
           dihedrals: 0.1
           impropers: 0.1
+        # 허용 최대 fit RMSD. Maximum allowed fit RMSD.
         rmsd_max: 10.0
-

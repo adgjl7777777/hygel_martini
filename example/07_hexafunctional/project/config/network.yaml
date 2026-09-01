@@ -36,7 +36,10 @@ simulation_parameters:
       # 조절한다. 작을수록 짧은 루프가 많아진다.
       max_span: 6.0
 
+      # rewiring 난수 시드 (재현성). RNG seed for reproducible rewiring.
       seed: 0
+      # double-edge swap sweep 최대 횟수. 수렴은 측정된 noise floor 기준.
+      # Max rewiring sweeps; convergence is tested against a measured noise floor.
       max_sweeps: 60
 
       # 좌표 배치는 strand를 두 junction 사이 직선으로 놓으므로

@@ -1,6 +1,8 @@
 # hydrogel.yaml
-# 한글: 하이드로젤 골격/링커/사이드체인 정의
-# English: Hydrogel backbone/linker/side-chain definitions
+# 한글: 하이드로젤 골격/링커/사이드체인 정의. maker.yaml includes로 병합된다.
+# English: Hydrogel backbone/linker/side-chain definitions, merged via maker.yaml.
+# ${CONFIG_DIR}는 최상위 maker.yaml의 디렉터리 기준으로 해석된다.
+# ${CONFIG_DIR} resolves against the TOP maker.yaml's directory.
 
 monomer_definitions:
   MONOMERS:
@@ -21,16 +23,18 @@ monomer_definitions:
 
 hydrogel_components:
   backbone_definitions:
+    # 사슬을 이루는 CG bead 종. ratio는 두 종의 혼합 비율.
+    # CG bead species forming the chains; ratio sets their mixing proportion.
     BACKBONES:
       - id: BS
         ratio: 1
         definition:
-          atom_type: SC1
-          residue_name: BS
-          atom_name: BS
-          charge_group_number: 1
-          mass: 41
-          charge: 0.0
+          atom_type: SC1          # Martini bead type / [atomtypes]에 있어야 함
+          residue_name: BS        # 출력 topology의 residue 이름 / residue name in output
+          atom_name: BS           # bead(atom) 이름 / bead (atom) name
+          charge_group_number: 1  # charge group 번호 / charge group index
+          mass: 41                # bead 질량 (amu); linker stub도 이 값을 상속 / mass (amu), inherited by stubs
+          charge: 0.0             # 전하 (e) / charge (e)
       - id: BD
         ratio: 1
         definition:
@@ -40,7 +44,10 @@ hydrogel_components:
           charge_group_number: 1
           mass: 27
           charge: 0.0
+    # backbone 결합 파라미터는 여기 대신 backbone.yaml patch 규칙이 정한다.
+    # Backbone bond parameters come from backbone.yaml patch rules instead.
     BONDS: []
+    # backbone bead 종의 배열 전략. Sequence strategy for backbone bead species.
     SEQUENCE_STRATEGY:
       strategy: random
 

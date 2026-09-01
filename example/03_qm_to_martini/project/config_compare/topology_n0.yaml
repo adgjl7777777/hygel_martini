@@ -1,21 +1,49 @@
+# topology_n0.yaml — term-generation 비교 variant (topology_n0).
+# 같은 xTB 궤적(md_S)을 Bartender에 다시 물려, term_generation 모드만 바꿔
+# 적합 결과를 비교한다. 이 variant: 그래프 위상에 부합하고 topology cost <= 0인 항만 유지.
+# English: one variant of the term-generation comparison — refit Bartender on
+# the same existing xTB trajectory (md_S), changing only how candidate bonded
+# terms are generated. This variant: keep only graph-topology-consistent terms with topology cost <= 0.
+# 실행 / run: bash run_qm_to_martini.sh config_compare/topology_n0.yaml
+
+# common.yaml을 먼저 로드하고 아래 키들이 덮어쓴다. 주의: ${CONFIG_DIR}는
+# include된 common.yaml이 아니라 이 최상위 파일의 디렉터리(config_compare/)
+# 기준으로 해석된다 — 그래서 base_dir를 여기서 다시 선언한다.
+# common.yaml is merged first, then the keys below override it. ${CONFIG_DIR}
+# resolves against THIS top file's directory (config_compare/), not the
+# included common.yaml's — hence base_dir is re-declared here.
 includes:
   - ../config_common/common.yaml
 
 paths:
+  # 프로젝트 루트 앵커 (config_compare/.. = project/).
+  # Anchor for relative paths (config_compare/.. = project/).
   base_dir: ${CONFIG_DIR}/..
+  # 이 variant의 출력 루트 / output root of this variant
   out_root: ${CONFIG_DIR}/../compare_existing_terms/topology_n0
 
 bartender_pipeline:
+  # 기하 최적화 생략 — 궤적이 이미 있다 / skip geometry optimization
   relaxation: off
+  # existing = 여기서 MD를 새로 돌리지 않고 md_traj의 궤적을 Bartender가 소비.
+  # existing = no new MD; Bartender consumes the trajectory named in md_traj.
   md: existing
+  # base_dir 기준 상대 경로의 기존 xTB 궤적 / existing xTB trajectory under base_dir
   md_traj: md_S/S/relax_xtb_geoopt/xtb_traj.pdb
+  # 케이스별 작업 디렉터리 이름 / per-case work directory name
   workdir_name: existing_traj_refit
   term_generation:
+    # 후보 bonded 항 생성 모드 (모드 목록은 common.yaml 주석 참조).
+    # Candidate-term generation mode (the mode list is documented in common.yaml).
     mode: topology_n
+    # topology_n / topology_swap_n의 비용 예산 / cost budget for the topology modes
     n: 0
   execution:
+    # 완화 스크립트는 실행하지 않고 Bartender만 즉시 실행한다.
+    # Run no relaxation script; run the Bartender job immediately.
     run_relaxation: false
     run_bartender: true
     shell: bash
   bartender:
+    # 비교 실행은 단일 코어로 고정 / comparison runs are pinned to one CPU
     cpus: 1

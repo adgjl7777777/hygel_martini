@@ -1,33 +1,58 @@
+# config/soft_em.yaml — EM-only gradual box relaxation stage.
+# Included by maker_soft_em.yaml after common.yaml. Each iteration runs one
+# energy minimization, reads the pressure from the EM trajectory, rescales
+# the box toward p_target, and re-runs — no MD integration is involved —
+# while the hydrogel's bonded force constants are ramped back up to full
+# strength. Consumed by hygel_martini.hydrogel_builder.relax.soft_em.
+
 workflow:
+  # Selects which relaxation stage runs: soft_em | soft_md | hard_em_shrink.
   mode: soft_em
 
 paths:
   # Start from the built structure before any additional relaxation.
+  # ${CONFIG_DIR} resolves against the TOP maker file's directory (project/).
   start_gro: ${CONFIG_DIR}/../../../04_1_example_system/project/output/final_system.gro
+  # Working directory: one subdirectory per iteration plus final.gro at the end.
   workdir: ${CONFIG_DIR}/../relax_output/soft_em
 
 soft_em:
+  # EM parameter file used by every iteration's grompp.
   minim_mdp: ${CONFIG_DIR}/minim.mdp
+  # Max warnings grompp may absorb (-maxwarn).
   maxwarn: 2
 
   # Pressure control targets for the gradual EM-only box relaxation.
+  # stress_terms: gmx energy terms read per axis (bar).
   stress_terms:
     - Pres-XX
     - Pres-YY
     - Pres-ZZ
+  # How each term's time series is summarized: mean (default) or last.
   stress_use: mean
+  # Target pressure (bar) the box scaling drives toward.
   p_target: 1.0
+  # Convergence window (bar): all three axis pressures must sit within
+  # p_target ± p_tol.
   p_tol: 50.0
+  # Per-iteration box change = clamp(scale_factor * (P - p_target), ±max_dlen),
+  # a fractional length change per axis. scale_factor: fraction per bar;
+  # max_dlen: cap on the fractional change per iteration (0.001 = 0.1%).
   scale_factor: 1.0e-4
   max_dlen: 0.001
 
   # Convergence control.
+  # e_threshold: max potential-energy change between iterations (kJ/mol).
+  # f_threshold: max allowed Fmax at convergence (kJ/mol/nm).
+  # min_iter/max_iter: iteration bounds; the ramp below must also be finished.
   e_threshold: 200.0
   f_threshold: 300.0
   min_iter: 3
   max_iter: 300
 
-  # Gradually restore bonded strength while the box is relaxing.
+  # Gradually restore bonded strength while the box is relaxing: force
+  # constants in bonded_itp are scaled from bonded_start to bonded_end
+  # (fractions of the declared values) over bonded_ramp_iters iterations.
   bonded_start: 0.1
   bonded_end: 1.0
   bonded_ramp_iters: 150

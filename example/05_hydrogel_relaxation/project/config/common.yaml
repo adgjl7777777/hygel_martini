@@ -1,3 +1,8 @@
+# config/common.yaml — shared settings for every relaxation mode.
+# Included first by all three maker_*.yaml files; the mode file merged after
+# it may override any key here. ${CONFIG_DIR} in values resolves against the
+# TOP maker file's directory (project/), not this file's config/ directory.
+
 tools:
   # GROMACS executable used by both soft_em and soft_md.
   gmx: gmx_mpi
@@ -21,5 +26,8 @@ runtime:
 paths:
   # Default upstream builder output. Change these if you want to use
   # 04_full_builder or another built system instead of 04_1_example_system.
+  # system_top: the grompp topology of the built system.
+  # bonded_itp: the hydrogel ITP whose bonded strength soft_em rescales
+  #             per iteration (bonded_start..bonded_end ramp).
   system_top: ${CONFIG_DIR}/../../../04_1_example_system/project/output/system.top
   bonded_itp: ${CONFIG_DIR}/../../../04_1_example_system/project/output/initial_hydrogel.itp
