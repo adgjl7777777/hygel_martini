@@ -105,7 +105,10 @@ bartender_pipeline:
           dihedrals: 0.1
           impropers: 0.1
 
-        # Maximum allowed RMSD.
+        # 스크리닝 게이트의 RMSD 상한 — postprocess.py의 ScreeningProcessor가
+        # screening.thresholds.rmsd_max로 읽어 이 값을 넘는 후보를 탈락시킨다.
+        # Screening-gate RMSD ceiling: ScreeningProcessor (postprocess.py)
+        # reads screening.thresholds.rmsd_max and rejects candidates above it.
         rmsd_max: 10.0
 
       write_plots: true

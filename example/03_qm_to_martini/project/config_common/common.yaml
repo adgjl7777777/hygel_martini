@@ -88,6 +88,9 @@ bartender_pipeline:
     # - `topology_n`: keep only graph-topology-consistent terms whose
     #   topology cost is <= n
     # - `topology_swap_n`: topology_n plus permutation/swap allowance
+    #   (모드 검증은 param_opt/qm_to_martini/config.py, swap 비용 처리는
+    #   workflow_logic/builder.py의 allow_swaps / mode validated in
+    #   config.py, swap-aware term cost in workflow_logic/builder.py)
     # - `polymer_backbone`: add all unique reversible combinations, then keep
     #   only new terms involving at least two distinct backbone beads
     # For real polymer cases, switch this to `polymer_backbone`.

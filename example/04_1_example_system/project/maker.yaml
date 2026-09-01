@@ -15,9 +15,13 @@ includes:
   - config/backbone.yaml     # 생성된 topology의 bonded 파라미터 patch 규칙 / bonded patch rules
 
 # 기록용 메타데이터. builder 코드는 이 블록을 읽지 않는다 (hygel_martini에
-# 소비자 없음) — 예제의 역할과 검증 상태를 사람에게 알리는 용도.
-# Record-keeping only; no code in hygel_martini consumes this block. It tells
-# a human what this example demonstrates and what has been validated.
+# 빌더는 이 블록을 읽지 않지만, Series-01 논문 SI의 validate_examples.py가
+# role/property_promotion_allowed를 읽어 출력한다. 키 이름을 바꾸면 그
+# 검증 스크립트와의 계약이 깨지므로 유지할 것.
+# The builder never reads this block, but the Series-01 paper SI's
+# validate_examples.py consumes role/property_promotion_allowed -- keep the
+# key names stable for that contract. It also tells a human what this
+# example demonstrates and what has been validated.
 example_metadata:
   role: YAML construction and graph-contract example
   random_copolymer: DMAPS-SBMA
