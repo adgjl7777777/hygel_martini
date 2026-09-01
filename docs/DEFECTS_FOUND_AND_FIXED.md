@@ -593,7 +593,7 @@ earlier (entry 24), lower than the true −8.9e4 precisely because a missing
 angle term costs nothing. Corrected in place; the commit message of
 `3dc09e5` carries the wrong number permanently, which this entry supersedes.
 
-*Fixed in the commit adding this section.*
+*Fixed in `21d469f`.*
 
 ## Still open
 
