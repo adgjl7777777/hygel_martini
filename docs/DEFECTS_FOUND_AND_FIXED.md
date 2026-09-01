@@ -15,9 +15,10 @@ old behaviour was load-bearing it was kept and labelled.
 
 ## Part 1 — Pre-existing defects in the frozen Series-01 tree
 
-These reproduce at `d02a821`. Only #1 was fixed there (`c24e7a0`); the rest are
-fixed on the working branch only, because the frozen tree is submission
-provenance.
+These reproduce at `d02a821`. All are fixed on this working branch only: the
+frozen tree is submission provenance and is left untouched by standing
+instruction. (#1 was briefly applied there and then reverted for that reason;
+the fix remains available as `5dc494d` to cherry-pick at submission time.)
 
 ### 1. The first example in the start guide cannot load
 
@@ -44,12 +45,17 @@ well-defined stub mass only when their masses agree. `_stub_mass_for_targets()`
 now requires that and names the conflicting masses, instead of silently taking
 whichever target sorted first.
 
-*Fixed in both trees:* `5dc494d` (working), `c24e7a0` (Series-01).
+*Fixed in `5dc494d` (this branch only).* The frozen Series-01 tree still
+carries the defect, deliberately: it is submission provenance and stays at
+`d02a821` by standing instruction. A fix was briefly committed there and
+reverted; nothing was ever pushed.
 
-> **Release note.** `linker_loader.py` is not in `submission_manifest.json`'s
-> hash records, so file-level provenance is intact. But `d02a821` is cited as
-> the public commit in the manifest (5 places) and in `main.tex:100,761` /
-> `si.tex:96,97`. Series-01 HEAD is now `c24e7a0`.
+> **Release note for Series-01.** The tracked example 04 cannot load at
+> `d02a821`. If this is to be fixed before submission, cherry-pick `5dc494d`
+> from this branch and then update the `d02a821` references in
+> `submission_manifest.json` (5 places) and `main.tex:100,761` /
+> `si.tex:96,97`. `linker_loader.py` is not in the manifest's hash records,
+> so file-level provenance is unaffected either way.
 
 ### 2. An OPLS force field yields an empty mass table, silently
 
