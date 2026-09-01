@@ -167,8 +167,13 @@ any fixed threshold below that floor can never fire. The floor scales as
 network_layout:
   conversion:
     fraction: 0.5     # probability each strand chemically forms
-    seed: 3
+    seed: 3           # required: unseeded selection differs on every run
 ```
+
+Note: unformed strands are **removed from the system**, not kept as free
+chains. Physically, unreacted prepolymer stays in the pot -- if the target
+composition matters, add the free chains back via `add_series` and account for
+the density change.
 
 The model is strand dilution: after any rewiring, each strand forms
 independently with the given probability, so the mean realized junction degree

@@ -1,107 +1,107 @@
 === Debug Log Start ===
-[2026-09-01 12:30:48] Debug logging enabled. Mode=all
-[2026-09-01 12:30:48] [run] id=20260901-123048
-[2026-09-01 12:30:48] [progress] 0% run=20260901-123048 stage=start
-[2026-09-01 12:30:48] [progress] 1% run=20260901-123048 stage=start
-[2026-09-01 12:30:48] [progress] 2% run=20260901-123048 stage=prepare
-[2026-09-01 12:30:48] [progress] 3% run=20260901-123048 stage=prepare
-[2026-09-01 12:30:48] [seed] random_seed=2020
-[2026-09-01 12:30:49] [stage] populate_hydrogel_from_blueprint start
-[2026-09-01 12:30:49] [proto-linker-rich] chain=0 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=1 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=2 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=3 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=4 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=5 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=6 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=7 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=8 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=9 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=10 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=11 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=12 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=13 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=14 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=15 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=16 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=17 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=18 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=19 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=20 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=21 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=22 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=23 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=24 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=25 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=26 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=27 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=28 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=29 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=30 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=31 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=32 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=33 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=34 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=35 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=36 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=37 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=38 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=39 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=40 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=41 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=42 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=43 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=44 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=45 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=46 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=47 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=48 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=49 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=50 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=51 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=52 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=53 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=54 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=55 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=56 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=57 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=58 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=59 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=60 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=61 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=62 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [proto-linker-rich] chain=63 template=HEX_linker mapped={} skipped={}
-[2026-09-01 12:30:49] [stage] populate_hydrogel_from_blueprint done
-[2026-09-01 12:30:49] [isotropic] _resolve_close_contacts: 1 overlap(s) jittered by 0.12 nm
-[2026-09-01 12:30:49] [stage] construct_bonds start
-[2026-09-01 12:30:49] [stage] _construct_proto_bonds start
-[2026-09-01 12:30:49] [stage] construct_bonds done
-[2026-09-01 12:30:49] [stage] update_hydrogel_attributes start
-[2026-09-01 12:30:49] [stage] update_hydrogel_attributes done
-[2026-09-01 12:30:49] [stage] _log_min_distance_report backbone start
-[2026-09-01 12:30:49] [progress] 4% run=20260901-123048 stage=min_distance
-[2026-09-01 12:30:49] [progress] 5% run=20260901-123048 stage=min_distance
-[2026-09-01 12:30:49] [progress] 6% run=20260901-123048 stage=min_distance
-[2026-09-01 12:30:49] [progress] 7% run=20260901-123048 stage=min_distance
-[2026-09-01 12:30:49] [progress] 8% run=20260901-123048 stage=min_distance
-[2026-09-01 12:30:49] [progress] 9% run=20260901-123048 stage=min_distance
-[2026-09-01 12:30:49] [progress] 10% run=20260901-123048 stage=min_distance
-[2026-09-01 12:30:49] [progress] 11% run=20260901-123048 stage=min_distance
-[2026-09-01 12:30:49] [progress] 12% run=20260901-123048 stage=min_distance
-[2026-09-01 12:30:49] [progress] 13% run=20260901-123048 stage=min_distance
-[2026-09-01 12:30:49] [progress] 14% run=20260901-123048 stage=min_distance
-[2026-09-01 12:30:49] [progress] 15% run=20260901-123048 stage=min_distance
-[2026-09-01 12:30:49] [progress] 16% run=20260901-123048 stage=min_distance
-[2026-09-01 12:30:49] [progress] 17% run=20260901-123048 stage=min_distance
-[2026-09-01 12:30:49] [progress] 18% run=20260901-123048 stage=min_distance
-[2026-09-01 12:30:49] [stage] _log_min_distance_report backbone done
-[2026-09-01 12:30:50] [progress] 19% run=20260901-123048 stage=dynamic_crosslink
-[2026-09-01 12:30:50] [progress] 20% run=20260901-123048 stage=dynamic_crosslink
-[2026-09-01 12:30:50] [topology-patch] bonds file=/nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/config/backbone.yaml
-[2026-09-01 12:30:50] [stage:backbone-only] OtherSections counts={} WorldConstraints=0 WorldExclusions=0 WorldDihedrals=0
-[2026-09-01 12:30:50] grompp CMD: gmx_mpi grompp -f /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/post_crosslink_relax_geo_opt/minim.mdp -c /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_backbone.gro -p /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/post_crosslink_relax_geo_opt/system.top -o /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/post_crosslink_relax_geo_opt/em.tpr -po /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/post_crosslink_relax_geo_opt/mdout.mdp -maxwarn 2
-[2026-09-01 12:30:51] grompp STDOUT:
-Setting the LD random seed to -672145410
+[2026-09-01 13:17:39] Debug logging enabled. Mode=all
+[2026-09-01 13:17:39] [run] id=20260901-131739
+[2026-09-01 13:17:39] [progress] 0% run=20260901-131739 stage=start
+[2026-09-01 13:17:39] [progress] 1% run=20260901-131739 stage=start
+[2026-09-01 13:17:40] [progress] 2% run=20260901-131739 stage=prepare
+[2026-09-01 13:17:40] [progress] 3% run=20260901-131739 stage=prepare
+[2026-09-01 13:17:40] [seed] random_seed=2020
+[2026-09-01 13:17:40] [stage] populate_hydrogel_from_blueprint start
+[2026-09-01 13:17:40] [proto-linker-rich] chain=0 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=1 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=2 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=3 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=4 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=5 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=6 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=7 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=8 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=9 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=10 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=11 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=12 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=13 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=14 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=15 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=16 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=17 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=18 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=19 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=20 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=21 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=22 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=23 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=24 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=25 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=26 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=27 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=28 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=29 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=30 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=31 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=32 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=33 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=34 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=35 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=36 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=37 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=38 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=39 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=40 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=41 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=42 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=43 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=44 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=45 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=46 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=47 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=48 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=49 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=50 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=51 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=52 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=53 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=54 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=55 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=56 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=57 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=58 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=59 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=60 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=61 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=62 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [proto-linker-rich] chain=63 template=HEX_linker mapped={} skipped={}
+[2026-09-01 13:17:40] [stage] populate_hydrogel_from_blueprint done
+[2026-09-01 13:17:40] [isotropic] _resolve_close_contacts: 1 overlap(s) jittered by 0.12 nm
+[2026-09-01 13:17:40] [stage] construct_bonds start
+[2026-09-01 13:17:40] [stage] _construct_proto_bonds start
+[2026-09-01 13:17:40] [stage] construct_bonds done
+[2026-09-01 13:17:40] [stage] update_hydrogel_attributes start
+[2026-09-01 13:17:40] [stage] update_hydrogel_attributes done
+[2026-09-01 13:17:40] [stage] _log_min_distance_report backbone start
+[2026-09-01 13:17:41] [progress] 4% run=20260901-131739 stage=min_distance
+[2026-09-01 13:17:41] [progress] 5% run=20260901-131739 stage=min_distance
+[2026-09-01 13:17:41] [progress] 6% run=20260901-131739 stage=min_distance
+[2026-09-01 13:17:41] [progress] 7% run=20260901-131739 stage=min_distance
+[2026-09-01 13:17:41] [progress] 8% run=20260901-131739 stage=min_distance
+[2026-09-01 13:17:41] [progress] 9% run=20260901-131739 stage=min_distance
+[2026-09-01 13:17:41] [progress] 10% run=20260901-131739 stage=min_distance
+[2026-09-01 13:17:41] [progress] 11% run=20260901-131739 stage=min_distance
+[2026-09-01 13:17:41] [progress] 12% run=20260901-131739 stage=min_distance
+[2026-09-01 13:17:41] [progress] 13% run=20260901-131739 stage=min_distance
+[2026-09-01 13:17:41] [progress] 14% run=20260901-131739 stage=min_distance
+[2026-09-01 13:17:41] [progress] 15% run=20260901-131739 stage=min_distance
+[2026-09-01 13:17:41] [progress] 16% run=20260901-131739 stage=min_distance
+[2026-09-01 13:17:41] [progress] 17% run=20260901-131739 stage=min_distance
+[2026-09-01 13:17:41] [progress] 18% run=20260901-131739 stage=min_distance
+[2026-09-01 13:17:41] [stage] _log_min_distance_report backbone done
+[2026-09-01 13:17:42] [progress] 19% run=20260901-131739 stage=dynamic_crosslink
+[2026-09-01 13:17:42] [progress] 20% run=20260901-131739 stage=dynamic_crosslink
+[2026-09-01 13:17:42] [topology-patch] bonds file=/nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/config/backbone.yaml
+[2026-09-01 13:17:42] [stage:backbone-only] OtherSections counts={} WorldConstraints=0 WorldExclusions=0 WorldDihedrals=0
+[2026-09-01 13:17:42] grompp CMD: gmx_mpi grompp -f /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/post_crosslink_relax_geo_opt/minim.mdp -c /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_backbone.gro -p /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/post_crosslink_relax_geo_opt/system.top -o /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/post_crosslink_relax_geo_opt/em.tpr -po /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/post_crosslink_relax_geo_opt/mdout.mdp -maxwarn 2
+[2026-09-01 13:17:43] grompp STDOUT:
+Setting the LD random seed to -607132785
 
 Generated 844 of the 356590 non-bonded parameter combinations
 
@@ -112,7 +112,7 @@ Analysing residues not classified as Protein/DNA/RNA/Water and splitting into gr
 
 This run will generate roughly 0 Mb of data
 
-[2026-09-01 12:30:51] grompp STDERR:
+[2026-09-01 13:17:43] grompp STDERR:
                       :-) GROMACS - gmx grompp, 2026.2 (-:
 
 Executable:   /opt/gromacs/2026/bin/gmx_mpi
@@ -124,13 +124,13 @@ Command line:
 Number of degrees of freedom in T-Coupling group rest is 6309.00
 The integrator does not provide a ensemble temperature, there is no system ensemble temperature
 
-GROMACS reminds you: "The farther the experiment is from theory, the closer it is to the Nobel Prize." (Irene Joliot-Curie)
+GROMACS reminds you: "I Got a Forty Dollar Bill" (F. Zappa)
 
 
-[2026-09-01 12:30:51] mdrun CMD: gmx_mpi mdrun -v -deffnm /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/post_crosslink_relax_geo_opt/em -ntomp 4 -nb cpu -update cpu
-[2026-09-01 12:30:51] mdrun STDOUT:
+[2026-09-01 13:17:43] mdrun CMD: gmx_mpi mdrun -v -deffnm /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/post_crosslink_relax_geo_opt/em -ntomp 4 -nb cpu -update cpu
+[2026-09-01 13:17:43] mdrun STDOUT:
 
-[2026-09-01 12:30:51] mdrun STDERR:
+[2026-09-01 13:17:43] mdrun STDERR:
                       :-) GROMACS - gmx mdrun, 2026.2 (-:
 
 Executable:   /opt/gromacs/2026/bin/gmx_mpi
@@ -152,88 +152,118 @@ NOTE: The number of threads is not equal to the number of (logical) cpus
 Steepest Descents:
    Tolerance (Fmax)   =  1.00000e+03
    Number of steps    =         5000
-Step=    0, Dmax= 1.0e-02 nm, Epot=  2.06351e+12 Fmax= 1.05052e+14, atom= 310
-Step=    1, Dmax= 1.0e-02 nm, Epot=  1.39980e+11 Fmax= 4.51268e+12, atom= 1031
-Step=    2, Dmax= 1.2e-02 nm, Epot=  3.91109e+10 Fmax= 4.72047e+11, atom= 1498
-Step=    3, Dmax= 1.4e-02 nm, Epot=  4.17930e+09 Fmax= 4.93810e+10, atom= 1031
-Step=    4, Dmax= 1.7e-02 nm, Epot=  1.35597e+09 Fmax= 1.30966e+10, atom= 357
-Step=    5, Dmax= 2.1e-02 nm, Epot=  7.12202e+08 Fmax= 5.43898e+09, atom= 113
-Step=    6, Dmax= 2.5e-02 nm, Epot=  4.80897e+08 Fmax= 9.42335e+08, atom= 112
-Step=    7, Dmax= 3.0e-02 nm, Epot=  2.84029e+08 Fmax= 5.16248e+08, atom= 113
-Step=    8, Dmax= 3.6e-02 nm, Epot=  2.21676e+08 Fmax= 2.61786e+08, atom= 355
-Step=    9, Dmax= 4.3e-02 nm, Epot=  1.79010e+08 Fmax= 1.10855e+09, atom= 353
-Step=   10, Dmax= 5.2e-02 nm, Epot=  1.65059e+08 Fmax= 7.48710e+08, atom= 351
-Step=   11, Dmax= 6.2e-02 nm, Epot=  1.82794e+08 Fmax= 3.38844e+09, atom= 349
-Step=   12, Dmax= 3.1e-02 nm, Epot=  1.53843e+08 Fmax= 3.22351e+08, atom= 347
-Step=   13, Dmax= 3.7e-02 nm, Epot=  1.38835e+08 Fmax= 1.04415e+08, atom= 349
-Step=   14, Dmax= 4.5e-02 nm, Epot=  1.12169e+08 Fmax= 4.17663e+08, atom= 349
-Step=   15, Dmax= 5.3e-02 nm, Epot=  1.01636e+08 Fmax= 3.14158e+07, atom= 347
-Step=   16, Dmax= 6.4e-02 nm, Epot=  6.19244e+07 Fmax= 1.72542e+08, atom= 347
-Step=   17, Dmax= 7.7e-02 nm, Epot=  5.83520e+07 Fmax= 2.60076e+08, atom= 349
-Step=   18, Dmax= 9.2e-02 nm, Epot=  6.07440e+07 Fmax= 6.45587e+08, atom= 351
-Step=   19, Dmax= 4.6e-02 nm, Epot=  5.41836e+07 Fmax= 4.03576e+07, atom= 351
-Step=   20, Dmax= 5.5e-02 nm, Epot=  4.63554e+07 Fmax= 2.27235e+07, atom= 353
-Step=   21, Dmax= 6.7e-02 nm, Epot=  3.58443e+07 Fmax= 4.35670e+07, atom= 355
-Step=   22, Dmax= 8.0e-02 nm, Epot=  3.36404e+07 Fmax= 1.85886e+08, atom= 357
-Step=   23, Dmax= 9.6e-02 nm, Epot=  3.00709e+07 Fmax= 3.38890e+06, atom= 1396
-Step=   24, Dmax= 1.2e-01 nm, Epot=  5.54419e+06 Fmax= 6.95932e+06, atom= 351
-Step=   25, Dmax= 1.4e-01 nm, Epot=  5.68882e+06 Fmax= 6.81978e+07, atom= 349
-Step=   26, Dmax= 6.9e-02 nm, Epot=  4.90258e+06 Fmax= 4.15574e+06, atom= 349
-Step=   27, Dmax= 8.3e-02 nm, Epot=  4.33555e+06 Fmax= 6.36623e+06, atom= 347
-Step=   28, Dmax= 9.9e-02 nm, Epot=  3.98360e+06 Fmax= 4.98554e+06, atom= 343
-Step=   29, Dmax= 1.2e-01 nm, Epot=  3.48925e+06 Fmax= 3.11349e+05, atom= 1396
-Step=   30, Dmax= 1.4e-01 nm, Epot=  9.59778e+05 Fmax= 2.53716e+05, atom= 1514
-Step=   31, Dmax= 1.7e-01 nm, Epot=  1.07399e+06 Fmax= 2.45171e+06, atom= 1502
-Step=   32, Dmax= 8.6e-02 nm, Epot=  8.78544e+05 Fmax= 3.81001e+05, atom= 1502
-Step=   33, Dmax= 1.0e-01 nm, Epot=  8.64746e+05 Fmax= 1.15516e+06, atom= 424
-Step=   34, Dmax= 1.2e-01 nm, Epot=  7.32051e+05 Fmax= 1.15398e+05, atom= 422
-Step=   35, Dmax= 1.5e-01 nm, Epot=  8.58682e+05 Fmax= 1.35041e+07, atom= 428
-Step=   36, Dmax= 7.4e-02 nm, Epot=  6.35573e+05 Fmax= 5.56347e+05, atom= 428
-Step=   37, Dmax= 8.9e-02 nm, Epot=  5.95021e+05 Fmax= 8.50735e+04, atom= 424
-Step=   38, Dmax= 1.1e-01 nm, Epot=  4.78858e+05 Fmax= 1.47412e+05, atom= 419
-Step=   39, Dmax= 1.3e-01 nm, Epot=  4.66166e+05 Fmax= 1.51079e+06, atom= 419
-Step=   40, Dmax= 1.5e-01 nm, Epot=  4.27731e+05 Fmax= 4.08251e+05, atom= 423
-Step=   41, Dmax= 1.8e-01 nm, Epot=  6.10974e+05 Fmax= 1.18152e+07, atom= 421
-Step=   42, Dmax= 9.2e-02 nm, Epot=  4.11906e+05 Fmax= 2.16321e+05, atom= 421
-Step=   43, Dmax= 1.1e-01 nm, Epot=  3.86644e+05 Fmax= 1.93851e+04, atom= 1503
-Step=   44, Dmax= 1.3e-01 nm, Epot=  2.27703e+05 Fmax= 9.13143e+04, atom= 1499
-Step=   45, Dmax= 1.6e-01 nm, Epot=  2.11750e+05 Fmax= 4.48536e+04, atom= 418
-Step=   46, Dmax= 1.9e-01 nm, Epot=  2.42272e+05 Fmax= 1.82902e+06, atom= 155
-Step=   47, Dmax= 9.6e-02 nm, Epot=  2.00088e+05 Fmax= 3.57181e+04, atom= 153
-Step=   48, Dmax= 1.1e-01 nm, Epot=  2.21064e+05 Fmax= 1.17988e+06, atom= 155
-Step=   49, Dmax= 5.7e-02 nm, Epot=  1.91226e+05 Fmax= 2.26988e+04, atom= 151
-Step=   50, Dmax= 6.9e-02 nm, Epot=  1.80874e+05 Fmax= 2.64656e+04, atom= 264
-Step=   51, Dmax= 8.3e-02 nm, Epot=  1.77021e+05 Fmax= 1.14004e+05, atom= 264
-Step=   52, Dmax= 9.9e-02 nm, Epot=  1.68251e+05 Fmax= 3.82491e+04, atom= 260
-Step=   53, Dmax= 1.2e-01 nm, Epot=  1.69957e+05 Fmax= 2.65483e+05, atom= 258
-Step=   54, Dmax= 6.0e-02 nm, Epot=  1.62705e+05 Fmax= 3.46136e+04, atom= 258
-Step=   55, Dmax= 7.1e-02 nm, Epot=  1.58261e+05 Fmax= 3.21477e+04, atom= 256
-Step=   56, Dmax= 8.6e-02 nm, Epot=  1.52655e+05 Fmax= 1.53944e+04, atom= 256
-Step=   57, Dmax= 1.0e-01 nm, Epot=  1.44681e+05 Fmax= 1.25623e+05, atom= 258
-Step=   58, Dmax= 1.2e-01 nm, Epot=  1.41485e+05 Fmax= 4.03796e+04, atom= 260
-Step=   59, Dmax= 1.5e-01 nm, Epot=  1.38144e+05 Fmax= 7.68418e+04, atom= 262
-Step=   60, Dmax= 1.8e-01 nm, Epot=  1.39196e+05 Fmax= 2.28120e+05, atom= 264
-Step=   61, Dmax= 8.9e-02 nm, Epot=  1.35515e+05 Fmax= 1.74198e+04, atom= 264
-Step=   62, Dmax= 1.1e-01 nm, Epot=  1.29631e+05 Fmax= 6.15224e+03, atom= 268
-Step=   63, Dmax= 1.3e-01 nm, Epot=  1.15827e+05 Fmax= 1.38458e+03, atom= 1630
-Step=   64, Dmax= 1.5e-01 nm, Epot=  9.24382e+04 Fmax= 3.17765e+03, atom= 255
-Step=   65, Dmax= 1.8e-01 nm, Epot=  9.08581e+04 Fmax= 2.68007e+04, atom= 255
-Step=   66, Dmax= 2.2e-01 nm, Epot=  8.94815e+04 Fmax= 1.48630e+04, atom= 257
-Step=   67, Dmax= 2.7e-01 nm, Epot=  8.81894e+04 Fmax= 8.41381e+02, atom= 176
+Step=    0, Dmax= 1.0e-02 nm, Epot=  3.65411e+12 Fmax= 1.05052e+14, atom= 310
+Step=    1, Dmax= 1.0e-02 nm, Epot=  2.75242e+11 Fmax= 5.82047e+12, atom= 1256
+Step=    2, Dmax= 1.2e-02 nm, Epot=  5.51675e+10 Fmax= 5.65213e+11, atom= 1509
+Step=    3, Dmax= 1.4e-02 nm, Epot=  6.32699e+09 Fmax= 5.82812e+10, atom= 1256
+Step=    4, Dmax= 1.7e-02 nm, Epot=  1.63039e+09 Fmax= 1.22006e+10, atom= 357
+Step=    5, Dmax= 2.1e-02 nm, Epot=  7.43986e+08 Fmax= 3.67433e+09, atom= 113
+Step=    6, Dmax= 2.5e-02 nm, Epot=  4.65464e+08 Fmax= 7.34760e+08, atom= 113
+Step=    7, Dmax= 3.0e-02 nm, Epot=  2.76868e+08 Fmax= 3.00828e+08, atom= 113
+Step=    8, Dmax= 3.6e-02 nm, Epot=  2.04468e+08 Fmax= 8.12282e+08, atom= 355
+Step=    9, Dmax= 4.3e-02 nm, Epot=  1.82219e+08 Fmax= 2.27396e+08, atom= 353
+Step=   10, Dmax= 5.2e-02 nm, Epot=  1.51281e+08 Fmax= 9.25978e+08, atom= 351
+Step=   11, Dmax= 6.2e-02 nm, Epot=  1.57748e+08 Fmax= 2.05939e+09, atom= 349
+Step=   12, Dmax= 3.1e-02 nm, Epot=  1.38989e+08 Fmax= 1.72275e+08, atom= 349
+Step=   13, Dmax= 3.7e-02 nm, Epot=  1.22511e+08 Fmax= 1.16638e+08, atom= 347
+Step=   14, Dmax= 4.5e-02 nm, Epot=  1.06601e+08 Fmax= 4.10180e+08, atom= 349
+Step=   15, Dmax= 5.3e-02 nm, Epot=  9.70256e+07 Fmax= 1.86935e+07, atom= 349
+Step=   16, Dmax= 6.4e-02 nm, Epot=  5.32080e+07 Fmax= 2.60760e+08, atom= 349
+Step=   17, Dmax= 7.7e-02 nm, Epot=  4.69137e+07 Fmax= 9.17398e+07, atom= 347
+Step=   18, Dmax= 9.2e-02 nm, Epot=  4.30283e+07 Fmax= 2.58139e+08, atom= 343
+Step=   19, Dmax= 1.1e-01 nm, Epot=  3.77944e+07 Fmax= 6.09385e+06, atom= 349
+Step=   20, Dmax= 1.3e-01 nm, Epot=  2.37437e+07 Fmax= 8.73330e+08, atom= 349
+Step=   21, Dmax= 1.6e-01 nm, Epot=  1.28776e+07 Fmax= 1.06119e+08, atom= 351
+Step=   22, Dmax= 1.9e-01 nm, Epot=  9.99976e+06 Fmax= 2.13855e+06, atom= 550
+Step=   23, Dmax= 2.3e-01 nm, Epot=  1.05554e+12 Fmax= 7.14884e+12, atom= 42
+Step=   24, Dmax= 1.2e-01 nm, Epot=  6.33339e+07 Fmax= 1.00980e+08, atom= 42
+Step=   25, Dmax= 5.8e-02 nm, Epot=  7.54363e+06 Fmax= 3.54758e+06, atom= 42
+Step=   26, Dmax= 6.9e-02 nm, Epot=  1.08644e+07 Fmax= 7.73866e+06, atom= 554
+Step=   27, Dmax= 3.5e-02 nm, Epot=  5.32986e+06 Fmax= 1.77826e+06, atom= 554
+Step=   28, Dmax= 4.1e-02 nm, Epot=  4.27496e+06 Fmax= 5.10558e+06, atom= 554
+Step=   29, Dmax= 5.0e-02 nm, Epot=  3.87454e+06 Fmax= 6.63616e+05, atom= 554
+Step=   30, Dmax= 6.0e-02 nm, Epot=  2.80734e+06 Fmax= 5.61037e+06, atom= 556
+Step=   31, Dmax= 7.2e-02 nm, Epot=  2.50580e+06 Fmax= 2.48936e+05, atom= 554
+Step=   32, Dmax= 8.6e-02 nm, Epot=  5.43319e+06 Fmax= 1.44712e+07, atom= 553
+Step=   33, Dmax= 4.3e-02 nm, Epot=  2.12805e+06 Fmax= 1.00051e+06, atom= 553
+Step=   34, Dmax= 5.2e-02 nm, Epot=  1.51624e+06 Fmax= 2.05086e+05, atom= 555
+Step=   35, Dmax= 6.2e-02 nm, Epot=  1.18404e+06 Fmax= 8.96655e+05, atom= 555
+Step=   36, Dmax= 7.4e-02 nm, Epot=  9.77961e+05 Fmax= 1.07632e+05, atom= 1399
+Step=   37, Dmax= 8.9e-02 nm, Epot=  6.42582e+05 Fmax= 4.01922e+05, atom= 1399
+Step=   38, Dmax= 1.1e-01 nm, Epot=  5.64027e+05 Fmax= 4.29410e+05, atom= 1401
+Step=   39, Dmax= 1.3e-01 nm, Epot=  5.08467e+05 Fmax= 1.74620e+05, atom= 1403
+Step=   40, Dmax= 1.5e-01 nm, Epot=  4.10281e+05 Fmax= 9.89785e+04, atom= 307
+Step=   41, Dmax= 1.8e-01 nm, Epot=  2.87902e+05 Fmax= 7.53588e+04, atom= 950
+Step=   42, Dmax= 2.2e-01 nm, Epot=  1.98878e+09 Fmax= 2.43301e+11, atom= 950
+Step=   43, Dmax= 1.1e-01 nm, Epot=  2.63534e+05 Fmax= 1.23963e+06, atom= 950
+Step=   44, Dmax= 1.3e-01 nm, Epot=  2.33871e+05 Fmax= 3.50944e+04, atom= 1516
+Step=   45, Dmax= 1.6e-01 nm, Epot=  1.33971e+06 Fmax= 5.24204e+07, atom= 1326
+Step=   46, Dmax= 8.0e-02 nm, Epot=  1.99507e+05 Fmax= 3.40181e+05, atom= 1326
+Step=   47, Dmax= 9.6e-02 nm, Epot=  1.82274e+05 Fmax= 1.73847e+05, atom= 1326
+Step=   48, Dmax= 1.1e-01 nm, Epot=  1.68999e+05 Fmax= 1.24608e+05, atom= 1324
+Step=   49, Dmax= 1.4e-01 nm, Epot=  1.66001e+05 Fmax= 7.26632e+05, atom= 1322
+Step=   50, Dmax= 1.7e-01 nm, Epot=  1.69265e+05 Fmax= 1.03821e+06, atom= 1320
+Step=   51, Dmax= 8.3e-02 nm, Epot=  1.50571e+05 Fmax= 6.42713e+04, atom= 1320
+Step=   52, Dmax= 9.9e-02 nm, Epot=  1.35412e+05 Fmax= 1.34498e+05, atom= 1318
+Step=   53, Dmax= 1.2e-01 nm, Epot=  1.24218e+05 Fmax= 6.78125e+03, atom= 1323
+Step=   54, Dmax= 1.4e-01 nm, Epot=  3.12900e+04 Fmax= 3.95766e+04, atom= 264
+Step=   55, Dmax= 1.7e-01 nm, Epot=  3.89852e+04 Fmax= 3.43165e+05, atom= 1098
+Step=   56, Dmax= 8.6e-02 nm, Epot=  2.72751e+04 Fmax= 2.15019e+04, atom= 1098
+Step=   57, Dmax= 1.0e-01 nm, Epot=  2.53955e+04 Fmax= 8.34258e+04, atom= 1096
+Step=   58, Dmax= 1.2e-01 nm, Epot=  2.73772e+04 Fmax= 2.21510e+05, atom= 1094
+Step=   59, Dmax= 6.2e-02 nm, Epot=  2.32621e+04 Fmax= 1.97504e+04, atom= 1094
+Step=   60, Dmax= 7.4e-02 nm, Epot=  2.12002e+04 Fmax= 2.21165e+04, atom= 1092
+Step=   61, Dmax= 8.9e-02 nm, Epot=  1.87789e+04 Fmax= 9.05736e+03, atom= 1090
+Step=   62, Dmax= 1.1e-01 nm, Epot=  1.44356e+04 Fmax= 3.30464e+04, atom= 1088
+Step=   63, Dmax= 1.3e-01 nm, Epot=  1.43443e+04 Fmax= 9.59118e+04, atom= 1086
+Step=   64, Dmax= 1.5e-01 nm, Epot=  1.62546e+04 Fmax= 2.05031e+05, atom= 1084
+Step=   65, Dmax= 7.7e-02 nm, Epot=  1.20320e+04 Fmax= 1.12633e+04, atom= 1082
+Step=   66, Dmax= 9.2e-02 nm, Epot=  9.41311e+03 Fmax= 5.49911e+03, atom= 1084
+Step=   67, Dmax= 1.1e-01 nm, Epot=  4.52269e+03 Fmax= 1.16468e+03, atom= 1086
+Step=   68, Dmax= 1.3e-01 nm, Epot= -8.26539e+03 Fmax= 1.42849e+03, atom= 378
+Step=   69, Dmax= 1.6e-01 nm, Epot= -7.38484e+03 Fmax= 1.14077e+05, atom= 180
+Step=   70, Dmax= 8.0e-02 nm, Epot= -9.74235e+03 Fmax= 4.96823e+03, atom= 180
+Step=   71, Dmax= 9.6e-02 nm, Epot= -1.01513e+04 Fmax= 9.66601e+03, atom= 178
+Step=   72, Dmax= 1.1e-01 nm, Epot= -1.00051e+04 Fmax= 2.55214e+04, atom= 176
+Step=   73, Dmax= 5.7e-02 nm, Epot= -1.04669e+04 Fmax= 3.08888e+03, atom= 176
+Step=   74, Dmax= 6.9e-02 nm, Epot= -1.08404e+04 Fmax= 4.30330e+03, atom= 174
+Step=   75, Dmax= 8.3e-02 nm, Epot= -1.11203e+04 Fmax= 6.02834e+03, atom= 172
+Step=   76, Dmax= 9.9e-02 nm, Epot= -1.12651e+04 Fmax= 1.05353e+04, atom= 170
+Step=   77, Dmax= 1.2e-01 nm, Epot= -1.11849e+04 Fmax= 2.04540e+04, atom= 168
+Step=   78, Dmax= 5.9e-02 nm, Epot= -1.15833e+04 Fmax= 2.30824e+03, atom= 168
+Step=   79, Dmax= 7.1e-02 nm, Epot= -1.19916e+04 Fmax= 1.95401e+03, atom= 166
+Step=   80, Dmax= 8.6e-02 nm, Epot= -1.24277e+04 Fmax= 5.15689e+03, atom= 166
+Step=   81, Dmax= 1.0e-01 nm, Epot= -1.27697e+04 Fmax= 1.34652e+03, atom= 168
+Step=   82, Dmax= 1.2e-01 nm, Epot= -1.10745e+04 Fmax= 1.03119e+05, atom= 172
+Step=   83, Dmax= 6.2e-02 nm, Epot= -1.31533e+04 Fmax= 3.47225e+03, atom= 170
+Step=   84, Dmax= 7.4e-02 nm, Epot= -1.33812e+04 Fmax= 1.81051e+03, atom= 172
+Step=   85, Dmax= 8.9e-02 nm, Epot= -1.36601e+04 Fmax= 5.03749e+03, atom= 174
+Step=   86, Dmax= 1.1e-01 nm, Epot= -1.37017e+04 Fmax= 8.87591e+03, atom= 176
+Step=   87, Dmax= 1.3e-01 nm, Epot= -1.36664e+04 Fmax= 1.36151e+04, atom= 178
+Step=   88, Dmax= 6.4e-02 nm, Epot= -1.39458e+04 Fmax= 1.63387e+03, atom= 180
+Step=   89, Dmax= 7.7e-02 nm, Epot= -1.42298e+04 Fmax= 1.04823e+03, atom= 180
+Step=   90, Dmax= 9.2e-02 nm, Epot= -1.46705e+04 Fmax= 1.49978e+03, atom= 176
+Step=   91, Dmax= 1.1e-01 nm, Epot= -1.49123e+04 Fmax= 4.57985e+03, atom= 174
+Step=   92, Dmax= 1.3e-01 nm, Epot= -1.49682e+04 Fmax= 6.63714e+03, atom= 172
+Step=   93, Dmax= 1.6e-01 nm, Epot= -1.47000e+04 Fmax= 2.02589e+04, atom= 170
+Step=   94, Dmax= 7.9e-02 nm, Epot= -1.51521e+04 Fmax= 1.54715e+03, atom= 170
+Step=   95, Dmax= 9.5e-02 nm, Epot= -1.53371e+04 Fmax= 2.03256e+03, atom= 168
+Step=   96, Dmax= 1.1e-01 nm, Epot= -1.54915e+04 Fmax= 2.85225e+03, atom= 166
+Step=   97, Dmax= 1.4e-01 nm, Epot= -1.57024e+04 Fmax= 1.23942e+02, atom= 774
 
 writing lowest energy coordinates.
 
-Steepest Descents converged to Fmax < 1000 in 68 steps
-Potential Energy  =  8.8189438e+04
-Maximum force     =  8.4138123e+02 on atom 176
-Norm of force     =  1.4193453e+02
+Steepest Descents converged to Fmax < 1000 in 98 steps
+Potential Energy  = -1.5702358e+04
+Maximum force     =  1.2394228e+02 on atom 774
+Norm of force     =  3.5407530e+01
 
-GROMACS reminds you: "The farther the experiment is from theory, the closer it is to the Nobel Prize." (Irene Joliot-Curie)
+GROMACS reminds you: "I Got a Forty Dollar Bill" (F. Zappa)
 
 
-[2026-09-01 12:30:52] grompp CMD: gmx_mpi grompp -f /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/backbone_stage_geo_opt/minim.mdp -c /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/post_crosslink_relax_geo_opt/em.gro -p /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/backbone_stage_geo_opt/system.top -o /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/backbone_stage_geo_opt/em.tpr -po /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/backbone_stage_geo_opt/mdout.mdp -maxwarn 2
-[2026-09-01 12:30:52] grompp STDOUT:
-Setting the LD random seed to -4456589
+[2026-09-01 13:17:43] grompp CMD: gmx_mpi grompp -f /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/backbone_stage_geo_opt/minim.mdp -c /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/post_crosslink_relax_geo_opt/em.gro -p /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/backbone_stage_geo_opt/system.top -o /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/backbone_stage_geo_opt/em.tpr -po /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/backbone_stage_geo_opt/mdout.mdp -maxwarn 2
+[2026-09-01 13:17:44] grompp STDOUT:
+Setting the LD random seed to -429392130
 
 Generated 844 of the 356590 non-bonded parameter combinations
 
@@ -244,7 +274,7 @@ Analysing residues not classified as Protein/DNA/RNA/Water and splitting into gr
 
 This run will generate roughly 0 Mb of data
 
-[2026-09-01 12:30:52] grompp STDERR:
+[2026-09-01 13:17:44] grompp STDERR:
                       :-) GROMACS - gmx grompp, 2026.2 (-:
 
 Executable:   /opt/gromacs/2026/bin/gmx_mpi
@@ -256,13 +286,13 @@ Command line:
 Number of degrees of freedom in T-Coupling group rest is 6309.00
 The integrator does not provide a ensemble temperature, there is no system ensemble temperature
 
-GROMACS reminds you: "A professor is one who talks in someone else's sleep." (W.H. Auden)
+GROMACS reminds you: "Chemistry: It tends to be a messy science." (Gunnar von Heijne, former chair of the Nobel Committee for chemistry)
 
 
-[2026-09-01 12:30:52] mdrun CMD: gmx_mpi mdrun -v -deffnm /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/backbone_stage_geo_opt/em -ntomp 4 -nb cpu -update cpu
-[2026-09-01 12:30:53] mdrun STDOUT:
+[2026-09-01 13:17:44] mdrun CMD: gmx_mpi mdrun -v -deffnm /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/backbone_stage_geo_opt/em -ntomp 4 -nb cpu -update cpu
+[2026-09-01 13:17:44] mdrun STDOUT:
 
-[2026-09-01 12:30:53] mdrun STDERR:
+[2026-09-01 13:17:44] mdrun STDERR:
                       :-) GROMACS - gmx mdrun, 2026.2 (-:
 
 Executable:   /opt/gromacs/2026/bin/gmx_mpi
@@ -284,430 +314,100 @@ NOTE: The number of threads is not equal to the number of (logical) cpus
 Steepest Descents:
    Tolerance (Fmax)   =  1.00000e+03
    Number of steps    =         5000
-Step=    0, Dmax= 1.0e-02 nm, Epot=  2.75373e+06 Fmax= 4.11282e+04, atom= 1527
-Step=    1, Dmax= 1.0e-02 nm, Epot=  2.72771e+06 Fmax= 4.14047e+04, atom= 1498
-Step=    2, Dmax= 1.2e-02 nm, Epot=  2.69862e+06 Fmax= 4.17575e+04, atom= 1498
-Step=    3, Dmax= 1.4e-02 nm, Epot=  2.66672e+06 Fmax= 4.09347e+04, atom= 1498
-Step=    4, Dmax= 1.7e-02 nm, Epot=  2.63146e+06 Fmax= 3.89293e+04, atom= 1498
-Step=    5, Dmax= 2.1e-02 nm, Epot=  2.59244e+06 Fmax= 3.55871e+04, atom= 1498
-Step=    6, Dmax= 2.5e-02 nm, Epot=  2.54936e+06 Fmax= 3.03514e+04, atom= 1498
-Step=    7, Dmax= 3.0e-02 nm, Epot=  2.50176e+06 Fmax= 2.46337e+04, atom= 1517
-Step=    8, Dmax= 3.6e-02 nm, Epot=  2.45214e+06 Fmax= 1.69941e+04, atom= 1738
-Step=    9, Dmax= 4.3e-02 nm, Epot=  2.39751e+06 Fmax= 1.68965e+04, atom= 1738
-Step=   10, Dmax= 5.2e-02 nm, Epot=  2.35469e+06 Fmax= 1.67665e+04, atom= 1738
-Step=   11, Dmax= 6.2e-02 nm, Epot=  2.31358e+06 Fmax= 2.38452e+04, atom= 1499
-Step=   12, Dmax= 7.4e-02 nm, Epot=  2.28336e+06 Fmax= 2.34093e+04, atom= 1499
-Step=   13, Dmax= 8.9e-02 nm, Epot=  2.24667e+06 Fmax= 1.62159e+04, atom= 1738
-Step=   14, Dmax= 1.1e-01 nm, Epot=  2.19103e+06 Fmax= 1.58834e+04, atom= 1738
-Step=   15, Dmax= 1.3e-01 nm, Epot=  2.12841e+06 Fmax= 2.55470e+04, atom= 1499
-Step=   16, Dmax= 1.5e-01 nm, Epot=  2.08677e+06 Fmax= 5.93645e+04, atom= 354
-Step=   17, Dmax= 1.8e-01 nm, Epot=  2.06437e+06 Fmax= 2.81078e+04, atom= 354
-Step=   18, Dmax= 2.2e-01 nm, Epot=  2.01170e+06 Fmax= 1.47442e+04, atom= 1738
-Step=   19, Dmax= 2.7e-01 nm, Epot=  1.91113e+06 Fmax= 9.60185e+04, atom= 1645
-Step=   20, Dmax= 3.2e-01 nm, Epot=  1.89153e+06 Fmax= 1.39765e+04, atom= 1995
-Step=   21, Dmax= 3.8e-01 nm, Epot=  2.60941e+06 Fmax= 4.44812e+07, atom= 1749
-Step=   22, Dmax= 1.9e-01 nm, Epot=  1.82018e+06 Fmax= 4.05450e+04, atom= 1749
-Step=   23, Dmax= 2.3e-01 nm, Epot=  1.79675e+06 Fmax= 1.75418e+05, atom= 132
-Step=   24, Dmax= 2.8e-01 nm, Epot=  1.79064e+06 Fmax= 2.36015e+05, atom= 139
-Step=   25, Dmax= 3.3e-01 nm, Epot=  5.48734e+07 Fmax= 3.64347e+09, atom= 141
-Step=   26, Dmax= 1.7e-01 nm, Epot=  1.78905e+06 Fmax= 1.54481e+05, atom= 141
-Step=   27, Dmax= 2.0e-01 nm, Epot=  1.78764e+06 Fmax= 4.42365e+05, atom= 141
-Step=   28, Dmax= 2.4e-01 nm, Epot=  1.77666e+06 Fmax= 1.54399e+04, atom= 139
-Step=   29, Dmax= 2.9e-01 nm, Epot=  1.70646e+06 Fmax= 3.38449e+05, atom= 1646
-Step=   30, Dmax= 3.4e-01 nm, Epot=  1.69252e+06 Fmax= 1.32275e+04, atom= 143
-Step=   31, Dmax= 4.1e-01 nm, Epot=  2.00578e+06 Fmax= 1.94870e+07, atom= 1647
-Step=   32, Dmax= 2.1e-01 nm, Epot=  1.63006e+06 Fmax= 7.74824e+04, atom= 1647
-Step=   33, Dmax= 2.5e-01 nm, Epot=  1.61634e+06 Fmax= 1.37755e+05, atom= 1645
-Step=   34, Dmax= 3.0e-01 nm, Epot=  1.61069e+06 Fmax= 2.51486e+05, atom= 1643
-Step=   35, Dmax= 3.6e-01 nm, Epot=  1.60812e+06 Fmax= 2.86544e+05, atom= 1641
-Step=   36, Dmax= 4.3e-01 nm, Epot=  1.60144e+06 Fmax= 3.02154e+04, atom= 1641
-Step=   37, Dmax= 5.1e-01 nm, Epot=  1.53203e+06 Fmax= 1.21545e+04, atom= 1646
-Step=   38, Dmax= 6.2e-01 nm, Epot=  9.12093e+07 Fmax= 3.58241e+09, atom= 1834
-Step=   39, Dmax= 3.1e-01 nm, Epot=  1.49281e+06 Fmax= 4.34349e+05, atom= 1749
-Step=   40, Dmax= 3.7e-01 nm, Epot=  1.49979e+06 Fmax= 1.60354e+06, atom= 1956
-Step=   41, Dmax= 1.8e-01 nm, Epot=  1.46768e+06 Fmax= 2.79123e+04, atom= 1644
-Step=   42, Dmax= 2.2e-01 nm, Epot=  1.43010e+06 Fmax= 1.76810e+04, atom= 1646
-Step=   43, Dmax= 2.7e-01 nm, Epot=  2.14221e+06 Fmax= 4.77097e+07, atom= 1646
-Step=   44, Dmax= 1.3e-01 nm, Epot=  1.40712e+06 Fmax= 2.87655e+04, atom= 1646
-Step=   45, Dmax= 1.6e-01 nm, Epot=  1.39213e+06 Fmax= 1.25698e+04, atom= 1646
-Step=   46, Dmax= 1.9e-01 nm, Epot=  1.35422e+06 Fmax= 2.62594e+04, atom= 1646
-Step=   47, Dmax= 2.3e-01 nm, Epot=  1.33378e+06 Fmax= 1.46948e+04, atom= 1646
-Step=   48, Dmax= 2.8e-01 nm, Epot=  1.30082e+06 Fmax= 2.29601e+05, atom= 1645
-Step=   49, Dmax= 3.3e-01 nm, Epot=  1.29662e+06 Fmax= 1.49709e+05, atom= 1647
-Step=   50, Dmax= 4.0e-01 nm, Epot=  1.33463e+06 Fmax= 2.13178e+06, atom= 1647
-Step=   51, Dmax= 2.0e-01 nm, Epot=  1.28920e+06 Fmax= 6.69408e+04, atom= 1647
-Step=   52, Dmax= 2.4e-01 nm, Epot=  1.27934e+06 Fmax= 1.28337e+04, atom= 1649
-Step=   53, Dmax= 2.9e-01 nm, Epot=  1.23619e+06 Fmax= 3.43775e+04, atom= 1649
-Step=   54, Dmax= 3.4e-01 nm, Epot=  1.23217e+06 Fmax= 4.29388e+05, atom= 1648
-Step=   55, Dmax= 4.1e-01 nm, Epot=  1.26214e+06 Fmax= 1.94821e+06, atom= 1644
-Step=   56, Dmax= 2.1e-01 nm, Epot=  1.22077e+06 Fmax= 2.64970e+04, atom= 1644
-Step=   57, Dmax= 2.5e-01 nm, Epot=  1.20128e+06 Fmax= 2.71964e+04, atom= 1644
-Step=   58, Dmax= 3.0e-01 nm, Epot=  1.18102e+06 Fmax= 1.42233e+04, atom= 1644
-Step=   59, Dmax= 3.6e-01 nm, Epot=  1.21438e+06 Fmax= 3.42759e+06, atom= 1644
-Step=   60, Dmax= 1.8e-01 nm, Epot=  1.15999e+06 Fmax= 1.32593e+04, atom= 1643
-Step=   61, Dmax= 2.1e-01 nm, Epot=  1.13930e+06 Fmax= 2.93761e+04, atom= 1643
-Step=   62, Dmax= 2.6e-01 nm, Epot=  1.12501e+06 Fmax= 2.23313e+04, atom= 1643
-Step=   63, Dmax= 3.1e-01 nm, Epot=  1.11141e+06 Fmax= 1.94458e+04, atom= 1649
-Step=   64, Dmax= 3.7e-01 nm, Epot=  1.16413e+06 Fmax= 2.99843e+06, atom= 1644
-Step=   65, Dmax= 1.8e-01 nm, Epot=  1.09481e+06 Fmax= 2.47580e+04, atom= 1642
-Step=   66, Dmax= 2.2e-01 nm, Epot=  1.08333e+06 Fmax= 3.11802e+04, atom= 1642
-Step=   67, Dmax= 2.7e-01 nm, Epot=  1.07063e+06 Fmax= 1.83622e+04, atom= 1642
-Step=   68, Dmax= 3.2e-01 nm, Epot=  1.06545e+06 Fmax= 1.66499e+05, atom= 1643
-Step=   69, Dmax= 3.8e-01 nm, Epot=  1.71401e+06 Fmax= 4.00203e+07, atom= 1645
-Step=   70, Dmax= 1.9e-01 nm, Epot=  1.05273e+06 Fmax= 3.76780e+04, atom= 1647
-Step=   71, Dmax= 2.3e-01 nm, Epot=  1.03965e+06 Fmax= 1.11008e+04, atom= 1645
-Step=   72, Dmax= 2.8e-01 nm, Epot=  1.03425e+06 Fmax= 2.74444e+05, atom= 1645
-Step=   73, Dmax= 3.3e-01 nm, Epot=  1.01823e+06 Fmax= 2.72405e+04, atom= 1647
-Step=   74, Dmax= 4.0e-01 nm, Epot=  1.01417e+06 Fmax= 1.56148e+05, atom= 1648
-Step=   75, Dmax= 4.8e-01 nm, Epot=  1.00324e+06 Fmax= 1.15730e+05, atom= 1646
-Step=   76, Dmax= 5.7e-01 nm, Epot=  1.00304e+06 Fmax= 3.88325e+04, atom= 1644
-Step=   77, Dmax= 6.8e-01 nm, Epot=  9.75166e+05 Fmax= 1.92160e+04, atom= 1647
-Step=   78, Dmax= 8.2e-01 nm, Epot=  1.02803e+06 Fmax= 1.78975e+06, atom= 1642
-Step=   79, Dmax= 4.1e-01 nm, Epot=  9.53865e+05 Fmax= 1.60758e+04, atom= 1649
-Step=   80, Dmax= 4.9e-01 nm, Epot=  1.03581e+06 Fmax= 2.13476e+06, atom= 1646
-Step=   81, Dmax= 2.5e-01 nm, Epot=  9.46560e+05 Fmax= 2.10108e+04, atom= 1648
-Step=   82, Dmax= 3.0e-01 nm, Epot=  9.46702e+05 Fmax= 3.43184e+04, atom= 1652
-Step=   83, Dmax= 1.5e-01 nm, Epot=  9.30506e+05 Fmax= 9.65107e+03, atom= 1652
-Step=   84, Dmax= 1.8e-01 nm, Epot=  9.24603e+05 Fmax= 2.62646e+04, atom= 1652
-Step=   85, Dmax= 2.1e-01 nm, Epot=  9.13096e+05 Fmax= 1.85150e+04, atom= 1653
-Step=   86, Dmax= 2.6e-01 nm, Epot=  9.19152e+05 Fmax= 3.34023e+04, atom= 1653
-Step=   87, Dmax= 1.3e-01 nm, Epot=  9.03518e+05 Fmax= 8.07037e+03, atom= 1652
-Step=   88, Dmax= 1.5e-01 nm, Epot=  9.01530e+05 Fmax= 2.54351e+04, atom= 1653
-Step=   89, Dmax= 1.8e-01 nm, Epot=  8.87575e+05 Fmax= 1.35505e+04, atom= 1652
-Step=   90, Dmax= 2.2e-01 nm, Epot=  9.00309e+05 Fmax= 2.94511e+04, atom= 1654
-Step=   91, Dmax= 1.1e-01 nm, Epot=  8.80285e+05 Fmax= 1.07120e+04, atom= 1653
-Step=   92, Dmax= 1.3e-01 nm, Epot=  8.77036e+05 Fmax= 1.72241e+04, atom= 1652
-Step=   93, Dmax= 1.6e-01 nm, Epot=  8.71346e+05 Fmax= 1.72733e+04, atom= 1653
-Step=   94, Dmax= 1.9e-01 nm, Epot=  8.72168e+05 Fmax= 2.38921e+04, atom= 1652
-Step=   95, Dmax= 9.5e-02 nm, Epot=  8.60441e+05 Fmax= 4.17840e+03, atom= 1721
-Step=   96, Dmax= 1.1e-01 nm, Epot=  8.51766e+05 Fmax= 1.63855e+04, atom= 1653
-Step=   97, Dmax= 1.4e-01 nm, Epot=  8.44515e+05 Fmax= 1.41499e+04, atom= 1652
-Step=   98, Dmax= 1.6e-01 nm, Epot=  8.46098e+05 Fmax= 2.03965e+04, atom= 1652
-Step=   99, Dmax= 8.2e-02 nm, Epot=  8.35958e+05 Fmax= 4.05231e+03, atom= 1651
-Step=  100, Dmax= 9.9e-02 nm, Epot=  8.30506e+05 Fmax= 1.63014e+04, atom= 1652
-Step=  101, Dmax= 1.2e-01 nm, Epot=  8.21457e+05 Fmax= 9.52914e+03, atom= 1651
-Step=  102, Dmax= 1.4e-01 nm, Epot=  8.26049e+05 Fmax= 2.15016e+04, atom= 1652
-Step=  103, Dmax= 7.1e-02 nm, Epot=  8.15949e+05 Fmax= 6.35533e+03, atom= 1652
-Step=  104, Dmax= 8.5e-02 nm, Epot=  8.12586e+05 Fmax= 1.16314e+04, atom= 1651
-Step=  105, Dmax= 1.0e-01 nm, Epot=  8.07756e+05 Fmax= 1.09763e+04, atom= 1652
-Step=  106, Dmax= 1.2e-01 nm, Epot=  8.06860e+05 Fmax= 1.55652e+04, atom= 1651
-Step=  107, Dmax= 1.5e-01 nm, Epot=  8.03827e+05 Fmax= 1.67975e+04, atom= 1652
-Step=  108, Dmax= 1.8e-01 nm, Epot=  8.05794e+05 Fmax= 2.18009e+04, atom= 1651
-Step=  109, Dmax= 8.9e-02 nm, Epot=  7.92040e+05 Fmax= 4.08793e+03, atom= 1723
-Step=  110, Dmax= 1.1e-01 nm, Epot=  7.85327e+05 Fmax= 1.21898e+04, atom= 1652
-Step=  111, Dmax= 1.3e-01 nm, Epot=  7.84319e+05 Fmax= 1.58738e+04, atom= 1651
-Step=  112, Dmax= 1.5e-01 nm, Epot=  7.82370e+05 Fmax= 1.73012e+04, atom= 1652
-Step=  113, Dmax= 1.8e-01 nm, Epot=  7.85826e+05 Fmax= 2.32645e+04, atom= 1651
-Step=  114, Dmax= 9.2e-02 nm, Epot=  7.70218e+05 Fmax= 3.83313e+03, atom= 1723
-Step=  115, Dmax= 1.1e-01 nm, Epot=  7.66322e+05 Fmax= 1.49696e+04, atom= 1652
-Step=  116, Dmax= 1.3e-01 nm, Epot=  7.62132e+05 Fmax= 1.45189e+04, atom= 1651
-Step=  117, Dmax= 1.6e-01 nm, Epot=  7.64493e+05 Fmax= 1.94726e+04, atom= 1652
-Step=  118, Dmax= 7.9e-02 nm, Epot=  7.53694e+05 Fmax= 3.46756e+03, atom= 1723
-Step=  119, Dmax= 9.5e-02 nm, Epot=  7.50249e+05 Fmax= 1.45789e+04, atom= 1651
-Step=  120, Dmax= 1.1e-01 nm, Epot=  7.44381e+05 Fmax= 1.03277e+04, atom= 1650
-Step=  121, Dmax= 1.4e-01 nm, Epot=  7.49085e+05 Fmax= 2.00430e+04, atom= 1651
-Step=  122, Dmax= 6.9e-02 nm, Epot=  7.39431e+05 Fmax= 5.11071e+03, atom= 1651
-Step=  123, Dmax= 8.2e-02 nm, Epot=  7.38020e+05 Fmax= 1.20160e+04, atom= 1650
-Step=  124, Dmax= 9.9e-02 nm, Epot=  7.33757e+05 Fmax= 1.00178e+04, atom= 1651
-Step=  125, Dmax= 1.2e-01 nm, Epot=  7.34659e+05 Fmax= 1.54350e+04, atom= 1650
-Step=  126, Dmax= 5.9e-02 nm, Epot=  7.29169e+05 Fmax= 3.22468e+03, atom= 1650
-Step=  127, Dmax= 7.1e-02 nm, Epot=  7.26003e+05 Fmax= 1.14875e+04, atom= 1651
-Step=  128, Dmax= 8.5e-02 nm, Epot=  7.21436e+05 Fmax= 7.30051e+03, atom= 1650
-Step=  129, Dmax= 1.0e-01 nm, Epot=  7.22510e+05 Fmax= 1.50265e+04, atom= 1651
-Step=  130, Dmax= 5.1e-02 nm, Epot=  7.18274e+05 Fmax= 4.19389e+03, atom= 1651
-Step=  131, Dmax= 6.1e-02 nm, Epot=  7.15821e+05 Fmax= 8.73177e+03, atom= 1650
-Step=  132, Dmax= 7.4e-02 nm, Epot=  7.12835e+05 Fmax= 7.62683e+03, atom= 1651
-Step=  133, Dmax= 8.8e-02 nm, Epot=  7.11892e+05 Fmax= 1.15027e+04, atom= 1650
-Step=  134, Dmax= 1.1e-01 nm, Epot=  7.09586e+05 Fmax= 1.19527e+04, atom= 1651
-Step=  135, Dmax= 1.3e-01 nm, Epot=  7.10003e+05 Fmax= 1.58138e+04, atom= 1650
-Step=  136, Dmax= 6.4e-02 nm, Epot=  7.04117e+05 Fmax= 2.35450e+03, atom= 1650
-Step=  137, Dmax= 7.6e-02 nm, Epot=  6.99857e+05 Fmax= 1.26042e+04, atom= 1651
-Step=  138, Dmax= 9.2e-02 nm, Epot=  6.95095e+05 Fmax= 7.69788e+03, atom= 1650
-Step=  139, Dmax= 1.1e-01 nm, Epot=  6.97278e+05 Fmax= 1.61531e+04, atom= 1651
-Step=  140, Dmax= 5.5e-02 nm, Epot=  6.92183e+05 Fmax= 4.57491e+03, atom= 1651
-Step=  141, Dmax= 6.6e-02 nm, Epot=  6.90519e+05 Fmax= 9.51683e+03, atom= 1650
-Step=  142, Dmax= 7.9e-02 nm, Epot=  6.87682e+05 Fmax= 7.99113e+03, atom= 1651
-Step=  143, Dmax= 9.5e-02 nm, Epot=  6.87550e+05 Fmax= 1.27047e+04, atom= 1650
-Step=  144, Dmax= 1.1e-01 nm, Epot=  6.85154e+05 Fmax= 1.24197e+04, atom= 1651
-Step=  145, Dmax= 1.4e-01 nm, Epot=  6.86904e+05 Fmax= 1.75677e+04, atom= 1650
-Step=  146, Dmax= 6.8e-02 nm, Epot=  6.79734e+05 Fmax= 2.92596e+03, atom= 1650
-Step=  147, Dmax= 8.2e-02 nm, Epot=  6.78015e+05 Fmax= 1.36612e+04, atom= 1651
-Step=  148, Dmax= 9.9e-02 nm, Epot=  6.72984e+05 Fmax= 8.19401e+03, atom= 1650
-Step=  149, Dmax= 1.2e-01 nm, Epot=  6.76249e+05 Fmax= 1.74004e+04, atom= 1651
-Step=  150, Dmax= 5.9e-02 nm, Epot=  6.70171e+05 Fmax= 4.95324e+03, atom= 1651
-Step=  151, Dmax= 7.1e-02 nm, Epot=  6.69117e+05 Fmax= 1.03031e+04, atom= 1650
-Step=  152, Dmax= 8.5e-02 nm, Epot=  6.66327e+05 Fmax= 8.48047e+03, atom= 1651
-Step=  153, Dmax= 1.0e-01 nm, Epot=  6.66893e+05 Fmax= 1.38363e+04, atom= 1650
-Step=  154, Dmax= 5.1e-02 nm, Epot=  6.63293e+05 Fmax= 3.00676e+03, atom= 1650
-Step=  155, Dmax= 6.1e-02 nm, Epot=  6.61006e+05 Fmax= 9.60446e+03, atom= 1651
-Step=  156, Dmax= 7.4e-02 nm, Epot=  6.58053e+05 Fmax= 6.72015e+03, atom= 1650
-Step=  157, Dmax= 8.8e-02 nm, Epot=  6.58158e+05 Fmax= 1.23720e+04, atom= 1651
-Step=  158, Dmax= 4.4e-02 nm, Epot=  6.55721e+05 Fmax= 3.17003e+03, atom= 1651
-Step=  159, Dmax= 5.3e-02 nm, Epot=  6.53542e+05 Fmax= 7.96396e+03, atom= 1650
-Step=  160, Dmax= 6.4e-02 nm, Epot=  6.51167e+05 Fmax= 6.08576e+03, atom= 1651
-Step=  161, Dmax= 7.6e-02 nm, Epot=  6.50496e+05 Fmax= 1.04974e+04, atom= 1650
-Step=  162, Dmax= 9.2e-02 nm, Epot=  6.48249e+05 Fmax= 9.64178e+03, atom= 1651
-Step=  163, Dmax= 1.1e-01 nm, Epot=  6.49004e+05 Fmax= 1.44269e+04, atom= 1650
-Step=  164, Dmax= 5.5e-02 nm, Epot=  6.44807e+05 Fmax= 2.70331e+03, atom= 1650
-Step=  165, Dmax= 6.6e-02 nm, Epot=  6.42672e+05 Fmax= 1.06521e+04, atom= 1651
-Step=  166, Dmax= 7.9e-02 nm, Epot=  6.39408e+05 Fmax= 6.89771e+03, atom= 1650
-Step=  167, Dmax= 9.5e-02 nm, Epot=  6.40412e+05 Fmax= 1.36139e+04, atom= 1651
-Step=  168, Dmax= 4.7e-02 nm, Epot=  6.37160e+05 Fmax= 3.68884e+03, atom= 1651
-Step=  169, Dmax= 5.7e-02 nm, Epot=  6.35624e+05 Fmax= 8.43097e+03, atom= 1650
-Step=  170, Dmax= 6.8e-02 nm, Epot=  6.33343e+05 Fmax= 6.65387e+03, atom= 1651
-Step=  171, Dmax= 8.2e-02 nm, Epot=  6.33131e+05 Fmax= 1.12115e+04, atom= 1650
-Step=  172, Dmax= 9.8e-02 nm, Epot=  6.31019e+05 Fmax= 1.04310e+04, atom= 1651
-Step=  173, Dmax= 1.2e-01 nm, Epot=  6.32372e+05 Fmax= 1.54587e+04, atom= 1650
-Step=  174, Dmax= 5.9e-02 nm, Epot=  6.27254e+05 Fmax= 2.81225e+03, atom= 1650
-Step=  175, Dmax= 7.1e-02 nm, Epot=  6.25904e+05 Fmax= 1.16156e+04, atom= 1651
-Step=  176, Dmax= 8.5e-02 nm, Epot=  6.22309e+05 Fmax= 7.23897e+03, atom= 1650
-Step=  177, Dmax= 1.0e-01 nm, Epot=  6.24286e+05 Fmax= 1.48284e+04, atom= 1651
-Step=  178, Dmax= 5.1e-02 nm, Epot=  6.20080e+05 Fmax= 4.11352e+03, atom= 1651
-Step=  179, Dmax= 6.1e-02 nm, Epot=  6.19055e+05 Fmax= 8.99821e+03, atom= 1650
-Step=  180, Dmax= 7.3e-02 nm, Epot=  6.16808e+05 Fmax= 7.20766e+03, atom= 1651
-Step=  181, Dmax= 8.8e-02 nm, Epot=  6.17106e+05 Fmax= 1.20277e+04, atom= 1650
-Step=  182, Dmax= 4.4e-02 nm, Epot=  6.14526e+05 Fmax= 2.70639e+03, atom= 1650
-Step=  183, Dmax= 5.3e-02 nm, Epot=  6.12622e+05 Fmax= 8.18822e+03, atom= 1651
-Step=  184, Dmax= 6.3e-02 nm, Epot=  6.10371e+05 Fmax= 5.89379e+03, atom= 1650
-Step=  185, Dmax= 7.6e-02 nm, Epot=  6.10213e+05 Fmax= 1.05705e+04, atom= 1651
-Step=  186, Dmax= 9.1e-02 nm, Epot=  6.08157e+05 Fmax= 9.61571e+03, atom= 1650
-Step=  187, Dmax= 1.1e-01 nm, Epot=  6.09324e+05 Fmax= 1.43110e+04, atom= 1651
-Step=  188, Dmax= 5.5e-02 nm, Epot=  6.04880e+05 Fmax= 2.66938e+03, atom= 1651
-Step=  189, Dmax= 6.6e-02 nm, Epot=  6.03613e+05 Fmax= 1.08300e+04, atom= 1650
-Step=  190, Dmax= 7.9e-02 nm, Epot=  6.00379e+05 Fmax= 6.64019e+03, atom= 1651
-Step=  191, Dmax= 9.5e-02 nm, Epot=  6.02119e+05 Fmax= 1.39589e+04, atom= 1650
-Step=  192, Dmax= 4.7e-02 nm, Epot=  5.98388e+05 Fmax= 3.94277e+03, atom= 1650
-Step=  193, Dmax= 5.7e-02 nm, Epot=  5.97367e+05 Fmax= 8.17083e+03, atom= 1651
-Step=  194, Dmax= 6.8e-02 nm, Epot=  5.95437e+05 Fmax= 6.93673e+03, atom= 1650
-Step=  195, Dmax= 8.2e-02 nm, Epot=  5.95443e+05 Fmax= 1.08446e+04, atom= 1651
-Step=  196, Dmax= 4.1e-02 nm, Epot=  5.93300e+05 Fmax= 2.27067e+03, atom= 1651
-Step=  197, Dmax= 4.9e-02 nm, Epot=  5.91212e+05 Fmax= 7.77200e+03, atom= 1650
-Step=  198, Dmax= 5.9e-02 nm, Epot=  5.89076e+05 Fmax= 5.26995e+03, atom= 1651
-Step=  199, Dmax= 7.1e-02 nm, Epot=  5.88954e+05 Fmax= 1.00980e+04, atom= 1650
-Step=  200, Dmax= 8.5e-02 nm, Epot=  5.86825e+05 Fmax= 8.57372e+03, atom= 1651
-Step=  201, Dmax= 1.0e-01 nm, Epot=  5.88210e+05 Fmax= 1.37801e+04, atom= 1650
-Step=  202, Dmax= 5.1e-02 nm, Epot=  5.84020e+05 Fmax= 2.86687e+03, atom= 1650
-Step=  203, Dmax= 6.1e-02 nm, Epot=  5.83071e+05 Fmax= 9.71203e+03, atom= 1651
-Step=  204, Dmax= 7.3e-02 nm, Epot=  5.80384e+05 Fmax= 6.59000e+03, atom= 1650
-Step=  205, Dmax= 8.8e-02 nm, Epot=  5.81558e+05 Fmax= 1.24101e+04, atom= 1651
-Step=  206, Dmax= 4.4e-02 nm, Epot=  5.78417e+05 Fmax= 3.22602e+03, atom= 1651
-Step=  207, Dmax= 5.3e-02 nm, Epot=  5.77383e+05 Fmax= 8.01071e+03, atom= 1650
-Step=  208, Dmax= 6.3e-02 nm, Epot=  5.75364e+05 Fmax= 5.96344e+03, atom= 1651
-Step=  209, Dmax= 7.6e-02 nm, Epot=  5.75665e+05 Fmax= 1.06587e+04, atom= 1650
-Step=  210, Dmax= 3.8e-02 nm, Epot=  5.73557e+05 Fmax= 2.60717e+03, atom= 1650
-Step=  211, Dmax= 4.6e-02 nm, Epot=  5.72056e+05 Fmax= 6.83286e+03, atom= 1651
-Step=  212, Dmax= 5.5e-02 nm, Epot=  5.70298e+05 Fmax= 5.34985e+03, atom= 1650
-Step=  213, Dmax= 6.6e-02 nm, Epot=  5.69957e+05 Fmax= 8.82157e+03, atom= 1651
-Step=  214, Dmax= 7.9e-02 nm, Epot=  5.68495e+05 Fmax= 8.64971e+03, atom= 1650
-Step=  215, Dmax= 9.5e-02 nm, Epot=  5.69014e+05 Fmax= 1.19337e+04, atom= 1651
-Step=  216, Dmax= 4.7e-02 nm, Epot=  5.65627e+05 Fmax= 1.97302e+03, atom= 1651
-Step=  217, Dmax= 5.7e-02 nm, Epot=  5.63918e+05 Fmax= 9.42173e+03, atom= 1650
-Step=  218, Dmax= 6.8e-02 nm, Epot=  5.61187e+05 Fmax= 5.62603e+03, atom= 1651
-Step=  219, Dmax= 8.2e-02 nm, Epot=  5.62658e+05 Fmax= 1.22207e+04, atom= 1650
-Step=  220, Dmax= 4.1e-02 nm, Epot=  5.59552e+05 Fmax= 3.53719e+03, atom= 1650
-Step=  221, Dmax= 4.9e-02 nm, Epot=  5.58650e+05 Fmax= 6.87601e+03, atom= 1651
-Step=  222, Dmax= 5.9e-02 nm, Epot=  5.57134e+05 Fmax= 6.20957e+03, atom= 1650
-Step=  223, Dmax= 7.1e-02 nm, Epot=  5.56952e+05 Fmax= 9.07647e+03, atom= 1651
-Step=  224, Dmax= 8.5e-02 nm, Epot=  5.55950e+05 Fmax= 9.72239e+03, atom= 1650
-Step=  225, Dmax= 1.0e-01 nm, Epot=  5.56509e+05 Fmax= 1.24114e+04, atom= 1651
-Step=  226, Dmax= 5.1e-02 nm, Epot=  5.52439e+05 Fmax= 1.69047e+03, atom= 1651
-Step=  227, Dmax= 6.1e-02 nm, Epot=  5.50634e+05 Fmax= 1.02799e+04, atom= 1650
-Step=  228, Dmax= 7.3e-02 nm, Epot=  5.47470e+05 Fmax= 5.87594e+03, atom= 1651
-Step=  229, Dmax= 8.8e-02 nm, Epot=  5.50006e+05 Fmax= 1.33769e+04, atom= 1650
-Step=  230, Dmax= 4.4e-02 nm, Epot=  5.45842e+05 Fmax= 3.96685e+03, atom= 1650
-Step=  231, Dmax= 5.3e-02 nm, Epot=  5.45276e+05 Fmax= 7.27416e+03, atom= 1651
-Step=  232, Dmax= 6.3e-02 nm, Epot=  5.43851e+05 Fmax= 6.80864e+03, atom= 1650
-Step=  233, Dmax= 7.6e-02 nm, Epot=  5.43964e+05 Fmax= 9.62496e+03, atom= 1651
-Step=  234, Dmax= 3.8e-02 nm, Epot=  5.41772e+05 Fmax= 1.73382e+03, atom= 1651
-Step=  235, Dmax= 4.6e-02 nm, Epot=  5.39939e+05 Fmax= 7.42697e+03, atom= 1650
-Step=  236, Dmax= 5.5e-02 nm, Epot=  5.37927e+05 Fmax= 4.63420e+03, atom= 1651
-Step=  237, Dmax= 6.6e-02 nm, Epot=  5.38437e+05 Fmax= 9.71564e+03, atom= 1650
-Step=  238, Dmax= 3.3e-02 nm, Epot=  5.36547e+05 Fmax= 2.75900e+03, atom= 1650
-Step=  239, Dmax= 3.9e-02 nm, Epot=  5.35463e+05 Fmax= 5.50759e+03, atom= 1651
-Step=  240, Dmax= 4.7e-02 nm, Epot=  5.34161e+05 Fmax= 5.02785e+03, atom= 1650
-Step=  241, Dmax= 5.7e-02 nm, Epot=  5.33662e+05 Fmax= 7.19122e+03, atom= 1651
-Step=  242, Dmax= 6.8e-02 nm, Epot=  5.32772e+05 Fmax= 7.93706e+03, atom= 1650
-Step=  243, Dmax= 8.2e-02 nm, Epot=  5.32715e+05 Fmax= 9.77674e+03, atom= 1651
-Step=  244, Dmax= 9.8e-02 nm, Epot=  5.32977e+05 Fmax= 1.20088e+04, atom= 1650
-Step=  245, Dmax= 4.9e-02 nm, Epot=  5.28846e+05 Fmax= 1.34821e+03, atom= 1970
-Step=  246, Dmax= 5.9e-02 nm, Epot=  5.26058e+05 Fmax= 8.76885e+03, atom= 1651
-Step=  247, Dmax= 7.1e-02 nm, Epot=  5.24002e+05 Fmax= 6.99176e+03, atom= 1650
-Step=  248, Dmax= 8.5e-02 nm, Epot=  5.25428e+05 Fmax= 1.12285e+04, atom= 1651
-Step=  249, Dmax= 4.2e-02 nm, Epot=  5.21831e+05 Fmax= 2.45014e+03, atom= 1651
-Step=  250, Dmax= 5.1e-02 nm, Epot=  5.21469e+05 Fmax= 8.27416e+03, atom= 1650
-Step=  251, Dmax= 6.1e-02 nm, Epot=  5.19163e+05 Fmax= 5.13450e+03, atom= 1651
-Step=  252, Dmax= 7.3e-02 nm, Epot=  5.20756e+05 Fmax= 1.09616e+04, atom= 1650
-Step=  253, Dmax= 3.7e-02 nm, Epot=  5.17693e+05 Fmax= 3.10550e+03, atom= 1650
-Step=  254, Dmax= 4.4e-02 nm, Epot=  5.17054e+05 Fmax= 6.13109e+03, atom= 1651
-Step=  255, Dmax= 5.3e-02 nm, Epot=  5.15770e+05 Fmax= 5.64528e+03, atom= 1650
-Step=  256, Dmax= 6.3e-02 nm, Epot=  5.15711e+05 Fmax= 7.95615e+03, atom= 1651
-Step=  257, Dmax= 7.6e-02 nm, Epot=  5.15105e+05 Fmax= 8.97196e+03, atom= 1650
-Step=  258, Dmax= 9.1e-02 nm, Epot=  5.15453e+05 Fmax= 1.07323e+04, atom= 1651
-Step=  259, Dmax= 4.5e-02 nm, Epot=  5.11690e+05 Fmax= 1.30049e+03, atom= 1970
-Step=  260, Dmax= 5.5e-02 nm, Epot=  5.09579e+05 Fmax= 8.75495e+03, atom= 1650
-Step=  261, Dmax= 6.5e-02 nm, Epot=  5.07107e+05 Fmax= 5.64189e+03, atom= 1649
-Step=  262, Dmax= 7.9e-02 nm, Epot=  5.09502e+05 Fmax= 1.17264e+04, atom= 1650
-Step=  263, Dmax= 3.9e-02 nm, Epot=  5.05459e+05 Fmax= 3.21837e+03, atom= 1650
-Step=  264, Dmax= 4.7e-02 nm, Epot=  5.05190e+05 Fmax= 6.72356e+03, atom= 1649
-Step=  265, Dmax= 5.7e-02 nm, Epot=  5.03782e+05 Fmax= 5.93342e+03, atom= 1650
-Step=  266, Dmax= 6.8e-02 nm, Epot=  5.04218e+05 Fmax= 8.71944e+03, atom= 1649
-Step=  267, Dmax= 3.4e-02 nm, Epot=  5.01936e+05 Fmax= 1.70007e+03, atom= 1649
-Step=  268, Dmax= 4.1e-02 nm, Epot=  5.00823e+05 Fmax= 6.64682e+03, atom= 1650
-Step=  269, Dmax= 4.9e-02 nm, Epot=  4.98989e+05 Fmax= 4.14220e+03, atom= 1649
-Step=  270, Dmax= 5.9e-02 nm, Epot=  4.99732e+05 Fmax= 8.72309e+03, atom= 1650
-Step=  271, Dmax= 2.9e-02 nm, Epot=  4.97759e+05 Fmax= 2.48657e+03, atom= 1650
-Step=  272, Dmax= 3.5e-02 nm, Epot=  4.96930e+05 Fmax= 4.90959e+03, atom= 1649
-Step=  273, Dmax= 4.2e-02 nm, Epot=  4.95807e+05 Fmax= 4.52615e+03, atom= 1650
-Step=  274, Dmax= 5.1e-02 nm, Epot=  4.95487e+05 Fmax= 6.42096e+03, atom= 1649
-Step=  275, Dmax= 6.1e-02 nm, Epot=  4.94783e+05 Fmax= 7.11854e+03, atom= 1650
-Step=  276, Dmax= 7.3e-02 nm, Epot=  4.94883e+05 Fmax= 8.76198e+03, atom= 1649
-Step=  277, Dmax= 3.6e-02 nm, Epot=  4.92255e+05 Fmax= 1.24206e+03, atom= 1970
-Step=  278, Dmax= 4.4e-02 nm, Epot=  4.90058e+05 Fmax= 6.36782e+03, atom= 1650
-Step=  279, Dmax= 5.3e-02 nm, Epot=  4.88649e+05 Fmax= 5.18083e+03, atom= 1649
-Step=  280, Dmax= 6.3e-02 nm, Epot=  4.89449e+05 Fmax= 8.73246e+03, atom= 1650
-Step=  281, Dmax= 3.2e-02 nm, Epot=  4.87009e+05 Fmax= 1.96248e+03, atom= 1650
-Step=  282, Dmax= 3.8e-02 nm, Epot=  4.86262e+05 Fmax= 5.77052e+03, atom= 1649
-Step=  283, Dmax= 4.5e-02 nm, Epot=  4.84785e+05 Fmax= 4.38114e+03, atom= 1650
-Step=  284, Dmax= 5.4e-02 nm, Epot=  4.85101e+05 Fmax= 7.35731e+03, atom= 1649
-Step=  285, Dmax= 2.7e-02 nm, Epot=  4.83457e+05 Fmax= 1.74558e+03, atom= 1649
-Step=  286, Dmax= 3.3e-02 nm, Epot=  4.82480e+05 Fmax= 5.07474e+03, atom= 1650
-Step=  287, Dmax= 3.9e-02 nm, Epot=  4.81136e+05 Fmax= 3.59220e+03, atom= 1649
-Step=  288, Dmax= 4.7e-02 nm, Epot=  4.81217e+05 Fmax= 6.70650e+03, atom= 1650
-Step=  289, Dmax= 2.4e-02 nm, Epot=  4.80018e+05 Fmax= 1.75504e+03, atom= 1650
-Step=  290, Dmax= 2.8e-02 nm, Epot=  4.78978e+05 Fmax= 4.06252e+03, atom= 1649
-Step=  291, Dmax= 3.4e-02 nm, Epot=  4.77916e+05 Fmax= 3.50753e+03, atom= 1650
-Step=  292, Dmax= 4.1e-02 nm, Epot=  4.77491e+05 Fmax= 5.26563e+03, atom= 1649
-Step=  293, Dmax= 4.9e-02 nm, Epot=  4.76684e+05 Fmax= 5.57981e+03, atom= 1650
-Step=  294, Dmax= 5.9e-02 nm, Epot=  4.76682e+05 Fmax= 7.26590e+03, atom= 1270
-Step=  295, Dmax= 7.0e-02 nm, Epot=  4.76450e+05 Fmax= 8.34756e+03, atom= 1271
-Step=  296, Dmax= 8.4e-02 nm, Epot=  4.77129e+05 Fmax= 1.02539e+04, atom= 1270
-Step=  297, Dmax= 4.2e-02 nm, Epot=  4.72780e+05 Fmax= 1.17969e+03, atom= 1970
-Step=  298, Dmax= 5.1e-02 nm, Epot=  4.71691e+05 Fmax= 8.43870e+03, atom= 1271
-Step=  299, Dmax= 6.1e-02 nm, Epot=  4.68901e+05 Fmax= 5.01310e+03, atom= 1270
-Step=  300, Dmax= 7.3e-02 nm, Epot=  4.71911e+05 Fmax= 1.11198e+04, atom= 1271
-Step=  301, Dmax= 3.6e-02 nm, Epot=  4.67480e+05 Fmax= 3.07988e+03, atom= 1271
-Step=  302, Dmax= 4.4e-02 nm, Epot=  4.67604e+05 Fmax= 6.53821e+03, atom= 1270
-Step=  303, Dmax= 2.2e-02 nm, Epot=  4.66509e+05 Fmax= 1.77760e+03, atom= 1270
-Step=  304, Dmax= 2.6e-02 nm, Epot=  4.65646e+05 Fmax= 3.98708e+03, atom= 1271
-Step=  305, Dmax= 3.1e-02 nm, Epot=  4.64578e+05 Fmax= 2.99171e+03, atom= 1270
-Step=  306, Dmax= 3.8e-02 nm, Epot=  4.64240e+05 Fmax= 5.35368e+03, atom= 1271
-Step=  307, Dmax= 4.5e-02 nm, Epot=  4.63137e+05 Fmax= 4.68642e+03, atom= 1270
-Step=  308, Dmax= 5.4e-02 nm, Epot=  4.63449e+05 Fmax= 7.35395e+03, atom= 1271
-Step=  309, Dmax= 2.7e-02 nm, Epot=  4.61698e+05 Fmax= 1.37131e+03, atom= 1650
-Step=  310, Dmax= 3.3e-02 nm, Epot=  4.60799e+05 Fmax= 5.70633e+03, atom= 1270
-Step=  311, Dmax= 3.9e-02 nm, Epot=  4.59115e+05 Fmax= 2.99146e+03, atom= 1271
-Step=  312, Dmax= 4.7e-02 nm, Epot=  4.59632e+05 Fmax= 7.35720e+03, atom= 1270
-Step=  313, Dmax= 2.3e-02 nm, Epot=  4.58207e+05 Fmax= 2.22887e+03, atom= 1270
-Step=  314, Dmax= 2.8e-02 nm, Epot=  4.57505e+05 Fmax= 3.98132e+03, atom= 1271
-Step=  315, Dmax= 3.4e-02 nm, Epot=  4.56568e+05 Fmax= 3.52616e+03, atom= 1270
-Step=  316, Dmax= 4.1e-02 nm, Epot=  4.56254e+05 Fmax= 5.44353e+03, atom= 1271
-Step=  317, Dmax= 4.9e-02 nm, Epot=  4.55389e+05 Fmax= 5.36262e+03, atom= 1270
-Step=  318, Dmax= 5.8e-02 nm, Epot=  4.55630e+05 Fmax= 7.56935e+03, atom= 1271
-Step=  319, Dmax= 2.9e-02 nm, Epot=  4.53711e+05 Fmax= 1.14547e+03, atom= 1271
-Step=  320, Dmax= 3.5e-02 nm, Epot=  4.52651e+05 Fmax= 6.44522e+03, atom= 1270
-Step=  321, Dmax= 4.2e-02 nm, Epot=  4.50644e+05 Fmax= 2.90056e+03, atom= 1271
-Step=  322, Dmax= 5.1e-02 nm, Epot=  4.51625e+05 Fmax= 8.23980e+03, atom= 1270
-Step=  323, Dmax= 2.5e-02 nm, Epot=  4.49816e+05 Fmax= 2.71223e+03, atom= 1270
-Step=  324, Dmax= 3.0e-02 nm, Epot=  4.49179e+05 Fmax= 3.97024e+03, atom= 1271
-Step=  325, Dmax= 3.6e-02 nm, Epot=  4.48407e+05 Fmax= 4.10809e+03, atom= 1270
-Step=  326, Dmax= 4.4e-02 nm, Epot=  4.48055e+05 Fmax= 5.53026e+03, atom= 1271
-Step=  327, Dmax= 5.2e-02 nm, Epot=  4.47489e+05 Fmax= 6.10220e+03, atom= 1270
-Step=  328, Dmax= 6.3e-02 nm, Epot=  4.47590e+05 Fmax= 7.78661e+03, atom= 1271
-Step=  329, Dmax= 3.1e-02 nm, Epot=  4.45508e+05 Fmax= 1.08630e+03, atom= 1970
-Step=  330, Dmax= 3.8e-02 nm, Epot=  4.43838e+05 Fmax= 5.78127e+03, atom= 1270
-Step=  331, Dmax= 4.5e-02 nm, Epot=  4.42524e+05 Fmax= 4.24042e+03, atom= 1271
-Step=  332, Dmax= 5.4e-02 nm, Epot=  4.43206e+05 Fmax= 7.80486e+03, atom= 1270
-Step=  333, Dmax= 2.7e-02 nm, Epot=  4.41357e+05 Fmax= 1.81942e+03, atom= 1270
-Step=  334, Dmax= 3.3e-02 nm, Epot=  4.40854e+05 Fmax= 5.27499e+03, atom= 1271
-Step=  335, Dmax= 3.9e-02 nm, Epot=  4.39545e+05 Fmax= 3.43654e+03, atom= 1270
-Step=  336, Dmax= 4.7e-02 nm, Epot=  4.39876e+05 Fmax= 6.86959e+03, atom= 1271
-Step=  337, Dmax= 2.3e-02 nm, Epot=  4.38614e+05 Fmax= 1.77328e+03, atom= 1269
-Step=  338, Dmax= 2.8e-02 nm, Epot=  4.37949e+05 Fmax= 4.43531e+03, atom= 1270
-Step=  339, Dmax= 3.4e-02 nm, Epot=  4.36891e+05 Fmax= 3.04374e+03, atom= 1271
-Step=  340, Dmax= 4.1e-02 nm, Epot=  4.36843e+05 Fmax= 5.95377e+03, atom= 1270
-Step=  341, Dmax= 4.9e-02 nm, Epot=  4.35672e+05 Fmax= 4.80150e+03, atom= 1271
-Step=  342, Dmax= 5.8e-02 nm, Epot=  4.36442e+05 Fmax= 8.18140e+03, atom= 1270
-Step=  343, Dmax= 2.9e-02 nm, Epot=  4.34336e+05 Fmax= 1.71990e+03, atom= 1270
-Step=  344, Dmax= 3.5e-02 nm, Epot=  4.33959e+05 Fmax= 5.86491e+03, atom= 1271
-Step=  345, Dmax= 4.2e-02 nm, Epot=  4.32450e+05 Fmax= 3.51136e+03, atom= 1270
-Step=  346, Dmax= 5.0e-02 nm, Epot=  4.33127e+05 Fmax= 7.54095e+03, atom= 1271
-Step=  347, Dmax= 2.5e-02 nm, Epot=  4.31546e+05 Fmax= 2.08396e+03, atom= 1269
-Step=  348, Dmax= 3.0e-02 nm, Epot=  4.31042e+05 Fmax= 4.60585e+03, atom= 1270
-Step=  349, Dmax= 3.6e-02 nm, Epot=  4.30032e+05 Fmax= 3.42657e+03, atom= 1269
-Step=  350, Dmax= 4.4e-02 nm, Epot=  4.30102e+05 Fmax= 6.25973e+03, atom= 1270
-Step=  351, Dmax= 2.2e-02 nm, Epot=  4.29127e+05 Fmax= 1.45077e+03, atom= 1270
-Step=  352, Dmax= 2.6e-02 nm, Epot=  4.28315e+05 Fmax= 4.20531e+03, atom= 1269
-Step=  353, Dmax= 3.1e-02 nm, Epot=  4.27313e+05 Fmax= 2.79907e+03, atom= 1270
-Step=  354, Dmax= 3.8e-02 nm, Epot=  4.27139e+05 Fmax= 5.44912e+03, atom= 1269
-Step=  355, Dmax= 4.5e-02 nm, Epot=  4.26127e+05 Fmax= 4.62674e+03, atom= 1270
-Step=  356, Dmax= 5.4e-02 nm, Epot=  4.26515e+05 Fmax= 7.29495e+03, atom= 1269
-Step=  357, Dmax= 2.7e-02 nm, Epot=  4.24898e+05 Fmax= 1.41413e+03, atom= 1269
-Step=  358, Dmax= 3.3e-02 nm, Epot=  4.24286e+05 Fmax= 5.67368e+03, atom= 1270
-Step=  359, Dmax= 3.9e-02 nm, Epot=  4.22831e+05 Fmax= 2.98479e+03, atom= 1269
-Step=  360, Dmax= 4.7e-02 nm, Epot=  4.23420e+05 Fmax= 7.39169e+03, atom= 1270
-Step=  361, Dmax= 2.3e-02 nm, Epot=  4.22063e+05 Fmax= 2.24306e+03, atom= 1270
-Step=  362, Dmax= 2.8e-02 nm, Epot=  4.21509e+05 Fmax= 3.91856e+03, atom= 1269
-Step=  363, Dmax= 3.4e-02 nm, Epot=  4.20740e+05 Fmax= 3.59882e+03, atom= 1270
-Step=  364, Dmax= 4.0e-02 nm, Epot=  4.20496e+05 Fmax= 5.30829e+03, atom= 1269
-Step=  365, Dmax= 4.9e-02 nm, Epot=  4.19863e+05 Fmax= 5.51301e+03, atom= 1270
-Step=  366, Dmax= 5.8e-02 nm, Epot=  4.20018e+05 Fmax= 7.33100e+03, atom= 1269
-Step=  367, Dmax= 2.9e-02 nm, Epot=  4.18308e+05 Fmax= 9.92150e+02, atom= 1269
+Step=    0, Dmax= 1.0e-02 nm, Epot=  4.82159e+05 Fmax= 4.23049e+04, atom= 1247
+Step=    1, Dmax= 1.0e-02 nm, Epot=  4.48828e+05 Fmax= 4.28020e+04, atom= 1498
+Step=    2, Dmax= 1.2e-02 nm, Epot=  4.11942e+05 Fmax= 4.21449e+04, atom= 1498
+Step=    3, Dmax= 1.4e-02 nm, Epot=  3.70747e+05 Fmax= 4.05375e+04, atom= 1498
+Step=    4, Dmax= 1.7e-02 nm, Epot=  3.24809e+05 Fmax= 3.83874e+04, atom= 1247
+Step=    5, Dmax= 2.1e-02 nm, Epot=  2.74561e+05 Fmax= 3.59407e+04, atom= 1247
+Step=    6, Dmax= 2.5e-02 nm, Epot=  2.21642e+05 Fmax= 3.22376e+04, atom= 1247
+Step=    7, Dmax= 3.0e-02 nm, Epot=  1.67667e+05 Fmax= 2.61472e+04, atom= 1247
+Step=    8, Dmax= 3.6e-02 nm, Epot=  1.14683e+05 Fmax= 1.71325e+04, atom= 1526
+Step=    9, Dmax= 4.3e-02 nm, Epot=  6.57757e+04 Fmax= 1.33952e+04, atom= 634
+Step=   10, Dmax= 5.2e-02 nm, Epot=  4.08930e+04 Fmax= 1.79030e+04, atom= 1257
+Step=   11, Dmax= 6.2e-02 nm, Epot=  3.16461e+04 Fmax= 2.31239e+04, atom= 1517
+Step=   12, Dmax= 7.4e-02 nm, Epot=  2.87303e+04 Fmax= 2.10762e+04, atom= 1247
+Step=   13, Dmax= 8.9e-02 nm, Epot=  2.05852e+04 Fmax= 3.65514e+04, atom= 1516
+Step=   14, Dmax= 1.1e-01 nm, Epot=  1.81873e+04 Fmax= 2.01395e+04, atom= 950
+Step=   15, Dmax= 1.3e-01 nm, Epot=  1.52529e+04 Fmax= 1.41880e+05, atom= 950
+Step=   16, Dmax= 1.5e-01 nm, Epot=  1.12882e+04 Fmax= 1.18880e+04, atom= 1517
+Step=   17, Dmax= 1.8e-01 nm, Epot=  6.97324e+03 Fmax= 2.23062e+04, atom= 1516
+Step=   18, Dmax= 2.2e-01 nm, Epot=  5.36850e+03 Fmax= 1.53195e+04, atom= 1517
+Step=   19, Dmax= 2.7e-01 nm, Epot=  1.00863e+04 Fmax= 4.35385e+04, atom= 949
+Step=   20, Dmax= 1.3e-01 nm, Epot=  1.27728e+03 Fmax= 6.21470e+03, atom= 1517
+Step=   21, Dmax= 1.6e-01 nm, Epot=  1.10935e+04 Fmax= 1.05350e+05, atom= 1517
+Step=   22, Dmax= 8.0e-02 nm, Epot=  4.30528e+02 Fmax= 9.87291e+03, atom= 1517
+Step=   23, Dmax= 9.6e-02 nm, Epot= -6.21984e+02 Fmax= 6.72114e+03, atom= 1516
+Step=   24, Dmax= 1.2e-01 nm, Epot=  4.42526e+03 Fmax= 1.62319e+04, atom= 1517
+Step=   25, Dmax= 5.8e-02 nm, Epot= -1.79107e+03 Fmax= 4.36906e+03, atom= 1517
+Step=   26, Dmax= 6.9e-02 nm, Epot= -2.06802e+02 Fmax= 9.71388e+03, atom= 1516
+Step=   27, Dmax= 3.5e-02 nm, Epot= -2.60927e+03 Fmax= 2.82951e+03, atom= 1516
+Step=   28, Dmax= 4.1e-02 nm, Epot= -2.60719e+03 Fmax= 4.83301e+03, atom= 1515
+Step=   29, Dmax= 2.1e-02 nm, Epot= -3.10252e+03 Fmax= 1.43815e+03, atom= 1517
+Step=   30, Dmax= 2.5e-02 nm, Epot= -3.47690e+03 Fmax= 3.29492e+03, atom= 1516
+Step=   31, Dmax= 3.0e-02 nm, Epot= -3.83981e+03 Fmax= 2.74634e+03, atom= 1515
+Step=   32, Dmax= 3.6e-02 nm, Epot= -3.75423e+03 Fmax= 4.72887e+03, atom= 1515
+Step=   33, Dmax= 1.8e-02 nm, Epot= -4.23280e+03 Fmax= 1.08020e+03, atom= 1516
+Step=   34, Dmax= 2.1e-02 nm, Epot= -4.48832e+03 Fmax= 2.94268e+03, atom= 1515
+Step=   35, Dmax= 2.6e-02 nm, Epot= -4.76141e+03 Fmax= 2.38793e+03, atom= 1515
+Step=   36, Dmax= 3.1e-02 nm, Epot= -4.71460e+03 Fmax= 3.99362e+03, atom= 1515
+Step=   37, Dmax= 1.5e-02 nm, Epot= -5.03204e+03 Fmax= 8.17732e+02, atom= 1515
 
 writing lowest energy coordinates.
 
-Steepest Descents converged to Fmax < 1000 in 368 steps
-Potential Energy  =  4.1830775e+05
-Maximum force     =  9.9215027e+02 on atom 1269
-Norm of force     =  2.0876031e+02
+Steepest Descents converged to Fmax < 1000 in 38 steps
+Potential Energy  = -5.0320420e+03
+Maximum force     =  8.1773199e+02 on atom 1515
+Norm of force     =  1.1126889e+02
 
-GROMACS reminds you: "Physics isn't a religion. If it were, we'd have a much easier time raising money." (Leon Lederman)
+GROMACS reminds you: "Chemistry: It tends to be a messy science." (Gunnar von Heijne, former chair of the Nobel Committee for chemistry)
 
 
-[2026-09-01 12:30:53] [progress] 21% run=20260901-123048 stage=geo_opt_backbone
-[2026-09-01 12:30:53] [progress] 22% run=20260901-123048 stage=geo_opt_backbone
-[2026-09-01 12:30:53] [progress] 23% run=20260901-123048 stage=geo_opt_backbone
-[2026-09-01 12:30:53] [progress] 24% run=20260901-123048 stage=geo_opt_backbone
-[2026-09-01 12:30:53] [progress] 25% run=20260901-123048 stage=geo_opt_backbone
-[2026-09-01 12:30:53] [stage] construct_chemical_detail start
-[2026-09-01 12:30:53] [stage] construct_chemical_detail enter
-[2026-09-01 12:30:53] [progress] 26% run=20260901-123048 stage=construct_chemical_detail
-[2026-09-01 12:30:53] [progress] 27% run=20260901-123048 stage=construct_chemical_detail
-[2026-09-01 12:30:53] [progress] 28% run=20260901-123048 stage=construct_chemical_detail
-[2026-09-01 12:30:53] [progress] 29% run=20260901-123048 stage=construct_chemical_detail
-[2026-09-01 12:30:53] [progress] 30% run=20260901-123048 stage=construct_chemical_detail
-[2026-09-01 12:30:53] [progress] 31% run=20260901-123048 stage=construct_chemical_detail
-[2026-09-01 12:30:53] [progress] 32% run=20260901-123048 stage=construct_chemical_detail
-[2026-09-01 12:30:53] [progress] 33% run=20260901-123048 stage=construct_chemical_detail
-[2026-09-01 12:30:54] [progress] 34% run=20260901-123048 stage=construct_chemical_detail
-[2026-09-01 12:30:54] [progress] 35% run=20260901-123048 stage=construct_chemical_detail
-[2026-09-01 12:30:54] [progress] 36% run=20260901-123048 stage=construct_chemical_detail
-[2026-09-01 12:30:54] [progress] 37% run=20260901-123048 stage=construct_chemical_detail
-[2026-09-01 12:30:54] [progress] 38% run=20260901-123048 stage=construct_chemical_detail
-[2026-09-01 12:30:54] [progress] 39% run=20260901-123048 stage=construct_chemical_detail
-[2026-09-01 12:30:54] [progress] 40% run=20260901-123048 stage=construct_chemical_detail
-[2026-09-01 12:30:54] [progress] 41% run=20260901-123048 stage=construct_chemical_detail
-[2026-09-01 12:30:54] [progress] 42% run=20260901-123048 stage=construct_chemical_detail
-[2026-09-01 12:30:54] [progress] 43% run=20260901-123048 stage=construct_chemical_detail
-[2026-09-01 12:30:54] [progress] 44% run=20260901-123048 stage=construct_chemical_detail
-[2026-09-01 12:30:55] [progress] 45% run=20260901-123048 stage=construct_chemical_detail
-[2026-09-01 12:30:55] [progress] 46% run=20260901-123048 stage=construct_chemical_detail
-[2026-09-01 12:30:55] [progress] 47% run=20260901-123048 stage=construct_chemical_detail
-[2026-09-01 12:30:55] [progress] 48% run=20260901-123048 stage=construct_chemical_detail
-[2026-09-01 12:30:55] [progress] 49% run=20260901-123048 stage=construct_chemical_detail
-[2026-09-01 12:30:55] [progress] 50% run=20260901-123048 stage=construct_chemical_detail
-[2026-09-01 12:30:55] [stage] construct_chemical_detail exit
-[2026-09-01 12:30:55] [stage] construct_chemical_detail done
-[2026-09-01 12:30:55] [stage] construct_angles start
-[2026-09-01 12:30:55] [stage] construct_angles done
-[2026-09-01 12:30:55] [stage] construct_dihedrals start
-[2026-09-01 12:30:55] [stage] construct_dihedrals done
-[2026-09-01 12:30:55] [stage] construct_impropers start
-[2026-09-01 12:30:55] [stage] construct_impropers done
-[2026-09-01 12:30:55] [topology-patch] full file=/nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/config/backbone.yaml
-[2026-09-01 12:30:55] [stage:initial-hydrogel] OtherSections counts={} WorldConstraints=0 WorldExclusions=0 WorldDihedrals=0
-[2026-09-01 12:30:55] grompp CMD: gmx_mpi grompp -f /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel_geo_opt/minim.mdp -c /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel.gro -p /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel_geo_opt/system.top -o /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel_geo_opt/em.tpr -po /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel_geo_opt/mdout.mdp -maxwarn 2
-[2026-09-01 12:30:56] grompp STDOUT:
-Setting the LD random seed to -1061192
+[2026-09-01 13:17:44] [progress] 21% run=20260901-131739 stage=geo_opt_backbone
+[2026-09-01 13:17:44] [progress] 22% run=20260901-131739 stage=geo_opt_backbone
+[2026-09-01 13:17:44] [progress] 23% run=20260901-131739 stage=geo_opt_backbone
+[2026-09-01 13:17:44] [progress] 24% run=20260901-131739 stage=geo_opt_backbone
+[2026-09-01 13:17:44] [progress] 25% run=20260901-131739 stage=geo_opt_backbone
+[2026-09-01 13:17:44] [stage] construct_chemical_detail start
+[2026-09-01 13:17:44] [stage] construct_chemical_detail enter
+[2026-09-01 13:17:45] [progress] 26% run=20260901-131739 stage=construct_chemical_detail
+[2026-09-01 13:17:45] [progress] 27% run=20260901-131739 stage=construct_chemical_detail
+[2026-09-01 13:17:45] [progress] 28% run=20260901-131739 stage=construct_chemical_detail
+[2026-09-01 13:17:45] [progress] 29% run=20260901-131739 stage=construct_chemical_detail
+[2026-09-01 13:17:45] [progress] 30% run=20260901-131739 stage=construct_chemical_detail
+[2026-09-01 13:17:45] [progress] 31% run=20260901-131739 stage=construct_chemical_detail
+[2026-09-01 13:17:45] [progress] 32% run=20260901-131739 stage=construct_chemical_detail
+[2026-09-01 13:17:46] [progress] 33% run=20260901-131739 stage=construct_chemical_detail
+[2026-09-01 13:17:46] [progress] 34% run=20260901-131739 stage=construct_chemical_detail
+[2026-09-01 13:17:46] [progress] 35% run=20260901-131739 stage=construct_chemical_detail
+[2026-09-01 13:17:46] [progress] 36% run=20260901-131739 stage=construct_chemical_detail
+[2026-09-01 13:17:46] [progress] 37% run=20260901-131739 stage=construct_chemical_detail
+[2026-09-01 13:17:46] [progress] 38% run=20260901-131739 stage=construct_chemical_detail
+[2026-09-01 13:17:46] [progress] 39% run=20260901-131739 stage=construct_chemical_detail
+[2026-09-01 13:17:47] [progress] 40% run=20260901-131739 stage=construct_chemical_detail
+[2026-09-01 13:17:47] [progress] 41% run=20260901-131739 stage=construct_chemical_detail
+[2026-09-01 13:17:47] [progress] 42% run=20260901-131739 stage=construct_chemical_detail
+[2026-09-01 13:17:47] [progress] 43% run=20260901-131739 stage=construct_chemical_detail
+[2026-09-01 13:17:47] [progress] 44% run=20260901-131739 stage=construct_chemical_detail
+[2026-09-01 13:17:47] [progress] 45% run=20260901-131739 stage=construct_chemical_detail
+[2026-09-01 13:17:47] [progress] 46% run=20260901-131739 stage=construct_chemical_detail
+[2026-09-01 13:17:47] [progress] 47% run=20260901-131739 stage=construct_chemical_detail
+[2026-09-01 13:17:48] [progress] 48% run=20260901-131739 stage=construct_chemical_detail
+[2026-09-01 13:17:48] [progress] 49% run=20260901-131739 stage=construct_chemical_detail
+[2026-09-01 13:17:48] [progress] 50% run=20260901-131739 stage=construct_chemical_detail
+[2026-09-01 13:17:48] [stage] construct_chemical_detail exit
+[2026-09-01 13:17:48] [stage] construct_chemical_detail done
+[2026-09-01 13:17:48] [stage] construct_angles start
+[2026-09-01 13:17:48] [stage] construct_angles done
+[2026-09-01 13:17:48] [stage] construct_dihedrals start
+[2026-09-01 13:17:48] [stage] construct_dihedrals done
+[2026-09-01 13:17:48] [stage] construct_impropers start
+[2026-09-01 13:17:48] [stage] construct_impropers done
+[2026-09-01 13:17:48] [topology-patch] full file=/nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/config/backbone.yaml
+[2026-09-01 13:17:48] [stage:initial-hydrogel] OtherSections counts={} WorldConstraints=0 WorldExclusions=0 WorldDihedrals=0
+[2026-09-01 13:17:49] grompp CMD: gmx_mpi grompp -f /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel_geo_opt/minim.mdp -c /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel.gro -p /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel_geo_opt/system.top -o /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel_geo_opt/em.tpr -po /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel_geo_opt/mdout.mdp -maxwarn 2
+[2026-09-01 13:17:49] grompp STDOUT:
+Setting the LD random seed to -302061585
 
 Generated 844 of the 356590 non-bonded parameter combinations
 
@@ -718,7 +418,7 @@ Analysing residues not classified as Protein/DNA/RNA/Water and splitting into gr
 
 This run will generate roughly 0 Mb of data
 
-[2026-09-01 12:30:56] grompp STDERR:
+[2026-09-01 13:17:49] grompp STDERR:
                       :-) GROMACS - gmx grompp, 2026.2 (-:
 
 Executable:   /opt/gromacs/2026/bin/gmx_mpi
@@ -730,13 +430,13 @@ Command line:
 Number of degrees of freedom in T-Coupling group rest is 6309.00
 The integrator does not provide a ensemble temperature, there is no system ensemble temperature
 
-GROMACS reminds you: "You Got to Relate to It" (A.E. Torda)
+GROMACS reminds you: "This type of advanced sampling techniques... which are not so advanced, really." (Viveca Lindahl, on AWH, at her thesis defense.)
 
 
-[2026-09-01 12:30:56] mdrun CMD: gmx_mpi mdrun -v -deffnm /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel_geo_opt/em -ntomp 4 -nb cpu -update cpu
-[2026-09-01 12:30:56] mdrun STDOUT:
+[2026-09-01 13:17:49] mdrun CMD: gmx_mpi mdrun -v -deffnm /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel_geo_opt/em -ntomp 4 -nb cpu -update cpu
+[2026-09-01 13:17:50] mdrun STDOUT:
 
-[2026-09-01 12:30:56] mdrun STDERR:
+[2026-09-01 13:17:50] mdrun STDERR:
                       :-) GROMACS - gmx mdrun, 2026.2 (-:
 
 Executable:   /opt/gromacs/2026/bin/gmx_mpi
@@ -758,38 +458,26 @@ NOTE: The number of threads is not equal to the number of (logical) cpus
 Steepest Descents:
    Tolerance (Fmax)   =  1.00000e+03
    Number of steps    =         5000
-Step=    0, Dmax= 1.0e-02 nm, Epot=  4.26698e+05 Fmax= 1.01490e+03, atom= 1271
-Step=    1, Dmax= 1.0e-02 nm, Epot=  4.25949e+05 Fmax= 1.19221e+03, atom= 1270
-Step=    2, Dmax= 1.2e-02 nm, Epot=  4.25204e+05 Fmax= 1.45362e+03, atom= 1271
-Step=    3, Dmax= 1.4e-02 nm, Epot=  4.24483e+05 Fmax= 1.73372e+03, atom= 1270
-Step=    4, Dmax= 1.7e-02 nm, Epot=  4.23781e+05 Fmax= 2.08773e+03, atom= 1271
-Step=    5, Dmax= 2.1e-02 nm, Epot=  4.23109e+05 Fmax= 2.50937e+03, atom= 1270
-Step=    6, Dmax= 2.5e-02 nm, Epot=  4.22474e+05 Fmax= 2.99564e+03, atom= 1271
-Step=    7, Dmax= 3.0e-02 nm, Epot=  4.21898e+05 Fmax= 3.63318e+03, atom= 1270
-Step=    8, Dmax= 3.6e-02 nm, Epot=  4.21383e+05 Fmax= 4.29260e+03, atom= 1271
-Step=    9, Dmax= 4.3e-02 nm, Epot=  4.21014e+05 Fmax= 5.26390e+03, atom= 1270
-Step=   10, Dmax= 5.2e-02 nm, Epot=  4.20717e+05 Fmax= 6.14543e+03, atom= 1271
-Step=   11, Dmax= 6.2e-02 nm, Epot=  4.20794e+05 Fmax= 7.62895e+03, atom= 1270
-Step=   12, Dmax= 3.1e-02 nm, Epot=  4.18806e+05 Fmax= 9.62152e+02, atom= 1970
+Step=    0, Dmax= 1.0e-02 nm, Epot=  2.52682e+03 Fmax= 8.04817e+02, atom= 1515
 
 writing lowest energy coordinates.
 
-Steepest Descents converged to Fmax < 1000 in 13 steps
-Potential Energy  =  4.1880581e+05
-Maximum force     =  9.6215247e+02 on atom 1970
-Norm of force     =  1.9874802e+02
+Steepest Descents converged to Fmax < 1000 in 1 steps
+Potential Energy  =  2.5268213e+03
+Maximum force     =  8.0481732e+02 on atom 1515
+Norm of force     =  1.2331503e+02
 
-GROMACS reminds you: "You Got to Relate to It" (A.E. Torda)
+GROMACS reminds you: "If every study was groundbreaking, we'd end up with a bunch of holes in the ground and nothing built." (Anonymous)
 
 
-[2026-09-01 12:30:56] [progress] 51% run=20260901-123048 stage=geo_opt_initial
-[2026-09-01 12:30:56] [progress] 52% run=20260901-123048 stage=geo_opt_initial
-[2026-09-01 12:30:56] [progress] 53% run=20260901-123048 stage=geo_opt_initial
-[2026-09-01 12:30:56] [progress] 54% run=20260901-123048 stage=geo_opt_initial
-[2026-09-01 12:30:56] [progress] 55% run=20260901-123048 stage=geo_opt_initial
-[2026-09-01 12:30:57] grompp CMD: gmx_mpi grompp -f /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/final_system_no_ions_geo_opt/minim.mdp -c /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel_geo_opt/em.gro -p /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/final_system_no_ions_geo_opt/system.top -o /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/final_system_no_ions_geo_opt/em.tpr -po /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/final_system_no_ions_geo_opt/mdout.mdp -maxwarn 2
-[2026-09-01 12:30:57] grompp STDOUT:
-Setting the LD random seed to 2094915583
+[2026-09-01 13:17:50] [progress] 51% run=20260901-131739 stage=geo_opt_initial
+[2026-09-01 13:17:50] [progress] 52% run=20260901-131739 stage=geo_opt_initial
+[2026-09-01 13:17:50] [progress] 53% run=20260901-131739 stage=geo_opt_initial
+[2026-09-01 13:17:50] [progress] 54% run=20260901-131739 stage=geo_opt_initial
+[2026-09-01 13:17:50] [progress] 55% run=20260901-131739 stage=geo_opt_initial
+[2026-09-01 13:17:50] grompp CMD: gmx_mpi grompp -f /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/final_system_no_ions_geo_opt/minim.mdp -c /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel_geo_opt/em.gro -p /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/final_system_no_ions_geo_opt/system.top -o /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/final_system_no_ions_geo_opt/em.tpr -po /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/final_system_no_ions_geo_opt/mdout.mdp -maxwarn 2
+[2026-09-01 13:17:51] grompp STDOUT:
+Setting the LD random seed to 1675454334
 
 Generated 844 of the 356590 non-bonded parameter combinations
 
@@ -800,7 +488,7 @@ Analysing residues not classified as Protein/DNA/RNA/Water and splitting into gr
 
 This run will generate roughly 0 Mb of data
 
-[2026-09-01 12:30:57] grompp STDERR:
+[2026-09-01 13:17:51] grompp STDERR:
                       :-) GROMACS - gmx grompp, 2026.2 (-:
 
 Executable:   /opt/gromacs/2026/bin/gmx_mpi
@@ -812,13 +500,13 @@ Command line:
 Number of degrees of freedom in T-Coupling group rest is 6309.00
 The integrator does not provide a ensemble temperature, there is no system ensemble temperature
 
-GROMACS reminds you: "Product of optimism and knowledge is a constant." (Lev Landau)
+GROMACS reminds you: "If everything seems under control, you're just not going fast enough." (Mario Andretti)
 
 
-[2026-09-01 12:30:57] mdrun CMD: gmx_mpi mdrun -v -deffnm /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/final_system_no_ions_geo_opt/em -ntomp 4 -nb cpu -update cpu
-[2026-09-01 12:30:58] mdrun STDOUT:
+[2026-09-01 13:17:51] mdrun CMD: gmx_mpi mdrun -v -deffnm /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/final_system_no_ions_geo_opt/em -ntomp 4 -nb cpu -update cpu
+[2026-09-01 13:17:51] mdrun STDOUT:
 
-[2026-09-01 12:30:58] mdrun STDERR:
+[2026-09-01 13:17:51] mdrun STDERR:
                       :-) GROMACS - gmx mdrun, 2026.2 (-:
 
 Executable:   /opt/gromacs/2026/bin/gmx_mpi
@@ -840,60 +528,60 @@ NOTE: The number of threads is not equal to the number of (logical) cpus
 Steepest Descents:
    Tolerance (Fmax)   =  1.00000e+03
    Number of steps    =         5000
-Step=    0, Dmax= 1.0e-02 nm, Epot=  4.18815e+05 Fmax= 9.61672e+02, atom= 1970
+Step=    0, Dmax= 1.0e-02 nm, Epot=  2.52682e+03 Fmax= 8.04817e+02, atom= 1515
 
 writing lowest energy coordinates.
 
 Steepest Descents converged to Fmax < 1000 in 1 steps
-Potential Energy  =  4.1881466e+05
-Maximum force     =  9.6167151e+02 on atom 1970
-Norm of force     =  2.0175831e+02
+Potential Energy  =  2.5268213e+03
+Maximum force     =  8.0481732e+02 on atom 1515
+Norm of force     =  1.2331504e+02
 
-GROMACS reminds you: "I Should Be the Pimp Of the Year" (Urban Dance Squad)
+GROMACS reminds you: "If everything seems under control, you're just not going fast enough." (Mario Andretti)
 
 
-[2026-09-01 12:30:58] [progress] 56% run=20260901-123048 stage=final_no_ions
-[2026-09-01 12:30:58] [progress] 57% run=20260901-123048 stage=final_no_ions
-[2026-09-01 12:30:58] [progress] 58% run=20260901-123048 stage=final_no_ions
-[2026-09-01 12:30:58] [progress] 59% run=20260901-123048 stage=final_no_ions
-[2026-09-01 12:30:58] [progress] 60% run=20260901-123048 stage=final_no_ions
-[2026-09-01 12:30:58] [progress] 61% run=20260901-123048 stage=final_no_ions
-[2026-09-01 12:30:58] [progress] 62% run=20260901-123048 stage=final_no_ions
-[2026-09-01 12:30:58] [progress] 63% run=20260901-123048 stage=final_no_ions
-[2026-09-01 12:30:58] [progress] 64% run=20260901-123048 stage=final_no_ions
-[2026-09-01 12:30:58] [progress] 65% run=20260901-123048 stage=final_no_ions
-[2026-09-01 12:30:58] [progress] 66% run=20260901-123048 stage=final_no_ions
-[2026-09-01 12:30:58] [progress] 67% run=20260901-123048 stage=final_no_ions
-[2026-09-01 12:30:58] [progress] 68% run=20260901-123048 stage=final_no_ions
-[2026-09-01 12:30:58] [progress] 69% run=20260901-123048 stage=final_no_ions
-[2026-09-01 12:30:58] [progress] 70% run=20260901-123048 stage=final_no_ions
-[2026-09-01 12:30:58] [progress] 71% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 72% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 73% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 74% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 75% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 76% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 77% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 78% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 79% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 80% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 81% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 82% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 83% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 84% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 85% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 86% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 87% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 88% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 89% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 90% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 91% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 92% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 93% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 94% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 95% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 96% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 97% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 98% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 99% run=20260901-123048 stage=done
-[2026-09-01 12:30:58] [progress] 100% run=20260901-123048 stage=done
+[2026-09-01 13:17:51] [progress] 56% run=20260901-131739 stage=final_no_ions
+[2026-09-01 13:17:51] [progress] 57% run=20260901-131739 stage=final_no_ions
+[2026-09-01 13:17:51] [progress] 58% run=20260901-131739 stage=final_no_ions
+[2026-09-01 13:17:51] [progress] 59% run=20260901-131739 stage=final_no_ions
+[2026-09-01 13:17:51] [progress] 60% run=20260901-131739 stage=final_no_ions
+[2026-09-01 13:17:51] [progress] 61% run=20260901-131739 stage=final_no_ions
+[2026-09-01 13:17:51] [progress] 62% run=20260901-131739 stage=final_no_ions
+[2026-09-01 13:17:51] [progress] 63% run=20260901-131739 stage=final_no_ions
+[2026-09-01 13:17:51] [progress] 64% run=20260901-131739 stage=final_no_ions
+[2026-09-01 13:17:51] [progress] 65% run=20260901-131739 stage=final_no_ions
+[2026-09-01 13:17:51] [progress] 66% run=20260901-131739 stage=final_no_ions
+[2026-09-01 13:17:51] [progress] 67% run=20260901-131739 stage=final_no_ions
+[2026-09-01 13:17:51] [progress] 68% run=20260901-131739 stage=final_no_ions
+[2026-09-01 13:17:51] [progress] 69% run=20260901-131739 stage=final_no_ions
+[2026-09-01 13:17:51] [progress] 70% run=20260901-131739 stage=final_no_ions
+[2026-09-01 13:17:51] [progress] 71% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 72% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 73% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 74% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 75% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 76% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 77% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 78% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 79% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 80% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 81% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 82% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 83% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 84% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 85% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 86% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 87% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 88% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 89% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 90% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 91% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 92% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 93% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 94% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 95% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 96% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 97% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 98% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 99% run=20260901-131739 stage=done
+[2026-09-01 13:17:51] [progress] 100% run=20260901-131739 stage=done

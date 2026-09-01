@@ -9,12 +9,15 @@ that reintroduce the scaled 1-4 interaction those paths' endpoints lose to
 
 Two decisions define the scope:
 
-**Junction-crossing only.** A path whose four atoms all belong to one source
-template is that template's own business: the template ITP either declares the
-term or deliberately does not, and regenerating it here would double-count it
---- for pairs that means double-counted 1-4 energy, which is silent and wrong.
-Only paths spanning at least two templates (equivalently, crossing a bond the
-builder itself created) are generated.
+**Junction-crossing only.** A path whose four atoms all belong to one template
+*instance* (same template object, same chain) is that molecule's own business:
+its ITP either declares the term or deliberately does not, and regenerating it
+here would double-count it --- for pairs that means double-counted 1-4 energy,
+which is silent and wrong. Only paths spanning instances (equivalently,
+crossing a bond the builder itself created) are generated. The populator is
+the counterpart: it copies template-internal pairs into the combined topology
+whenever ``topology_nrexcl >= 2``, so between the two every 1-4 appears exactly
+once.
 
 **Parameterless.** Entries are written as ``i j k l funct`` with no inline
 parameters, which is complete GROMACS: grompp resolves them from the force
@@ -48,16 +51,26 @@ def _adjacency(world) -> Dict[int, Set[int]]:
 
 
 def _same_template(world, atom_ids) -> bool:
-    templates = {
-        id(world.Atoms[atom_id][0].source_template) for atom_id in atom_ids
-    }
-    none_id = id(None)
-    if none_id in templates:
-        # An atom without a source template (a generated backbone bead) can
-        # never claim template ownership of the term, so the path is treated
-        # as crossing.
-        return False
-    return len(templates) == 1
+    """Whether one template *instance* owns the whole path.
+
+    Ownership is per molecule instance, not per template object: two
+    molecules stamped from the same template that a builder bond later joins
+    are different owners, and the path crossing that bond must be generated.
+    Comparing template identity alone silently skipped exactly that case.
+    An atom without a source template can never claim ownership, so its path
+    is treated as crossing.
+    """
+    owners = set()
+    for atom_id in atom_ids:
+        atom = world.Atoms[atom_id][0]
+        if atom.source_template is None:
+            return False
+        owners.add((
+            id(atom.source_template),
+            getattr(atom, "chain_type", None),
+            getattr(atom, "chain_index", None),
+        ))
+    return len(owners) == 1
 
 
 def generate_junction_bonded_terms(
@@ -129,5 +142,8 @@ def generate_junction_bonded_terms(
 
     sorted_pairs = sorted(pairs)
     if generate_pairs:
-        world.generated_pairs = sorted_pairs
+        # Merge with pairs already registered (template-internal 1-4s copied
+        # by the populator); overwriting would discard them.
+        existing = getattr(world, "generated_pairs", None) or []
+        world.generated_pairs = sorted(set(map(tuple, existing)) | pairs)
     return dihedrals_added, sorted_pairs

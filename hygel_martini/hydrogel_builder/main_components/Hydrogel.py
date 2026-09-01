@@ -1175,10 +1175,17 @@ class Hydrogel():
                     # GROMACS는 c0를 init의 인자로 받지 않으므로, 생성 후 설정
                     dihedral = Attributes.Dihedral(atom_i_id, atom_j_id, atom_k_id, atom_l_id, 0)
                     dihedral.dihedral_funct = dihedral_def['funct']
-                    dihedral.dihedral_c0 = dihedral_def['params'][0]
-                    dihedral.dihedral_c1 = dihedral_def['params'][1]
-                    if len(dihedral_def['params']) > 2:
-                        dihedral.dihedral_c2 = dihedral_def['params'][2]
+                    params = dihedral_def.get('params') or []
+                    if not params:
+                        # Parameterless: resolved from [ dihedraltypes ].
+                        dihedral.dihedral_c0 = None
+                        dihedral.dihedral_c1 = None
+                        dihedral.dihedral_params = None
+                        continue
+                    dihedral.dihedral_c0 = params[0]
+                    dihedral.dihedral_c1 = params[1]
+                    if len(params) > 2:
+                        dihedral.dihedral_c2 = params[2]
 
                 except (KeyError, IndexError):
                     # ITP에 정의가 없거나 잘못된 경우, 요청대로 그냥 넘어갑니다.

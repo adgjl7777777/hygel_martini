@@ -455,6 +455,59 @@ changes what a loop looks like.
 
 *Fixed in `6d0aa34`.*
 
+### 21. The net layout's periodic cell never reached the World box
+
+Found by independent adversarial verification of the "built end to end"
+claim: the delivered f=6 structure converged its EMs, passed every audit --
+and carried ~0.9 MJ/mol of undisclosed bond pre-strain, with 155/384
+crosslink bonds over 1 nm (max 6.0 nm against b0 = 0.47) held in balanced
+tension. The audits measure topology and the EMs measure force balance;
+neither measures strain, so nothing said a word.
+
+Root cause, established by measuring the pre-EM structure: the net geometry
+lives in its own periodic cell (12 nm here), but `World.box_vector` still
+came from the diamond proto plan (~23 nm). A strand wrapping the true
+boundary saw a box too large to fold it back, so its end sat 9-17 nm of
+fictitious "distance" from its planned junction and was bonded across it.
+
+**Fix.** The net cell is propagated into the World box (orthorhombic nets
+only until the GRO writer emits nine-value boxes; `pcu` qualifies, the `dia`
+FCC primitive cell does not). After the fix, pre-EM crosslink lengths max
+1.24 nm, post-EM mean 0.555 / max 0.93 / none above 1 nm, and the converged
+potential energy is negative rather than +8.8e5 kJ/mol.
+
+*Fixed in the commit adding this section.*
+
+### 22. The all-atom ownership rationale was contradicted by the pipeline
+
+Also from the verification. `aa_bonded` refuses to regenerate
+template-internal terms "because the template ITP owns them" -- but the
+populator dropped template `[ pairs ]` outright and silently discarded any
+template dihedral without inline parameters (the exact shape an OPLS template
+carries). One rule assumed the other end existed; it did not.
+
+**Fixes.** Template pairs are copied (index-remapped, deduplicated) into the
+combined topology whenever `topology_nrexcl >= 2`, so Martini output is
+unchanged; parameterless template dihedrals and impropers are registered
+parameterless instead of dropped (populator and the monomer path both); the
+junction walk unions its pairs with the template ones rather than
+overwriting; and ownership is now per template *instance*, since two
+molecules stamped from one template joined by a builder bond are different
+owners -- identity comparison silently skipped exactly that case. Partial
+conversion additionally requires a `seed`, since an unseeded selection made
+builds silently irreproducible.
+
+Recorded limits from the same review, documented rather than fixed: the
+router's exhaustive slot assignment is factorial in f (fine through f=8;
+switch to linear assignment beyond); the coincidence resolver is not
+PBC-aware; unformed strands are removed from the system entirely rather than
+kept as free chains, which changes composition and is now stated in the
+partial-conversion docs; and "byte-compatible" writer output is
+value-identical, not byte-identical (integer force constants print as `1250`,
+not `1250.000000`).
+
+*Fixed in the commit adding this section.*
+
 ## Still open
 
 - The f=6 path now builds end to end under GROMACS (example 07): all EM

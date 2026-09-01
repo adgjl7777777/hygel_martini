@@ -319,6 +319,12 @@ def _resolve_network_layout(sim_params):
             )
         if fraction == 1.0:
             fraction = None  # full conversion is the default path
+        elif conversion.get("seed") is None:
+            raise ValueError(
+                "'network_layout.conversion' needs a 'seed' when fraction < 1: "
+                "without one the strand selection differs on every run and the "
+                "build is silently irreproducible."
+            )
 
     return {
         "net": str(net),
@@ -408,6 +414,8 @@ def _plan_backbone_blueprint(sim_params, output_dir):
 
     repeats = (num_cells, num_cells, num_cells)
     isotropy_mode = _resolve_isotropy_mode(sim_params)
+    net_cell = None
+    net_repeats = None
 
     if net_layout_config is not None:
         if isotropy_mode:
@@ -437,6 +445,8 @@ def _plan_backbone_blueprint(sim_params, output_dir):
             print(f"  network_layout.{key}: {value}")
         layout_plan = net_result.layout_plan
         blueprint = build_atom_blueprint(layout_plan, context["backbone_defs"])
+        net_cell = net_result.cell
+        net_repeats = net_layout_config["repeats"]
     elif isotropy_mode:
         print("[INFO] isotropy mode enabled: per-medium-cell EM")
         layout_plan = None
@@ -473,6 +483,13 @@ def _plan_backbone_blueprint(sim_params, output_dir):
         "num_cells": num_cells,
         "repeats": repeats,
         "isotropy_mode": isotropy_mode,
+        # The net layout's own periodic cell. Without it the World box came
+        # from the diamond proto plan, so a net strand wrapping the true
+        # boundary saw a box too large to fold it back and was bonded across
+        # 9-17 nm of "distance" that does not physically exist -- found as
+        # massive undisclosed bond pre-strain in the first verified builds.
+        "net_cell": net_cell,
+        "net_repeats": net_repeats,
     }
 
 
@@ -481,7 +498,28 @@ def _apply_materialization_box_settings(plan_context):
     proto_plan = plan_context["proto_plan"]
     repeats = plan_context["repeats"]
 
-    if plan_context["isotropy_mode"]:
+    net_cell = plan_context.get("net_cell")
+    if net_cell is not None:
+        from hygel_martini.core.pbc import is_orthorhombic
+        cell = np.asarray(net_cell, dtype=np.float64)
+        if not is_orthorhombic(cell):
+            raise ValueError(
+                "The net layout produced a non-orthorhombic periodic cell, but "
+                "the GRO writer emits a three-value (orthorhombic) box line. "
+                "Use an orthorhombic net cell (pcu is; the dia FCC primitive "
+                "cell is not) until the writer supports the nine-value form."
+            )
+        lengths = np.diag(cell).copy()
+        World.box_vector = lengths
+        World.box_length = float(np.max(lengths))
+        repeats_arr = np.asarray(
+            plan_context.get("net_repeats") or plan_context["repeats"],
+            dtype=np.float64,
+        )
+        World.cell_vector = lengths / np.maximum(repeats_arr, 1.0)
+        World.ubox_length = float(np.max(World.cell_vector))
+        print(f"Updated World.box_vector from net layout: {World.box_vector}")
+    elif plan_context["isotropy_mode"]:
         medium_size = np.array(proto_plan.small_size, dtype=np.float64) * 2.0
         World.cell_vector = medium_size * 2.0
         World.box_vector = World.cell_vector * np.array(repeats, dtype=np.float64)

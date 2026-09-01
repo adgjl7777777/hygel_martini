@@ -241,9 +241,40 @@ def populate_hydrogel_from_blueprint(hydrogel, blueprint: LayoutBlueprint):
 
         _map_constraints(getattr(template, "constraints", []))
 
-        # pairs는 현재 단계에서 World로 옮기지 않음(사용자 요청)
-        if getattr(template, "pairs", []):
-            skipped_counts["pairs"] += len(getattr(template, "pairs", []))
+        # Template [ pairs ] are the molecule's own 1-4 list. They used to be
+        # dropped here outright, which under nrexcl=3 silently removes every
+        # template-internal 1-4 interaction from the combined topology --
+        # precisely the double-count-avoidance rationale of aa_bonded read
+        # backwards. They are copied (remapped) whenever the configured
+        # exclusion depth actually uses pairs; Martini (nrexcl=1) output is
+        # unchanged.
+        template_pairs = getattr(template, "pairs", []) or []
+        if template_pairs:
+            nrexcl = 1
+            if Config is not None:
+                try:
+                    nrexcl = int(
+                        Config.get_param("simulation_parameters").get("topology_nrexcl", 1)
+                    )
+                except Exception:
+                    nrexcl = 1
+            if nrexcl >= 2:
+                store = getattr(World, "generated_pairs", None) or []
+                existing = set(map(tuple, store))
+                for pair_def in template_pairs:
+                    gi = idx_map.get(pair_def.get("i"))
+                    gj = idx_map.get(pair_def.get("j"))
+                    if gi is None or gj is None:
+                        skipped_counts["pairs"] += 1
+                        continue
+                    key = (min(gi, gj), max(gi, gj))
+                    if key not in existing:
+                        existing.add(key)
+                        store.append(key)
+                        mapped_counts["pairs"] = mapped_counts.get("pairs", 0) + 1
+                World.generated_pairs = sorted(store)
+            else:
+                skipped_counts["pairs"] += len(template_pairs)
 
         for ex_def in getattr(template, "exclusions", []) or []:
             atom_local = ex_def.get("atom")
@@ -290,6 +321,15 @@ def populate_hydrogel_from_blueprint(hydrogel, blueprint: LayoutBlueprint):
             dihedral = Attributes.Dihedral(gi, gj, gk, gl, 0)
             dihedral.dihedral_funct = int(dih.get("funct", 1))
             params = dih.get("params", [])
+            if not params:
+                # Parameterless is complete GROMACS -- grompp resolves it from
+                # [ dihedraltypes ]. These used to be silently dropped, which
+                # is exactly the shape an OPLS template carries.
+                dihedral.dihedral_c0 = None
+                dihedral.dihedral_c1 = None
+                dihedral.dihedral_params = None
+                mapped_counts["dihedrals"] += 1
+                continue
             # GROMACS funct=1 proper dihedral requires 3 params; if template provides 2, assume multiplicity=1.
             if dihedral.dihedral_funct == 1 and len(params) == 2:
                 params = list(params) + [1.0]
@@ -318,6 +358,12 @@ def populate_hydrogel_from_blueprint(hydrogel, blueprint: LayoutBlueprint):
             dihedral = Attributes.Dihedral(gi, gj, gk, gl, 0)
             dihedral.dihedral_funct = int(imp.get("funct", 2))
             params = imp.get("params", [])
+            if not params:
+                dihedral.dihedral_c0 = None
+                dihedral.dihedral_c1 = None
+                dihedral.dihedral_params = None
+                mapped_counts["impropers"] = mapped_counts.get("impropers", 0) + 1
+                continue
             if dihedral.dihedral_funct == 1 and len(params) == 2:
                 params = list(params) + [1.0]
             if dihedral.dihedral_funct == 1 and len(params) < 3:

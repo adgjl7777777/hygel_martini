@@ -176,3 +176,41 @@ def test_martini_defaults_are_untouched(tmp_path) -> None:
 
     assert "CGMOL           1" in text
     assert "[ pairs ]" not in text
+
+
+def test_two_instances_of_one_template_still_generate_crossing_terms() -> None:
+    # Ownership is per molecule instance. Two chains stamped from the SAME
+    # template object, joined by a builder bond, must still get their crossing
+    # dihedrals -- identity-based comparison silently skipped exactly this.
+    world = _fresh_world()
+    shared = _Template()
+    chain_a = _chain(shared, 3)
+    chain_b = _chain(shared, 3)
+    for atom_id in chain_a:
+        world.Atoms[atom_id][0].chain_type = "linker"
+        world.Atoms[atom_id][0].chain_index = 0
+    for atom_id in chain_b:
+        world.Atoms[atom_id][0].chain_type = "linker"
+        world.Atoms[atom_id][0].chain_index = 1
+    Attributes.Bond(chain_a[2], chain_b[0], funct=1, c0=0.15, c1=1000.0)
+
+    added, pairs = generate_junction_bonded_terms(world)
+
+    assert added == 3
+    assert len(pairs) == 3
+
+
+def test_generated_pairs_merge_with_preexisting_template_pairs() -> None:
+    # The populator registers template-internal 1-4s on the same World list;
+    # the junction walk must union with them, not overwrite them.
+    world = _fresh_world()
+    chain_a = _chain(_Template(), 3)
+    chain_b = _chain(_Template(), 3)
+    Attributes.Bond(chain_a[2], chain_b[0], funct=1, c0=0.15, c1=1000.0)
+    world.generated_pairs = [(97, 99)]  # as if copied from a template
+
+    _, crossing = generate_junction_bonded_terms(world)
+
+    assert (97, 99) in world.generated_pairs
+    assert set(crossing) <= set(world.generated_pairs)
+    assert len(world.generated_pairs) == len(crossing) + 1

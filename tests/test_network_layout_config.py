@@ -152,3 +152,16 @@ def test_the_hexafunctional_example_declares_a_loadable_f6_system() -> None:
     from hygel_martini.hydrogel_builder.core_utils.layout.nets import get_net
 
     assert template.functionality == get_net(resolved["net"]).coordination == 6
+
+
+def test_partial_conversion_without_a_seed_is_refused() -> None:
+    # Without a seed the strand selection differs on every run -- a silently
+    # irreproducible build, found in independent verification.
+    with pytest.raises(ValueError, match="needs a 'seed'"):
+        _resolve_network_layout(_block(conversion={"fraction": 0.5}))
+
+    resolved = _resolve_network_layout(
+        _block(conversion={"fraction": 0.5, "seed": 11})
+    )
+    assert resolved["conversion_fraction"] == pytest.approx(0.5)
+    assert resolved["conversion_seed"] == 11
