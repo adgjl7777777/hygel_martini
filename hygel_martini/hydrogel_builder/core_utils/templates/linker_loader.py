@@ -38,9 +38,25 @@ class LinkerTemplate:
     cmaptypes: List
     polarization: List[Dict]
     other_sections: Dict
+    # --- general N-stub description -------------------------------------
+    #: Bonds from each stub to the linker body, indexed by stub.
+    stub_bonds: List[List[Tuple[int, Dict[str, float]]]]
+    #: Backbone identifiers each stub may bond to, indexed by stub.
+    stub_backbone_targets: Tuple[Tuple[str, ...], ...]
+    #: Stub position relative to the template origin, in the local frame.
+    arm_vectors: np.ndarray
+    #: Junction functionality: how many backbone ends this template can take.
+    functionality: int
+    #: Per-stub configuration entries, indexed by stub.
+    stub_config_bonds: List[List[Dict]]
+
+    # --- two-stub view, populated only when functionality == 2 -----------
+    # Kept so the diamond layout, which is written around a left/right pair,
+    # continues to work unchanged. A consumer that needs it must check
+    # functionality first rather than assume.
     stub_bonds_left: List[Tuple[int, Dict[str, float]]]
     stub_bonds_right: List[Tuple[int, Dict[str, float]]]
-    backbone_ids: Tuple[str, str]
+    backbone_ids: Tuple[str, ...]
     span_vector: np.ndarray
     span_length: float
     linker_name: str
@@ -94,24 +110,25 @@ def linker_definitions_from_library(library: LinkerTemplateLibrary) -> List[Dict
                     "fc": params.get("c1"),
                 })
         
-        external_bonds_1 = []
-        for idx, params in template.stub_bonds_left:
-            external_bonds_1.append({
-                "from_bead": idx,
-                "to_backbone": params.get("target"),
-                "funct": params.get("funct", 1),
-                "length": params.get("c0"),
-                "fc": params.get("c1")
-            })
-        external_bonds_2 = []
-        for idx, params in template.stub_bonds_right:
-            external_bonds_2.append({
-                "from_bead": idx,
-                "to_backbone": params.get("target"),
-                "funct": params.get("funct", 1),
-                "length": params.get("c0"),
-                "fc": params.get("c1")
-            })
+        def _external(bonds):
+            return [
+                {
+                    "from_bead": idx,
+                    "to_backbone": params.get("target"),
+                    "to_backbones": params.get("targets"),
+                    "stub_index": params.get("stub_index"),
+                    "funct": params.get("funct", 1),
+                    "length": params.get("c0"),
+                    "fc": params.get("c1"),
+                }
+                for idx, params in bonds
+            ]
+
+        external_bonds = [_external(group) for group in template.stub_bonds]
+        # The two-stub spelling stays populated for the diamond layout, which
+        # reads external_bonds_1/_2 directly.
+        external_bonds_1 = external_bonds[0] if template.functionality == 2 else []
+        external_bonds_2 = external_bonds[1] if template.functionality == 2 else []
 
         definition = {
             "linker_name": template.linker_name,
@@ -121,6 +138,9 @@ def linker_definitions_from_library(library: LinkerTemplateLibrary) -> List[Dict
             "charge_group_number": template.beads[0].cgnr if template.beads else 1,
             "beads": bead_defs,
             "bonds": bonds,
+            "external_bonds": external_bonds,
+            "functionality": template.functionality,
+            "arm_vectors": template.arm_vectors,
             "external_bonds_1": external_bonds_1,
             "external_bonds_2": external_bonds_2,
             "stub_definitions": template.stub_definitions,
@@ -209,6 +229,41 @@ def _backbone_mass_lookup(backbone_defs: List[Dict]) -> Dict[str, float]:
         if backbone_id is not None and mass is not None:
             masses[str(backbone_id)] = float(mass)
     return masses
+
+
+def _stub_configuration(entry: Dict, linker_id: str) -> List[List[Dict]]:
+    """Per-stub bond-parameter entries, in stub order.
+
+    The general form is ``stubs: [[...], [...], ...]`` with one list per stub.
+    ``backbone_1``/``backbone_2`` remain accepted as the two-stub spelling,
+    which is what every existing configuration uses; mixing the two forms is
+    refused rather than silently resolved to one of them.
+    """
+    stubs = entry.get("stubs")
+    legacy = [key for key in ("backbone_1", "backbone_2") if entry.get(key)]
+
+    if stubs is not None and legacy:
+        raise ValueError(
+            f"링커 '{linker_id}'가 'stubs'와 {legacy}를 동시에 정의했습니다. "
+            "둘 중 하나만 사용하십시오."
+        )
+    if stubs is not None:
+        if not isinstance(stubs, list) or not stubs:
+            raise ValueError(
+                f"링커 '{linker_id}'의 'stubs'는 stub마다 하나씩의 리스트여야 합니다."
+            )
+        resolved = []
+        for position, group in enumerate(stubs):
+            if isinstance(group, dict):
+                group = [group]
+            if not isinstance(group, list) or not group:
+                raise ValueError(
+                    f"링커 '{linker_id}'의 stub {position}에 bond entry가 없습니다."
+                )
+            resolved.append(group)
+        return resolved
+
+    return [entry.get("backbone_1", []), entry.get("backbone_2", [])]
 
 
 def _resolve_stub_targets(
@@ -313,29 +368,42 @@ def _load_single_linker(entry: Dict, backbone_defs: List[Dict]) -> LinkerTemplat
     # Use new keys from user's JSON structure
     linker_name = entry.get("linker_residue_name")
     backbone_name = entry.get("backbone_residue_name")
-    backbone_1_bonds = entry.get("backbone_1", [])
-    backbone_2_bonds = entry.get("backbone_2", [])
+    stub_config = _stub_configuration(entry, linker_id)
+    backbone_1_bonds = stub_config[0] if len(stub_config) > 0 else []
+    backbone_2_bonds = stub_config[1] if len(stub_config) == 2 else []
 
     if not linker_name or not backbone_name:
         raise ValueError(f"링커 '{linker_id}'는 maker.json에 'linker_residue_name'과 'backbone_residue_name'이 필요합니다.")
 
     stub_indices = sorted([bead['nr'] for bead in beads if bead['residue'] == 'BCK'])
-    if len(stub_indices) != 2:
-        raise ValueError(f"링커 '{linker_id}' 템플릿에는 stub 지점을 위해 정확히 2개의 'BCK' 잔기 원자가 있어야 합니다.")
-    left_idx, right_idx = stub_indices
+    functionality = len(stub_indices)
+    if functionality != len(stub_config):
+        raise ValueError(
+            f"링커 '{linker_id}' 템플릿의 'BCK' stub 원자는 {functionality}개인데 "
+            f"설정은 {len(stub_config)}개 stub을 정의했습니다. 두 수가 같아야 합니다. "
+            f"(f>2 junction은 'stubs' 리스트를 사용하십시오.)"
+        )
+    if functionality < 2:
+        raise ValueError(
+            f"링커 '{linker_id}' 템플릿에 'BCK' stub 원자가 {functionality}개뿐입니다. "
+            "crosslinker는 최소 두 개의 backbone end를 이어야 합니다."
+        )
+
     backbone_masses = _backbone_mass_lookup(backbone_defs)
-    left_targets = _resolve_stub_targets(backbone_1_bonds, linker_id, "backbone_1")
-    right_targets = _resolve_stub_targets(backbone_2_bonds, linker_id, "backbone_2")
-    left_backbone_id = left_targets[0]
-    right_backbone_id = right_targets[0]
-    stub_masses = {
-        left_idx: _stub_mass_for_targets(
-            left_targets, backbone_masses, linker_id, "backbone_1"
-        ),
-        right_idx: _stub_mass_for_targets(
-            right_targets, backbone_masses, linker_id, "backbone_2"
-        ),
-    }
+    stub_targets: List[Tuple[str, ...]] = []
+    stub_masses: Dict[int, float] = {}
+    for position, (idx, group) in enumerate(zip(stub_indices, stub_config)):
+        label = f"stub {position}" if len(stub_config) != 2 else f"backbone_{position + 1}"
+        targets = _resolve_stub_targets(group, linker_id, label)
+        stub_targets.append(targets)
+        stub_masses[idx] = _stub_mass_for_targets(
+            targets, backbone_masses, linker_id, label
+        )
+    is_pair = functionality == 2
+    left_idx = stub_indices[0]
+    right_idx = stub_indices[-1]
+    left_backbone_id = stub_targets[0][0]
+    right_backbone_id = stub_targets[-1][0]
 
     stub_definitions = []
     # Perform dynamic renaming and collect stub definitions
@@ -346,7 +414,13 @@ def _load_single_linker(entry: Dict, backbone_defs: List[Dict]) -> LinkerTemplat
             stub_definitions.append(bead.copy()) # Save original stub definition
         if bead['residue'] == 'BCK':
             if isinstance(backbone_name, (list, tuple)):
-                bead['residue'] = backbone_name[0] if bead['nr'] == left_idx else backbone_name[1]
+                position = stub_indices.index(bead['nr'])
+                if position >= len(backbone_name):
+                    raise ValueError(
+                        f"링커 '{linker_id}'의 backbone_residue_name은 이름 "
+                        f"{len(backbone_name)}개를 주었지만 stub은 {functionality}개입니다."
+                    )
+                bead['residue'] = backbone_name[position]
             else:
                 bead['residue'] = backbone_name
         elif bead['residue'] == 'LNK':
@@ -356,25 +430,48 @@ def _load_single_linker(entry: Dict, backbone_defs: List[Dict]) -> LinkerTemplat
     stub_definitions.sort(key=lambda x: x['nr'])
 
     backbone_map = {
-        left_idx: left_backbone_id,
-        right_idx: right_backbone_id,
+        idx: targets[0] for idx, targets in zip(stub_indices, stub_targets)
     }
+    stub_position = {idx: position for position, idx in enumerate(stub_indices)}
 
     gro_atoms = read_gro_atoms(gro_path)
     if len(gro_atoms) != len(beads):
         raise ValueError(f"링커 '{linker_id}'의 GRO/ITP 원자 수가 일치하지 않습니다.")
 
-    left_atom = gro_atoms[left_idx - 1]
-    right_atom = gro_atoms[right_idx - 1]
-    left_pos = left_atom.position
-    right_pos = right_atom.position
+    stub_positions = np.array(
+        [gro_atoms[idx - 1].position for idx in stub_indices], dtype=np.float64
+    )
 
-    span_vector = right_pos - left_pos
-    span_length = np.linalg.norm(span_vector)
-    if span_length < 1e-8:
-        raise ValueError(f"링커 '{linker_id}'의 backbone 간 거리가 0입니다.")
+    if is_pair:
+        # Two stubs define an axis, and the diamond layout is written around
+        # it: origin at the first stub, x along the span. Kept exactly.
+        left_pos = stub_positions[0]
+        span_vector = stub_positions[1] - stub_positions[0]
+        span_length = float(np.linalg.norm(span_vector))
+        if span_length < 1e-8:
+            raise ValueError(f"링커 '{linker_id}'의 backbone 간 거리가 0입니다.")
+        basis = _orthonormal_basis(span_vector)
+    else:
+        # A junction with three or more arms has no distinguished axis, so the
+        # origin is the stub centroid and the template keeps its own
+        # orientation; the layout rotates it into place. At two stubs the
+        # centroid is the midpoint and 2 * mean arm length is exactly the
+        # stub-to-stub span, so the two branches agree in the limit.
+        left_pos = stub_positions.mean(axis=0)
+        arm_lengths = np.linalg.norm(stub_positions - left_pos, axis=1)
+        if float(arm_lengths.min()) < 1e-8:
+            raise ValueError(
+                f"링커 '{linker_id}'의 stub 하나가 stub 중심과 겹칩니다; "
+                "arm 방향을 정의할 수 없습니다."
+            )
+        span_length = float(2.0 * arm_lengths.mean())
+        span_vector = np.zeros(3, dtype=np.float64)
+        basis = np.eye(3, dtype=np.float64)
 
-    basis = _orthonormal_basis(span_vector)
+    arm_vectors = np.array(
+        [basis.T @ (position - left_pos) for position in stub_positions],
+        dtype=np.float64,
+    )
 
     bead_templates: List[BeadTemplate] = []
     coords_local: List[np.ndarray] = []
@@ -416,8 +513,9 @@ def _load_single_linker(entry: Dict, backbone_defs: List[Dict]) -> LinkerTemplat
     other_sections = definition.get("other_sections", {})
 
     internal_bonds: List[Tuple[int, int, Dict[str, float]]] = []
-    stub_bonds_left: List[Tuple[int, Dict[str, float]]] = []
-    stub_bonds_right: List[Tuple[int, Dict[str, float]]] = []
+    stub_bonds: List[List[Tuple[int, Dict[str, float]]]] = [
+        [] for _ in stub_indices
+    ]
     stub_stub_bonds: List[Dict] = []
 
     for bond in definition.get('bonds', []):
@@ -439,10 +537,19 @@ def _load_single_linker(entry: Dict, backbone_defs: List[Dict]) -> LinkerTemplat
             other_idx = index_map.get(other)
             if other_idx is None:
                 raise ValueError(f"링커 '{linker_id}'의 backbone 결합이 잘못된 bead를 참조합니다.")
-            if (i in backbone_map and i == left_idx) or (j in backbone_map and j == left_idx):
-                stub_bonds_left.append((other_idx, {"target": target, **params}))
-            else:
-                stub_bonds_right.append((other_idx, {"target": target, **params}))
+            stub_atom = i if i in backbone_map else j
+            position = stub_position[stub_atom]
+            stub_bonds[position].append(
+                (
+                    other_idx,
+                    {
+                        "target": target,
+                        "targets": stub_targets[position],
+                        "stub_index": position,
+                        **params,
+                    },
+                )
+            )
         else:
             idx_i = index_map.get(i)
             idx_j = index_map.get(j)
@@ -500,7 +607,9 @@ def _load_single_linker(entry: Dict, backbone_defs: List[Dict]) -> LinkerTemplat
             continue
         internal_impropers.append(new_imp)
 
-    backbone_ids = (backbone_map[left_idx], backbone_map[right_idx])
+    backbone_ids = tuple(targets[0] for targets in stub_targets)
+    stub_bonds_left = stub_bonds[0] if is_pair else []
+    stub_bonds_right = stub_bonds[1] if is_pair else []
     return LinkerTemplate(
         id=linker_id,
         beads=bead_templates,
@@ -519,6 +628,11 @@ def _load_single_linker(entry: Dict, backbone_defs: List[Dict]) -> LinkerTemplat
         cmaptypes=cmaptypes,
         polarization=polarization,
         other_sections=other_sections,
+        stub_bonds=stub_bonds,
+        stub_backbone_targets=tuple(stub_targets),
+        arm_vectors=arm_vectors,
+        functionality=functionality,
+        stub_config_bonds=stub_config,
         stub_bonds_left=stub_bonds_left,
         stub_bonds_right=stub_bonds_right,
         backbone_ids=backbone_ids,
