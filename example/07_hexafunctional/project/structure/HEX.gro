@@ -1,0 +1,10 @@
+Hexafunctional crosslinker: central bead with six arms (octahedral)
+    7
+    1LNK     C0    1   2.000   2.000   2.000
+    1BCK     S1    2   2.350   2.000   2.000
+    1BCK     S2    3   1.650   2.000   2.000
+    1BCK     S3    4   2.000   2.350   2.000
+    1BCK     S4    5   2.000   1.650   2.000
+    1BCK     S5    6   2.000   2.000   2.350
+    1BCK     S6    7   2.000   2.000   1.650
+   4.00000   4.00000   4.00000

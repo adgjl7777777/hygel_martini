@@ -28,6 +28,7 @@ from hygel_martini.hydrogel_builder.core_utils.common.utility import find_minimu
 from hygel_martini.hydrogel_builder.core_utils.layout.isotropic_builder import build_isotropic_blueprint
 from hygel_martini.hydrogel_builder.core_utils.layout.layout_executor import build_atom_blueprint
 from hygel_martini.hydrogel_builder.core_utils.layout.proto_builder import prepare_proto_plan
+from hygel_martini.hydrogel_builder.core_utils.layout.net_layout import generate_net_layout_plan
 from hygel_martini.hydrogel_builder.core_utils.layout.proto_layout import generate_layout_plan
 from hygel_martini.hydrogel_builder.core_utils.layout.proto_populator import populate_hydrogel_from_blueprint
 from hygel_martini.hydrogel_builder.core_utils.templates.linker_loader import (
@@ -232,6 +233,83 @@ def _load_backbone_context():
     }
 
 
+def _resolve_network_layout(sim_params):
+    """Read the optional ``network_layout`` block.
+
+    Returning ``None`` selects the historical diamond layout, so an existing
+    configuration is unaffected by the key existing. The block is validated
+    here rather than at use, so a typo is reported before any structure is
+    built.
+    """
+    raw = sim_params.get("network_layout")
+    if raw in (None, {}, False):
+        return None
+    if not isinstance(raw, dict):
+        raise ValueError(
+            f"'network_layout' must be a mapping, got {type(raw).__name__}"
+        )
+
+    known = {"net", "repeats", "cell_parameter", "rewiring"}
+    unknown = sorted(set(raw) - known)
+    if unknown:
+        raise ValueError(
+            f"'network_layout' has unknown key(s) {unknown}; expected {sorted(known)}"
+        )
+
+    net = raw.get("net")
+    if not net:
+        raise ValueError("'network_layout' needs a 'net' (for example 'pcu' or 'dia')")
+
+    repeats = raw.get("repeats")
+    if repeats is None:
+        raise ValueError("'network_layout' needs 'repeats'")
+    if isinstance(repeats, int):
+        repeats = (repeats, repeats, repeats)
+    else:
+        repeats = tuple(int(value) for value in repeats)
+        if len(repeats) != 3:
+            raise ValueError(f"'network_layout.repeats' needs three values, got {repeats}")
+
+    cell_parameter = raw.get("cell_parameter")
+    if cell_parameter is None or float(cell_parameter) <= 0.0:
+        raise ValueError(
+            "'network_layout' needs a positive 'cell_parameter' (nm between "
+            "neighbouring junction sites)"
+        )
+
+    rewiring = raw.get("rewiring") or {}
+    if not isinstance(rewiring, dict):
+        raise ValueError("'network_layout.rewiring' must be a mapping")
+    rewire_known = {
+        "max_span", "seed", "max_sweeps", "tolerance", "patience",
+        "allow_primary_loops", "allow_parallel_strands",
+    }
+    rewire_unknown = sorted(set(rewiring) - rewire_known)
+    if rewire_unknown:
+        raise ValueError(
+            f"'network_layout.rewiring' has unknown key(s) {rewire_unknown}; "
+            f"expected {sorted(rewire_known)}"
+        )
+    max_span = rewiring.get("max_span")
+    rewire_kwargs = {
+        key: rewiring[key] for key in rewire_known - {"max_span", "seed"} if key in rewiring
+    }
+    if max_span is None and rewire_kwargs:
+        raise ValueError(
+            "'network_layout.rewiring' options were given without 'max_span', "
+            "so no rewiring would run. Set 'max_span' or remove the block."
+        )
+
+    return {
+        "net": str(net),
+        "repeats": repeats,
+        "cell_parameter": float(cell_parameter),
+        "max_span": None if max_span is None else float(max_span),
+        "rewire_seed": rewiring.get("seed"),
+        "rewire_kwargs": rewire_kwargs,
+    }
+
+
 def _resolve_isotropy_mode(sim_params):
     """Resolve whether the special isotropic builder path should be used."""
     anisotropy = sim_params.get("anisotropy")
@@ -295,16 +373,47 @@ def _plan_backbone_blueprint(sim_params, output_dir):
         print("Proto linker         : none (backbone-only mode)")
     print(f"Cell vector (nm)     : {proto_plan.cell_vector}")
 
+    net_layout_config = _resolve_network_layout(sim_params)
+
     num_cells = int(sim_params.get("number_of_cells"))
     if num_cells < 1:
         raise ValueError("number_of_cells must be >= 1")
-    if num_cells % 2 != 0 and num_cells != 1:
+    if net_layout_config is None and num_cells % 2 != 0 and num_cells != 1:
+        # The even-cell requirement is the diamond path's. A net-driven layout
+        # validates its own repeat counts per net, since the constraint differs
+        # between nets rather than being universal.
         raise AssertionError("Diamond network must have even number of cells or debug value 1")
 
     repeats = (num_cells, num_cells, num_cells)
     isotropy_mode = _resolve_isotropy_mode(sim_params)
 
-    if isotropy_mode:
+    if net_layout_config is not None:
+        if isotropy_mode:
+            raise ValueError(
+                "network_layout and the isotropy path are alternative layouts; "
+                "enable only one."
+            )
+        print(
+            "[INFO] network_layout enabled: net={net} repeats={repeats} "
+            "a={cell_parameter} nm".format(**net_layout_config)
+        )
+        net_result = generate_net_layout_plan(
+            proto_plan,
+            context["backbone_defs"],
+            context["linker_defs"],
+            net=net_layout_config["net"],
+            repeats=net_layout_config["repeats"],
+            cell_parameter=net_layout_config["cell_parameter"],
+            linker_library=context["linker_library"],
+            max_span=net_layout_config["max_span"],
+            rewire_seed=net_layout_config["rewire_seed"],
+            rewire_kwargs=net_layout_config["rewire_kwargs"],
+        )
+        for key, value in net_result.summary().items():
+            print(f"  network_layout.{key}: {value}")
+        layout_plan = net_result.layout_plan
+        blueprint = build_atom_blueprint(layout_plan, context["backbone_defs"])
+    elif isotropy_mode:
         print("[INFO] isotropy mode enabled: per-medium-cell EM")
         layout_plan = None
         blueprint = build_isotropic_blueprint(

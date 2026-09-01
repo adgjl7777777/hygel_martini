@@ -1,0 +1,59 @@
+# hydrogel.yaml
+# 한글: f=6 hexafunctional crosslinker + 단일 backbone strand 정의.
+# English: an f=6 crosslinker and one backbone strand chemistry.
+
+monomer_definitions:
+  MONOMERS: []
+  SEQUENCE_STRATEGY:
+    strategy: random
+
+hydrogel_components:
+  backbone_definitions:
+    BACKBONES:
+      - id: BB1
+        ratio: 1
+        definition:
+          atom_type: C1
+          residue_name: BCK1
+          atom_name: B1
+          charge_group_number: 1
+          mass: 56
+          charge: 0.0
+    BONDS:
+      - between: [BB1, BB1]
+        bond_funct: 1
+        bond_c0: 0.47
+        bond_c1: 1250
+    angles:
+      default_angle:
+        angle_funct: 1
+        angle_c0: 180
+        angle_c1: 25
+    SEQUENCE_STRATEGY:
+      strategy: random
+
+  linker_definitions:
+    # 한글: 여섯 개의 BCK bead가 stub(부착 자리)이다. 각 stub이 backbone end
+    #       하나씩을 받아 f=6 junction을 이룬다. 2-stub 표기(backbone_1/
+    #       backbone_2)는 stub이 두 개일 때만 쓰며, 여기서는 'stubs' 리스트를
+    #       쓴다. 둘을 섞으면 로더가 거부한다.
+    # English: the six BCK beads are attachment stubs. Each takes one backbone
+    #          end, giving an f=6 junction. The two-stub spelling
+    #          (backbone_1/backbone_2) applies only at two stubs; use the
+    #          'stubs' list here. Mixing the two is refused.
+    LINKERS:
+      - id: HEX_linker
+        ratio: 1
+        gro: ${CONFIG_DIR}/structure/HEX.gro
+        itp: ${CONFIG_DIR}/structure/HEX.itp
+        linker_residue_name: HEX
+        backbone_residue_name: HB
+        stubs:
+          - [{between: BB1, bond_funct: 1, bond_c0: 0.47, bond_c1: 1250}]
+          - [{between: BB1, bond_funct: 1, bond_c0: 0.47, bond_c1: 1250}]
+          - [{between: BB1, bond_funct: 1, bond_c0: 0.47, bond_c1: 1250}]
+          - [{between: BB1, bond_funct: 1, bond_c0: 0.47, bond_c1: 1250}]
+          - [{between: BB1, bond_funct: 1, bond_c0: 0.47, bond_c1: 1250}]
+          - [{between: BB1, bond_funct: 1, bond_c0: 0.47, bond_c1: 1250}]
+    SEQUENCE_STRATEGY:
+      strategy: random
