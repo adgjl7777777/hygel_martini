@@ -1,0 +1,10 @@
+itp: /nas_1/transcendence/2026_2/omni_hygel_package/package/example/08_des_thiourethane_aa/project/output_n33/initial_hydrogel.itp
+gro: /nas_1/transcendence/2026_2/omni_hygel_package/package/example/08_des_thiourethane_aa/project/output_n33/initial_hydrogel.gro
+atoms: 77184
+bonds: 77696
+components: 1
+largest_component_atoms: 77184
+largest_component_fraction: 1.000000
+component_sizes: 77184
+component_composition:
+  1: size=77184 residues=(HEX:5184, STR:72000) atoms=(C06:256, C07:256, O0B:256, C0C:256, C0D:256, C0H:256, C0K:256, C0N:256)

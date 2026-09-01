@@ -1,107 +1,107 @@
 === Debug Log Start ===
-[2026-09-02 00:30:14] Debug logging enabled. Mode=all
-[2026-09-02 00:30:14] [run] id=20260902-003014
-[2026-09-02 00:30:14] [progress] 0% run=20260902-003014 stage=start
-[2026-09-02 00:30:14] [progress] 1% run=20260902-003014 stage=start
-[2026-09-02 00:30:15] [progress] 2% run=20260902-003014 stage=prepare
-[2026-09-02 00:30:15] [progress] 3% run=20260902-003014 stage=prepare
-[2026-09-02 00:30:15] [seed] random_seed=2020
-[2026-09-02 00:30:15] [stage] populate_hydrogel_from_blueprint start
-[2026-09-02 00:30:15] [proto-linker-rich] chain=0 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=1 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=2 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=3 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=4 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=5 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=6 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=7 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=8 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=9 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=10 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=11 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=12 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=13 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=14 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=15 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=16 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=17 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=18 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=19 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=20 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=21 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=22 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=23 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=24 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=25 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=26 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=27 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=28 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=29 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=30 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=31 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=32 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=33 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=34 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=35 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=36 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=37 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=38 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=39 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=40 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=41 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=42 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=43 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=44 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=45 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=46 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=47 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=48 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=49 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=50 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=51 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=52 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=53 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=54 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=55 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=56 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=57 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=58 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=59 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=60 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=61 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=62 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [proto-linker-rich] chain=63 template=HEX_linker mapped={} skipped={}
-[2026-09-02 00:30:15] [stage] populate_hydrogel_from_blueprint done
-[2026-09-02 00:30:15] [isotropic] _resolve_close_contacts: 1 overlap(s) jittered by 0.12 nm
-[2026-09-02 00:30:15] [stage] construct_bonds start
-[2026-09-02 00:30:15] [stage] _construct_proto_bonds start
-[2026-09-02 00:30:15] [stage] construct_bonds done
-[2026-09-02 00:30:15] [stage] update_hydrogel_attributes start
-[2026-09-02 00:30:15] [stage] update_hydrogel_attributes done
-[2026-09-02 00:30:15] [stage] _log_min_distance_report backbone start
-[2026-09-02 00:30:16] [progress] 4% run=20260902-003014 stage=min_distance
-[2026-09-02 00:30:16] [progress] 5% run=20260902-003014 stage=min_distance
-[2026-09-02 00:30:16] [progress] 6% run=20260902-003014 stage=min_distance
-[2026-09-02 00:30:16] [progress] 7% run=20260902-003014 stage=min_distance
-[2026-09-02 00:30:16] [progress] 8% run=20260902-003014 stage=min_distance
-[2026-09-02 00:30:16] [progress] 9% run=20260902-003014 stage=min_distance
-[2026-09-02 00:30:16] [progress] 10% run=20260902-003014 stage=min_distance
-[2026-09-02 00:30:16] [progress] 11% run=20260902-003014 stage=min_distance
-[2026-09-02 00:30:16] [progress] 12% run=20260902-003014 stage=min_distance
-[2026-09-02 00:30:16] [progress] 13% run=20260902-003014 stage=min_distance
-[2026-09-02 00:30:16] [progress] 14% run=20260902-003014 stage=min_distance
-[2026-09-02 00:30:16] [progress] 15% run=20260902-003014 stage=min_distance
-[2026-09-02 00:30:16] [progress] 16% run=20260902-003014 stage=min_distance
-[2026-09-02 00:30:16] [progress] 17% run=20260902-003014 stage=min_distance
-[2026-09-02 00:30:16] [progress] 18% run=20260902-003014 stage=min_distance
-[2026-09-02 00:30:16] [stage] _log_min_distance_report backbone done
-[2026-09-02 00:30:17] [progress] 19% run=20260902-003014 stage=dynamic_crosslink
-[2026-09-02 00:30:17] [progress] 20% run=20260902-003014 stage=dynamic_crosslink
-[2026-09-02 00:30:17] [topology-patch] bonds file=/nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/config/backbone.yaml
-[2026-09-02 00:30:17] [stage:backbone-only] OtherSections counts={} WorldConstraints=0 WorldExclusions=0 WorldDihedrals=0
-[2026-09-02 00:30:17] grompp CMD: gmx_mpi grompp -f /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/post_crosslink_relax_geo_opt/minim.mdp -c /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_backbone.gro -p /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/post_crosslink_relax_geo_opt/system.top -o /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/post_crosslink_relax_geo_opt/em.tpr -po /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/post_crosslink_relax_geo_opt/mdout.mdp -maxwarn 2
-[2026-09-02 00:30:18] grompp STDOUT:
-Setting the LD random seed to -204702017
+[2026-09-02 01:35:31] Debug logging enabled. Mode=all
+[2026-09-02 01:35:31] [run] id=20260902-013531
+[2026-09-02 01:35:31] [progress] 0% run=20260902-013531 stage=start
+[2026-09-02 01:35:31] [progress] 1% run=20260902-013531 stage=start
+[2026-09-02 01:35:31] [progress] 2% run=20260902-013531 stage=prepare
+[2026-09-02 01:35:31] [progress] 3% run=20260902-013531 stage=prepare
+[2026-09-02 01:35:31] [seed] random_seed=2020
+[2026-09-02 01:35:32] [stage] populate_hydrogel_from_blueprint start
+[2026-09-02 01:35:32] [proto-linker-rich] chain=0 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=1 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=2 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=3 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=4 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=5 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=6 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=7 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=8 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=9 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=10 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=11 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=12 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=13 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=14 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=15 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=16 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=17 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=18 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=19 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=20 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=21 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=22 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=23 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=24 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=25 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=26 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=27 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=28 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=29 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=30 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=31 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=32 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=33 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=34 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=35 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=36 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=37 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=38 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=39 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=40 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=41 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=42 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=43 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=44 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=45 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=46 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=47 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=48 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=49 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=50 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=51 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=52 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=53 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=54 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=55 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=56 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=57 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=58 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=59 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=60 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=61 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=62 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [proto-linker-rich] chain=63 template=HEX_linker mapped={} skipped={}
+[2026-09-02 01:35:32] [stage] populate_hydrogel_from_blueprint done
+[2026-09-02 01:35:32] [isotropic] _resolve_close_contacts: 1 overlap(s) jittered by 0.12 nm
+[2026-09-02 01:35:32] [stage] construct_bonds start
+[2026-09-02 01:35:32] [stage] _construct_proto_bonds start
+[2026-09-02 01:35:32] [stage] construct_bonds done
+[2026-09-02 01:35:32] [stage] update_hydrogel_attributes start
+[2026-09-02 01:35:32] [stage] update_hydrogel_attributes done
+[2026-09-02 01:35:32] [stage] _log_min_distance_report backbone start
+[2026-09-02 01:35:32] [progress] 4% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:32] [progress] 5% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:32] [progress] 6% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:32] [progress] 7% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:32] [progress] 8% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:32] [progress] 9% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:32] [progress] 10% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:32] [progress] 11% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:32] [progress] 12% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:32] [progress] 13% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:32] [progress] 14% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:32] [progress] 15% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:32] [progress] 16% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:32] [progress] 17% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:32] [progress] 18% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:32] [stage] _log_min_distance_report backbone done
+[2026-09-02 01:35:33] [progress] 19% run=20260902-013531 stage=dynamic_crosslink
+[2026-09-02 01:35:33] [progress] 20% run=20260902-013531 stage=dynamic_crosslink
+[2026-09-02 01:35:33] [topology-patch] bonds file=/nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/config/backbone.yaml
+[2026-09-02 01:35:33] [stage:backbone-only] OtherSections counts={} WorldConstraints=0 WorldExclusions=0 WorldDihedrals=0
+[2026-09-02 01:35:33] grompp CMD: gmx_mpi grompp -f /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/post_crosslink_relax_geo_opt/minim.mdp -c /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_backbone.gro -p /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/post_crosslink_relax_geo_opt/system.top -o /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/post_crosslink_relax_geo_opt/em.tpr -po /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/post_crosslink_relax_geo_opt/mdout.mdp -maxwarn 2
+[2026-09-02 01:35:34] grompp STDOUT:
+Setting the LD random seed to -873103766
 
 Generated 844 of the 356590 non-bonded parameter combinations
 
@@ -112,7 +112,7 @@ Analysing residues not classified as Protein/DNA/RNA/Water and splitting into gr
 
 This run will generate roughly 0 Mb of data
 
-[2026-09-02 00:30:18] grompp STDERR:
+[2026-09-02 01:35:34] grompp STDERR:
                       :-) GROMACS - gmx grompp, 2026.2 (-:
 
 Executable:   /opt/gromacs/2026/bin/gmx_mpi
@@ -124,13 +124,13 @@ Command line:
 Number of degrees of freedom in T-Coupling group rest is 6309.00
 The integrator does not provide a ensemble temperature, there is no system ensemble temperature
 
-GROMACS reminds you: "It Was My Pleasure" (Pulp Fiction)
+GROMACS reminds you: "Your Bones Got a Little Machine" (Pixies)
 
 
-[2026-09-02 00:30:18] mdrun CMD: gmx_mpi mdrun -v -deffnm /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/post_crosslink_relax_geo_opt/em -ntomp 4 -nb cpu -update cpu
-[2026-09-02 00:30:18] mdrun STDOUT:
+[2026-09-02 01:35:34] mdrun CMD: gmx_mpi mdrun -v -deffnm /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/post_crosslink_relax_geo_opt/em -ntomp 4 -nb cpu -update cpu
+[2026-09-02 01:35:34] mdrun STDOUT:
 
-[2026-09-02 00:30:18] mdrun STDERR:
+[2026-09-02 01:35:34] mdrun STDERR:
                       :-) GROMACS - gmx mdrun, 2026.2 (-:
 
 Executable:   /opt/gromacs/2026/bin/gmx_mpi
@@ -258,12 +258,12 @@ Potential Energy  = -1.5702358e+04
 Maximum force     =  1.2394228e+02 on atom 774
 Norm of force     =  3.5407530e+01
 
-GROMACS reminds you: "It Was My Pleasure" (Pulp Fiction)
+GROMACS reminds you: "Your Bones Got a Little Machine" (Pixies)
 
 
-[2026-09-02 00:30:18] grompp CMD: gmx_mpi grompp -f /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/backbone_stage_geo_opt/minim.mdp -c /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/post_crosslink_relax_geo_opt/em.gro -p /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/backbone_stage_geo_opt/system.top -o /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/backbone_stage_geo_opt/em.tpr -po /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/backbone_stage_geo_opt/mdout.mdp -maxwarn 2
-[2026-09-02 00:30:19] grompp STDOUT:
-Setting the LD random seed to -273811533
+[2026-09-02 01:35:35] grompp CMD: gmx_mpi grompp -f /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/backbone_stage_geo_opt/minim.mdp -c /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/post_crosslink_relax_geo_opt/em.gro -p /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/backbone_stage_geo_opt/system.top -o /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/backbone_stage_geo_opt/em.tpr -po /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/backbone_stage_geo_opt/mdout.mdp -maxwarn 2
+[2026-09-02 01:35:35] grompp STDOUT:
+Setting the LD random seed to -101752873
 
 Generated 844 of the 356590 non-bonded parameter combinations
 
@@ -274,7 +274,7 @@ Analysing residues not classified as Protein/DNA/RNA/Water and splitting into gr
 
 This run will generate roughly 0 Mb of data
 
-[2026-09-02 00:30:19] grompp STDERR:
+[2026-09-02 01:35:35] grompp STDERR:
                       :-) GROMACS - gmx grompp, 2026.2 (-:
 
 Executable:   /opt/gromacs/2026/bin/gmx_mpi
@@ -286,13 +286,13 @@ Command line:
 Number of degrees of freedom in T-Coupling group rest is 6309.00
 The integrator does not provide a ensemble temperature, there is no system ensemble temperature
 
-GROMACS reminds you: "My Heart is Just a Muscle In a Cavity" (F. Black)
+GROMACS reminds you: "I'm a Wishbone and I'm Breaking" (Pixies)
 
 
-[2026-09-02 00:30:19] mdrun CMD: gmx_mpi mdrun -v -deffnm /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/backbone_stage_geo_opt/em -ntomp 4 -nb cpu -update cpu
-[2026-09-02 00:30:19] mdrun STDOUT:
+[2026-09-02 01:35:35] mdrun CMD: gmx_mpi mdrun -v -deffnm /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/backbone_stage_geo_opt/em -ntomp 4 -nb cpu -update cpu
+[2026-09-02 01:35:36] mdrun STDOUT:
 
-[2026-09-02 00:30:19] mdrun STDERR:
+[2026-09-02 01:35:36] mdrun STDERR:
                       :-) GROMACS - gmx mdrun, 2026.2 (-:
 
 Executable:   /opt/gromacs/2026/bin/gmx_mpi
@@ -360,54 +360,53 @@ Potential Energy  = -5.0320420e+03
 Maximum force     =  8.1773199e+02 on atom 1515
 Norm of force     =  1.1126889e+02
 
-GROMACS reminds you: "My Heart is Just a Muscle In a Cavity" (F. Black)
+GROMACS reminds you: "My Ass May Be Dumb, But I Ain't No Dumbass." (Jackie Brown)
 
 
-[2026-09-02 00:30:19] [progress] 21% run=20260902-003014 stage=geo_opt_backbone
-[2026-09-02 00:30:19] [progress] 22% run=20260902-003014 stage=geo_opt_backbone
-[2026-09-02 00:30:19] [progress] 23% run=20260902-003014 stage=geo_opt_backbone
-[2026-09-02 00:30:19] [progress] 24% run=20260902-003014 stage=geo_opt_backbone
-[2026-09-02 00:30:19] [progress] 25% run=20260902-003014 stage=geo_opt_backbone
-[2026-09-02 00:30:19] [stage] construct_chemical_detail start
-[2026-09-02 00:30:19] [stage] construct_chemical_detail enter
-[2026-09-02 00:30:20] [progress] 26% run=20260902-003014 stage=construct_chemical_detail
-[2026-09-02 00:30:20] [progress] 27% run=20260902-003014 stage=construct_chemical_detail
-[2026-09-02 00:30:20] [progress] 28% run=20260902-003014 stage=construct_chemical_detail
-[2026-09-02 00:30:20] [progress] 29% run=20260902-003014 stage=construct_chemical_detail
-[2026-09-02 00:30:20] [progress] 30% run=20260902-003014 stage=construct_chemical_detail
-[2026-09-02 00:30:20] [progress] 31% run=20260902-003014 stage=construct_chemical_detail
-[2026-09-02 00:30:20] [progress] 32% run=20260902-003014 stage=construct_chemical_detail
-[2026-09-02 00:30:21] [progress] 33% run=20260902-003014 stage=construct_chemical_detail
-[2026-09-02 00:30:21] [progress] 34% run=20260902-003014 stage=construct_chemical_detail
-[2026-09-02 00:30:21] [progress] 35% run=20260902-003014 stage=construct_chemical_detail
-[2026-09-02 00:30:21] [progress] 36% run=20260902-003014 stage=construct_chemical_detail
-[2026-09-02 00:30:21] [progress] 37% run=20260902-003014 stage=construct_chemical_detail
-[2026-09-02 00:30:21] [progress] 38% run=20260902-003014 stage=construct_chemical_detail
-[2026-09-02 00:30:21] [progress] 39% run=20260902-003014 stage=construct_chemical_detail
-[2026-09-02 00:30:22] [progress] 40% run=20260902-003014 stage=construct_chemical_detail
-[2026-09-02 00:30:22] [progress] 41% run=20260902-003014 stage=construct_chemical_detail
-[2026-09-02 00:30:22] [progress] 42% run=20260902-003014 stage=construct_chemical_detail
-[2026-09-02 00:30:22] [progress] 43% run=20260902-003014 stage=construct_chemical_detail
-[2026-09-02 00:30:22] [progress] 44% run=20260902-003014 stage=construct_chemical_detail
-[2026-09-02 00:30:22] [progress] 45% run=20260902-003014 stage=construct_chemical_detail
-[2026-09-02 00:30:22] [progress] 46% run=20260902-003014 stage=construct_chemical_detail
-[2026-09-02 00:30:22] [progress] 47% run=20260902-003014 stage=construct_chemical_detail
-[2026-09-02 00:30:23] [progress] 48% run=20260902-003014 stage=construct_chemical_detail
-[2026-09-02 00:30:23] [progress] 49% run=20260902-003014 stage=construct_chemical_detail
-[2026-09-02 00:30:23] [progress] 50% run=20260902-003014 stage=construct_chemical_detail
-[2026-09-02 00:30:23] [stage] construct_chemical_detail exit
-[2026-09-02 00:30:23] [stage] construct_chemical_detail done
-[2026-09-02 00:30:23] [stage] construct_angles start
-[2026-09-02 00:30:23] [stage] construct_angles done
-[2026-09-02 00:30:23] [stage] construct_dihedrals start
-[2026-09-02 00:30:23] [stage] construct_dihedrals done
-[2026-09-02 00:30:23] [stage] construct_impropers start
-[2026-09-02 00:30:23] [stage] construct_impropers done
-[2026-09-02 00:30:23] [topology-patch] full file=/nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/config/backbone.yaml
-[2026-09-02 00:30:23] [stage:initial-hydrogel] OtherSections counts={} WorldConstraints=0 WorldExclusions=0 WorldDihedrals=0
-[2026-09-02 00:30:23] grompp CMD: gmx_mpi grompp -f /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel_geo_opt/minim.mdp -c /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel.gro -p /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel_geo_opt/system.top -o /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel_geo_opt/em.tpr -po /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel_geo_opt/mdout.mdp -maxwarn 2
-[2026-09-02 00:30:24] grompp STDOUT:
-Setting the LD random seed to -54568499
+[2026-09-02 01:35:36] [progress] 21% run=20260902-013531 stage=geo_opt_backbone
+[2026-09-02 01:35:36] [progress] 22% run=20260902-013531 stage=geo_opt_backbone
+[2026-09-02 01:35:36] [progress] 23% run=20260902-013531 stage=geo_opt_backbone
+[2026-09-02 01:35:36] [progress] 24% run=20260902-013531 stage=geo_opt_backbone
+[2026-09-02 01:35:36] [progress] 25% run=20260902-013531 stage=geo_opt_backbone
+[2026-09-02 01:35:36] [stage] construct_chemical_detail start
+[2026-09-02 01:35:36] [stage] construct_chemical_detail enter
+[2026-09-02 01:35:36] [stage] construct_chemical_detail done
+[2026-09-02 01:35:36] [stage] construct_angles start
+[2026-09-02 01:35:36] [stage] construct_angles done
+[2026-09-02 01:35:36] [stage] construct_dihedrals start
+[2026-09-02 01:35:36] [stage] construct_dihedrals done
+[2026-09-02 01:35:36] [stage] construct_impropers start
+[2026-09-02 01:35:36] [stage] construct_impropers done
+[2026-09-02 01:35:36] [progress] 26% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:36] [progress] 27% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:36] [progress] 28% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:36] [progress] 29% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:36] [progress] 30% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:36] [progress] 31% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:36] [progress] 32% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:36] [progress] 33% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:36] [progress] 34% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:36] [progress] 35% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:36] [progress] 36% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:36] [progress] 37% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:36] [progress] 38% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:36] [progress] 39% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:36] [progress] 40% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:36] [progress] 41% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:36] [progress] 42% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:36] [progress] 43% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:36] [progress] 44% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:36] [progress] 45% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:36] [progress] 46% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:36] [progress] 47% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:36] [progress] 48% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:36] [progress] 49% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:36] [progress] 50% run=20260902-013531 stage=min_distance
+[2026-09-02 01:35:36] [topology-patch] full file=/nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/config/backbone.yaml
+[2026-09-02 01:35:36] [stage:initial-hydrogel] OtherSections counts={} WorldConstraints=0 WorldExclusions=0 WorldDihedrals=0
+[2026-09-02 01:35:37] grompp CMD: gmx_mpi grompp -f /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel_geo_opt/minim.mdp -c /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel.gro -p /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel_geo_opt/system.top -o /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel_geo_opt/em.tpr -po /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel_geo_opt/mdout.mdp -maxwarn 2
+[2026-09-02 01:35:37] grompp STDOUT:
+Setting the LD random seed to -1360429442
 
 Generated 844 of the 356590 non-bonded parameter combinations
 
@@ -418,7 +417,7 @@ Analysing residues not classified as Protein/DNA/RNA/Water and splitting into gr
 
 This run will generate roughly 0 Mb of data
 
-[2026-09-02 00:30:24] grompp STDERR:
+[2026-09-02 01:35:37] grompp STDERR:
                       :-) GROMACS - gmx grompp, 2026.2 (-:
 
 Executable:   /opt/gromacs/2026/bin/gmx_mpi
@@ -430,13 +429,13 @@ Command line:
 Number of degrees of freedom in T-Coupling group rest is 6309.00
 The integrator does not provide a ensemble temperature, there is no system ensemble temperature
 
-GROMACS reminds you: "Quite frankly, even if the choice of C were to do *nothing* but keep the C++ programmers out, that in itself would be a huge reason to use C." (Linus Torvalds)
+GROMACS reminds you: "The sign of wisdom is to have more questions than answers." (Abhijit Naskar)
 
 
-[2026-09-02 00:30:24] mdrun CMD: gmx_mpi mdrun -v -deffnm /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel_geo_opt/em -ntomp 4 -nb cpu -update cpu
-[2026-09-02 00:30:25] mdrun STDOUT:
+[2026-09-02 01:35:37] mdrun CMD: gmx_mpi mdrun -v -deffnm /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel_geo_opt/em -ntomp 4 -nb cpu -update cpu
+[2026-09-02 01:35:38] mdrun STDOUT:
 
-[2026-09-02 00:30:25] mdrun STDERR:
+[2026-09-02 01:35:38] mdrun STDERR:
                       :-) GROMACS - gmx mdrun, 2026.2 (-:
 
 Executable:   /opt/gromacs/2026/bin/gmx_mpi
@@ -467,17 +466,17 @@ Potential Energy  =  2.5268213e+03
 Maximum force     =  8.0481732e+02 on atom 1515
 Norm of force     =  1.2331503e+02
 
-GROMACS reminds you: "Every revolutionary idea seems to evoke three stages of reaction. They may be summed up by the phrases: (1) It's completely impossible. (2) It's possible, but not worth doing. (3) I said it was a good idea all along." (Arthur C. Clarke)
+GROMACS reminds you: "When I got my first job as a programmer there were quite a number of women doing programming because there was no computer science education and people were hired from many different fields if it seemed like they could do the work. It was better then, probably, in terms of proportions, not necessarily in women being paid as much as men and so forth, but definitely, there were women around." (Barbara Liskov)
 
 
-[2026-09-02 00:30:25] [progress] 51% run=20260902-003014 stage=geo_opt_initial
-[2026-09-02 00:30:25] [progress] 52% run=20260902-003014 stage=geo_opt_initial
-[2026-09-02 00:30:25] [progress] 53% run=20260902-003014 stage=geo_opt_initial
-[2026-09-02 00:30:25] [progress] 54% run=20260902-003014 stage=geo_opt_initial
-[2026-09-02 00:30:25] [progress] 55% run=20260902-003014 stage=geo_opt_initial
-[2026-09-02 00:30:25] grompp CMD: gmx_mpi grompp -f /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/final_system_no_ions_geo_opt/minim.mdp -c /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel_geo_opt/em.gro -p /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/final_system_no_ions_geo_opt/system.top -o /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/final_system_no_ions_geo_opt/em.tpr -po /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/final_system_no_ions_geo_opt/mdout.mdp -maxwarn 2
-[2026-09-02 00:30:26] grompp STDOUT:
-Setting the LD random seed to 2012684125
+[2026-09-02 01:35:38] [progress] 51% run=20260902-013531 stage=geo_opt_initial
+[2026-09-02 01:35:38] [progress] 52% run=20260902-013531 stage=geo_opt_initial
+[2026-09-02 01:35:38] [progress] 53% run=20260902-013531 stage=geo_opt_initial
+[2026-09-02 01:35:38] [progress] 54% run=20260902-013531 stage=geo_opt_initial
+[2026-09-02 01:35:38] [progress] 55% run=20260902-013531 stage=geo_opt_initial
+[2026-09-02 01:35:38] grompp CMD: gmx_mpi grompp -f /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/final_system_no_ions_geo_opt/minim.mdp -c /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel_geo_opt/em.gro -p /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/final_system_no_ions_geo_opt/system.top -o /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/final_system_no_ions_geo_opt/em.tpr -po /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/final_system_no_ions_geo_opt/mdout.mdp -maxwarn 2
+[2026-09-02 01:35:39] grompp STDOUT:
+Setting the LD random seed to -60295241
 
 Generated 844 of the 356590 non-bonded parameter combinations
 
@@ -488,7 +487,7 @@ Analysing residues not classified as Protein/DNA/RNA/Water and splitting into gr
 
 This run will generate roughly 0 Mb of data
 
-[2026-09-02 00:30:26] grompp STDERR:
+[2026-09-02 01:35:39] grompp STDERR:
                       :-) GROMACS - gmx grompp, 2026.2 (-:
 
 Executable:   /opt/gromacs/2026/bin/gmx_mpi
@@ -500,13 +499,13 @@ Command line:
 Number of degrees of freedom in T-Coupling group rest is 6309.00
 The integrator does not provide a ensemble temperature, there is no system ensemble temperature
 
-GROMACS reminds you: "This simulation is not as the former." (Malvolio, Act II, scene V of Shaphespeare's Twelfth Night)
+GROMACS reminds you: "As we all know, blinking lights means science." (Joss Whedon)
 
 
-[2026-09-02 00:30:26] mdrun CMD: gmx_mpi mdrun -v -deffnm /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/final_system_no_ions_geo_opt/em -ntomp 4 -nb cpu -update cpu
-[2026-09-02 00:30:26] mdrun STDOUT:
+[2026-09-02 01:35:39] mdrun CMD: gmx_mpi mdrun -v -deffnm /nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/final_system_no_ions_geo_opt/em -ntomp 4 -nb cpu -update cpu
+[2026-09-02 01:35:39] mdrun STDOUT:
 
-[2026-09-02 00:30:26] mdrun STDERR:
+[2026-09-02 01:35:39] mdrun STDERR:
                       :-) GROMACS - gmx mdrun, 2026.2 (-:
 
 Executable:   /opt/gromacs/2026/bin/gmx_mpi
@@ -537,51 +536,51 @@ Potential Energy  =  2.5268213e+03
 Maximum force     =  8.0481732e+02 on atom 1515
 Norm of force     =  1.2331504e+02
 
-GROMACS reminds you: "This simulation is not as the former." (Malvolio, Act II, scene V of Shaphespeare's Twelfth Night)
+GROMACS reminds you: "As we all know, blinking lights means science." (Joss Whedon)
 
 
-[2026-09-02 00:30:26] [progress] 56% run=20260902-003014 stage=final_no_ions
-[2026-09-02 00:30:26] [progress] 57% run=20260902-003014 stage=final_no_ions
-[2026-09-02 00:30:26] [progress] 58% run=20260902-003014 stage=final_no_ions
-[2026-09-02 00:30:26] [progress] 59% run=20260902-003014 stage=final_no_ions
-[2026-09-02 00:30:26] [progress] 60% run=20260902-003014 stage=final_no_ions
-[2026-09-02 00:30:26] [progress] 61% run=20260902-003014 stage=final_no_ions
-[2026-09-02 00:30:26] [progress] 62% run=20260902-003014 stage=final_no_ions
-[2026-09-02 00:30:26] [progress] 63% run=20260902-003014 stage=final_no_ions
-[2026-09-02 00:30:26] [progress] 64% run=20260902-003014 stage=final_no_ions
-[2026-09-02 00:30:26] [progress] 65% run=20260902-003014 stage=final_no_ions
-[2026-09-02 00:30:26] [progress] 66% run=20260902-003014 stage=final_no_ions
-[2026-09-02 00:30:26] [progress] 67% run=20260902-003014 stage=final_no_ions
-[2026-09-02 00:30:26] [progress] 68% run=20260902-003014 stage=final_no_ions
-[2026-09-02 00:30:26] [progress] 69% run=20260902-003014 stage=final_no_ions
-[2026-09-02 00:30:26] [progress] 70% run=20260902-003014 stage=final_no_ions
-[2026-09-02 00:30:26] [progress] 71% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 72% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 73% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 74% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 75% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 76% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 77% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 78% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 79% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 80% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 81% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 82% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 83% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 84% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 85% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 86% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 87% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 88% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 89% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 90% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 91% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 92% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 93% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 94% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 95% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 96% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 97% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 98% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 99% run=20260902-003014 stage=done
-[2026-09-02 00:30:26] [progress] 100% run=20260902-003014 stage=done
+[2026-09-02 01:35:39] [progress] 56% run=20260902-013531 stage=final_no_ions
+[2026-09-02 01:35:39] [progress] 57% run=20260902-013531 stage=final_no_ions
+[2026-09-02 01:35:39] [progress] 58% run=20260902-013531 stage=final_no_ions
+[2026-09-02 01:35:39] [progress] 59% run=20260902-013531 stage=final_no_ions
+[2026-09-02 01:35:39] [progress] 60% run=20260902-013531 stage=final_no_ions
+[2026-09-02 01:35:39] [progress] 61% run=20260902-013531 stage=final_no_ions
+[2026-09-02 01:35:39] [progress] 62% run=20260902-013531 stage=final_no_ions
+[2026-09-02 01:35:39] [progress] 63% run=20260902-013531 stage=final_no_ions
+[2026-09-02 01:35:39] [progress] 64% run=20260902-013531 stage=final_no_ions
+[2026-09-02 01:35:39] [progress] 65% run=20260902-013531 stage=final_no_ions
+[2026-09-02 01:35:39] [progress] 66% run=20260902-013531 stage=final_no_ions
+[2026-09-02 01:35:39] [progress] 67% run=20260902-013531 stage=final_no_ions
+[2026-09-02 01:35:39] [progress] 68% run=20260902-013531 stage=final_no_ions
+[2026-09-02 01:35:39] [progress] 69% run=20260902-013531 stage=final_no_ions
+[2026-09-02 01:35:39] [progress] 70% run=20260902-013531 stage=final_no_ions
+[2026-09-02 01:35:39] [progress] 71% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 72% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 73% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 74% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 75% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 76% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 77% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 78% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 79% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 80% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 81% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 82% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 83% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 84% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 85% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 86% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 87% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 88% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 89% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 90% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 91% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 92% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 93% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 94% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 95% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 96% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 97% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 98% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 99% run=20260902-013531 stage=done
+[2026-09-02 01:35:39] [progress] 100% run=20260902-013531 stage=done

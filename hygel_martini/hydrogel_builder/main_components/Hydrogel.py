@@ -827,6 +827,22 @@ class Hydrogel():
             print(f"오류: Monomer 또는 Backbone 설정 형식이 잘못되었습니다. {e}", file=sys.stderr)
             return
 
+        if not template_library.records:
+            # No monomer templates means there is nothing to place, and the
+            # search below cannot produce anything -- but it still costs a
+            # candidate-vector sweep plus a neighbour scan per backbone atom
+            # (an empty TemplateStrategyIterator is a truthy object, so the
+            # per-atom guard does not catch this). Measured at 25 atoms/s, an
+            # all-atom whole-strand build spent ~50 minutes here doing exactly
+            # nothing. Whole-strand and linker templates carry every atom they
+            # need, so this is the normal path for them, not an edge case.
+            print(
+                "Monomer 템플릿이 없어 곁사슬 생성을 건너뜁니다 "
+                "(whole-strand/linker 템플릿은 원자를 모두 포함합니다). "
+                "/ No monomer templates: skipping side-chain generation."
+            )
+            return
+
         # Grow side chains bead-by-bead while avoiding immediate clashes with
         # nearby atoms already present in the world state.
         _World_Atoms_keys = [*World.Atoms]

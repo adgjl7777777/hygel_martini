@@ -1,0 +1,15 @@
+
+; MDP file for energy minimization
+integrator  = steep
+nsteps      = 20000
+emtol       = 500.0
+emstep      = 0.002
+
+; Parameters for interactions
+coulombtype = Cut-off
+rcoulomb    = 1.5
+vdw_type    = cutoff
+rvdw        = 1.5
+
+; Passed through from configuration
+periodic-molecules = yes

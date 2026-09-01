@@ -214,3 +214,31 @@ def test_generated_pairs_merge_with_preexisting_template_pairs() -> None:
     assert (97, 99) in world.generated_pairs
     assert set(crossing) <= set(world.generated_pairs)
     assert len(world.generated_pairs) == len(crossing) + 1
+
+
+def test_written_charges_survive_the_round_trip(tmp_path) -> None:
+    # The writer used to print four decimals, which is lossless for Martini
+    # beads and systematically lossy for all-atom charges: 57600 atoms sharing
+    # a five-decimal value each lost ~4e-5 e in the same direction, giving a
+    # network topology with -2.33 e that no template accounted for.
+    world = _fresh_world()
+    template = _Template()
+    charges = [0.03574, -0.28376, 0.11642, -0.35694, 0.09374]
+    ids = []
+    for charge in charges:
+        atom = Attributes.Atom(source_template=template)
+        atom.mass = 12.011
+        atom.charge = charge
+        ids.append(atom.atom_id)
+    for left, right in zip(ids, ids[1:]):
+        Attributes.Bond(left, right, funct=1, c0=0.15, c1=1000.0)
+
+    path = tmp_path / "charged.itp"
+    write_combined_itp(world, filename=str(path), moleculetype_name="CHG")
+
+    from hygel_martini.core.itp import read_itp_definitions
+
+    definition = read_itp_definitions(str(path), require_mass=False)["CHG"]
+    written = [bead["charge"] for bead in definition["beads"]]
+    assert written == pytest.approx(charges, abs=1e-9)
+    assert sum(written) == pytest.approx(sum(charges), abs=1e-9)

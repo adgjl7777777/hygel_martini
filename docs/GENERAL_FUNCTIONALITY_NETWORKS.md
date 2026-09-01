@@ -366,6 +366,25 @@ angles touching a stub atom are parameterless in both arm states, so the
 project's ``[ angletypes ]`` must carry each entry under both sulfur types
 (example 08's ``build_templates.py`` emits them mechanically).
 
+**Strand length and density are coupled, and the coupling is a hard limit.**
+A whole-strand template is placed rigidly, so the junction spacing is the
+template's end-to-end distance -- which fixes the density once the net and
+repeat count are chosen. For a real prepolymer the two cannot be satisfied at
+once: example 08's n = 33 strand has an 11.8 nm contour and a 13.15 nm
+extended span, so an ideal pcu net built from it sits at 0.004 g/cm3, while
+melt density (1 g/cm3) would need a 2.33 nm junction spacing -- strands coiled
+to a sixth of their contour, which a single rigid conformer cannot be (a coil
+of 373 atoms occupies a ball wider than that spacing). The construction is
+therefore a low-density scaffold with correct topology and chemistry; bringing
+it to density is the guarded-shrink workflow's job (example 05), and that step
+is also what coils the chains. A builder able to place a *flexible* strand
+along a planned path would remove the coupling; it does not exist yet.
+
+Long strands themselves come from tiling a parameterized short one
+(``example/08_des_thiourethane_aa/parameterization/tile_ppg.py``), which
+refuses to run unless the repeat interior is verifiably regular -- see that
+example's README for the transferability and neutrality caveats.
+
 Known limits of the all-atom path, in one place: impropers spanning a builder-created bond are not generated (the carbonyl
 planarity improper at a thiourethane linkage is lost); and the net layout
 supports exactly one whole-strand backbone entry per build (refused

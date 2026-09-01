@@ -2,7 +2,7 @@
 #include "/nas_1/transcendence/2026_2/omni_hygel_package/package/example/08_des_thiourethane_aa/project/structure/STR.itp"
 #include "/nas_1/transcendence/2026_2/omni_hygel_package/package/example/08_des_thiourethane_aa/project/structure/HEXU.itp"
 #include "/nas_1/transcendence/2026_2/omni_hygel_package/package/example/08_des_thiourethane_aa/project/structure/STR_n33.itp"
-#include "/nas_1/transcendence/2026_2/omni_hygel_package/package/example/08_des_thiourethane_aa/project/output_partial/initial_hydrogel.itp"
+#include "/nas_1/transcendence/2026_2/omni_hygel_package/package/example/08_des_thiourethane_aa/project/output_n33/initial_hydrogel.itp"
 
 [ system ]
 My System

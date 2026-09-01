@@ -1,0 +1,48 @@
+# Experimental strand length: PPG PO n = 33 (Mn ~ 2300), tiled from the n = 3
+# parameterization by ../parameterization/tile_ppg.py and relaxed in vacuo by
+# relax_tiled.sh. Everything else -- junction, caps, force field, net -- is the
+# n = 3 example's, so this maker is the length variable in isolation.
+#
+# 한글: 실험 조성의 사슬 길이(PO 33)로 지은 변형. 나머지 조건은 n=3 예제와 동일.
+#
+# Two consequences of the real chain length, both physics rather than defects:
+#
+#   * cell_parameter follows the strand: 13.152 nm span + 2 x (junction arm
+#     0.772 + S-C bond 0.1715) = 15.04 nm, so the pcu 4^3 box is ~60 nm.
+#   * an ideal single network of extended strands at that spacing is FAR below
+#     melt density (~0.04 g/cm3 here). That is inherent to one strand per
+#     lattice edge, not to this chain length -- a real melt-density network
+#     interpenetrates. The construction is a topology/geometry starting point;
+#     the guarded-shrink relaxation (example 05) is what brings it to density,
+#     and coils the extended chains in the process. Do not read transport
+#     numbers off this build.
+#
+# Electrostatics: Cut-off rather than PME for the EM stages. A 60 nm box would
+# need a ~512^3 PME grid for a system of 78k neutral, widely separated atoms;
+# cut-off is the honest choice for geometry cleanup at this sparsity, and PME
+# belongs to the post-shrink stages where the box is dense and small.
+includes:
+  - config/simulation.yaml
+  - config/mdp.yaml
+  - config/hydrogel.yaml
+  - config/network.yaml
+
+hydrogel_components:
+  backbone_definitions:
+    # Replaces the n = 3 BACKBONES list wholesale (lists are not merged).
+    BACKBONES:
+      - id: STR1
+        ratio: 1
+        template:
+          gro: ${CONFIG_DIR}/structure/STR_n33.gro
+          itp: ${CONFIG_DIR}/structure/STR_n33.itp
+
+simulation_parameters:
+  output_dir: ${CONFIG_DIR}/output_n33
+  network_layout:
+    cell_parameter: 15.04
+  geo_opt:
+    mdp:
+      coulombtype: Cut-off
+      rcoulomb: 1.5
+      rvdw: 1.5

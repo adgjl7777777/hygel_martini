@@ -615,6 +615,50 @@ rows. Regression tests pin both; Martini example 07 rebuilds bit-for-bit.
 
 *Fixed in `1820be2`.*
 
+### 29. The side-chain stage searched for hours with nothing to place
+
+Found while building the experimental-length strand: with
+``monomer_definitions.MONOMERS: []`` -- the normal configuration for every
+template-driven build, since whole-strand and linker templates already carry
+every atom -- ``construct_chemical_detail`` still ran its full per-atom
+placement search. The per-atom guard does not catch it because an empty
+``TemplateStrategyIterator`` is a truthy object, so each backbone atom paid a
+candidate-vector sweep plus a neighbour scan to place one of zero templates.
+Measured at ~25 atoms/s: 50 minutes of provably empty work on a 77k-atom
+build, minutes on every smaller one.
+
+**Fix.** The stage returns early, with a printed reason, when the monomer
+library holds no records. Verified behaviour-preserving rather than argued:
+example 08's n = 3 build drops from minutes to 40 s and its
+``initial_hydrogel.itp`` is **bit-identical** to the pre-fix file.
+
+*Fixed in the commit adding this section.*
+
+### 30. The topology writer rounded charges away, four decimals at a time
+
+Found by building the experimental-length strand: the network's written
+topology carried a net charge of **-2.33 e** while every template it was built
+from sums to -0.0001 e (predicted network total -0.0256 e). Nothing had
+changed a charge; the writer printed them with four decimals. That is exactly
+enough for a Martini bead (0, +1, -1) and silently lossy for anything else,
+and the loss is systematic rather than random when thousands of atoms share a
+value -- here the tiled strand's uniformly corrected copies, 57 600 atoms
+each losing ~4e-5 e in the same direction.
+
+A net charge that large is not cosmetic: under PME it changes the
+compensating background, and it is precisely the kind of error that survives
+every audit we had, because each audit compared topology against topology.
+
+**Fix.** Charges are written with six decimals (both writers), and
+``write_combined_itp`` now compares the sum of what it wrote against the sum
+of what the world holds, printing the difference when it exceeds 1e-4 e --
+so a future precision problem announces itself instead of being inferred
+from a strange energy. Rebuilt: the n = 33 network now writes -0.0256 e,
+matching the prediction to the last digit; example 07 (Martini) is unchanged
+in value, and now prints charges as ``0.000000`` rather than ``0.0000``.
+
+*Fixed in the commit adding this section.*
+
 ## Still open
 
 - The f=6 path now builds end to end under GROMACS (example 07): all EM

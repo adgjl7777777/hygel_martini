@@ -108,10 +108,12 @@ def write_to_itp(object, filename='gromacs.itp', moleculetype_name='HDGEL'):
         f.write(';   nr    type    resnr   residu    atom    cgnr  charge  mass\n')
         for i in range(len(object.Atoms)):
             atom = object.Atoms[i][0]
-            f.write('{:<7d}{:<6}{:<6d}{:<6}{:<6}{:<6d}{:<8.4f}{:<8.4f}\n'.format(
+            # Six decimals for the same reason as write_combined_itp: four
+            # rounds away all-atom charges systematically.
+            f.write('{:<7d}{:<6}{:<6d}{:<6}{:<6}{:<6d}{:<11}{:<8.4f}\n'.format(
                 atom.atom_id + 1, atom.atom_type, int(atom.residue_number),
                 atom.residue_name, atom.atom_name, int(atom.cgnr),
-                float(atom.charge), float(atom.mass)))
+                '{:.6f}'.format(float(atom.charge)), float(atom.mass)))
 
         # --- [ bonds ] 섹션 ---
         f.write('\n[ bonds ]\n\n')
@@ -313,14 +315,35 @@ def write_combined_itp(world, filename, moleculetype_name, nrexcl=None,
         f.write(f'{moleculetype_name}           {int(nrexcl)}\n\n')
 
         # atoms
+        #
+        # Charges are written with six decimals, not four. Four is enough for a
+        # Martini bead (charges of 0, +1, -1) and silently lossy for anything
+        # else: a template whose charges carry five decimals loses up to 5e-5
+        # per atom, and that loss is systematic rather than random when many
+        # atoms share a value, so it accumulates. Measured on the tiled
+        # all-atom strand: -2.30 e over 77k atoms, i.e. a topology whose net
+        # charge disagreed with the structure it came from. The comparison
+        # below reports any residual drift rather than trusting the format.
         f.write('[ atoms ]\n')
         f.write(';   nr    type    resnr   residu    atom    cgnr  charge  mass\n')
+        exact_charge = 0.0
+        written_charge = 0.0
         for i in range(len(world.Atoms)):
             atom = world.Atoms[i][0]
-            f.write('{:<7d}{:<6}{:<6d}{:<6}{:<6}{:<6d}{:<8.4f}{:<8.4f}\n'.format(
+            charge_text = '{:.6f}'.format(float(atom.charge))
+            exact_charge += float(atom.charge)
+            written_charge += float(charge_text)
+            f.write('{:<7d}{:<6}{:<6d}{:<6}{:<6}{:<6d}{:<11}{:<8.4f}\n'.format(
                 atom.atom_id + 1, atom.atom_type, int(atom.residue_number),
                 atom.residue_name, atom.atom_name, int(atom.cgnr),
-                float(atom.charge), float(atom.mass)))
+                charge_text, float(atom.mass)))
+        if abs(written_charge - exact_charge) > 1e-4:
+            print(
+                f"[경고] 작성된 전하 합 {written_charge:+.6f} e가 월드의 "
+                f"{exact_charge:+.6f} e와 {written_charge - exact_charge:+.2e} e "
+                "차이납니다 (반올림 누적). / Written net charge drifted from the "
+                "world's by rounding."
+            )
 
         # bonds
         f.write('\n[ bonds ]\n')
