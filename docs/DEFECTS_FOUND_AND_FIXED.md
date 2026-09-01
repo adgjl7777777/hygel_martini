@@ -426,6 +426,35 @@ non-bipartite with peak loop order 5 -- inside the provisional f=6 target.
 
 *Fixed in `aa3fee6`.*
 
+### 20. Two latent defects exposed by the first partial-conversion build
+
+Partial conversion (strand-dilution model: each strand forms with probability
+`conversion.fraction`) is the first feature that makes per-junction
+expectations *vary*, and two pieces of code had silently assumed they never
+would:
+
+- **Truthiness as presence.** The router detected a planned stub with
+  `bool(planned)`, so a fully unreacted crosslinker -- whose plan is the empty
+  tuple, a legitimate outcome of conversion -- looked *unplanned* and tripped
+  the partial-metadata guard. An empty plan is still a plan.
+- **A loop variable leaking across loops.** Bond creation compared its
+  success count against `expected_per_linker`, a variable left over from the
+  last iteration of the *separate* audit loop above it. Every linker shared
+  one expectation until conversion made it per-linker; the leak then failed
+  correct builds. The audit loop owns the planned-versus-chosen comparison;
+  the creation loop now checks only that every attempted bond was created.
+
+With both fixed, the 0.5-conversion build runs end to end: 184 bonds for 92
+formed strands exactly, all EM stages converged, and the connectivity audit
+reports two components -- the giant cluster plus one free crosslinker
+molecule, matching the degree histogram's single degree-0 junction. The
+reduced-graph audit then shows the theory document's partial-conversion
+mechanism live: a primary loop appears after contraction (girth 1) although
+the coordinate layout placed none, because contracting degree-2 continuations
+changes what a loop looks like.
+
+*Fixed in the commit adding this section.*
+
 ## Still open
 
 - The f=6 path now builds end to end under GROMACS (example 07): all EM

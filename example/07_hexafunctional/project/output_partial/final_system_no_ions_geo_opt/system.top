@@ -1,0 +1,15 @@
+#include "/nas_1/transcendence/2026_2/omni_hygel_package/package/martini_v300/martini_v3.0.0.itp"
+#include "/nas_1/transcendence/2026_2/omni_hygel_package/package/martini_v300/martini_v3.0.0_ions_v1.itp"
+#include "/nas_1/transcendence/2026_2/omni_hygel_package/package/martini_v300/martini_v3.0.0_nucleobases_v1.itp"
+#include "/nas_1/transcendence/2026_2/omni_hygel_package/package/martini_v300/martini_v3.0.0_phospholipids_v1.itp"
+#include "/nas_1/transcendence/2026_2/omni_hygel_package/package/martini_v300/martini_v3.0.0_small_molecules_v1.itp"
+#include "/nas_1/transcendence/2026_2/omni_hygel_package/package/martini_v300/martini_v3.0.0_solvents_v1.itp"
+#include "/nas_1/transcendence/2026_2/omni_hygel_package/package/martini_v300/martini_v3.0.0_sugars_v1.itp"
+#include "/nas_1/transcendence/2026_2/omni_hygel_package/package/example/07_hexafunctional/project/output_partial/initial_hydrogel.itp"
+
+[ system ]
+My System
+
+[ molecules ]
+; Compound        #mols
+HYDROGEL        1

@@ -1,0 +1,27 @@
+# Partial conversion variant: each strand forms with probability 0.5, so the
+# mean realized junction degree is 3 of 6 and half the arms stay unreacted.
+#
+# Fragmentation is physics here, not a construction defect -- below the bond
+# percolation threshold the network is SUPPOSED to be pieces -- so the
+# connectivity audit reports instead of gating. "One polymer" statements for
+# partially converted systems live in the reduced junction-strand graph
+# (property_extract.cyclic_topology after reduce_to_junctions), not in a
+# circuit or component count.
+includes:
+  - config/simulation.yaml
+  - config/mdp.yaml
+  - config/hydrogel.yaml
+  - config/network.yaml
+
+simulation_parameters:
+  output_dir: ${CONFIG_DIR}/output_partial
+  network_layout:
+    conversion:
+      fraction: 0.5
+      seed: 3
+
+hydrogel_topology_connectivity_audit:
+  enabled: true
+  min_largest_component_fraction: 0.0
+  max_components: 100000
+  fail_on_violation: false

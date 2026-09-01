@@ -193,3 +193,79 @@ def test_the_pairwise_fallback_refuses_a_multi_arm_junction() -> None:
 
     with pytest.raises(ValueError, match="needs exactly two stubs"):
         plan_dynamic_crosslinks({0: stubs}, ends, None, targets_per_stub=1)
+
+
+# --------------------------------------------------------------------------
+# partial conversion: unpaired planned endpoints
+# --------------------------------------------------------------------------
+
+class _PartialStub(_Stub):
+    def __init__(self, atom_id, position, planned_endpoints):
+        super().__init__(atom_id, position, None)
+        self.planned_endpoint_edges = None
+        self.planned_endpoints = planned_endpoints
+
+
+def test_partial_conversion_bonds_only_the_planned_ends() -> None:
+    # Six arms, three planned ends: exactly three bonds, each planned end to
+    # the arm that actually reaches it, and three arms left unreacted.
+    planned = ("a", "b", "c")
+    positions = [
+        (1.0, 0.0, 0.0), (-1.0, 0.0, 0.0),
+        (0.0, 1.0, 0.0), (0.0, -1.0, 0.0),
+        (0.0, 0.0, 1.0), (0.0, 0.0, -1.0),
+    ]
+    stubs = [_PartialStub(600 + i, p, planned) for i, p in enumerate(positions)]
+    ends = _ends(
+        {
+            "a": ((3.0, 0.0, 0.0), 0),
+            "b": ((0.0, 3.0, 0.0), 1),
+            "c": ((0.0, 0.0, -3.0), 2),
+        }
+    )
+
+    assignments, notes = plan_dynamic_crosslinks({0: stubs}, ends, None)
+
+    chosen = assignments[0]
+    assert len(chosen) == 3
+    taken = {
+        item.stub_atom.atom_id: item.backbone_atom.planned_endpoint_id
+        for item in chosen
+    }
+    assert taken == {600: "a", 602: "b", 605: "c"}
+    assert any("partial_conversion_linkers=1" in note for note in notes)
+    assert any("unreacted_stubs=3" in note for note in notes)
+
+
+def test_more_planned_ends_than_arms_is_refused() -> None:
+    planned = tuple("abcdefg")  # 7 ends, 6 arms
+    stubs = [_PartialStub(700 + i, (float(i), 0.0, 0.0), planned) for i in range(6)]
+    ends = _ends({name: ((float(i), 1.0, 0.0), i) for i, name in enumerate(planned)})
+
+    with pytest.raises(ValueError, match="cannot bond more ends than arms"):
+        plan_dynamic_crosslinks({0: stubs}, ends, None)
+
+
+def test_partial_and_full_junctions_can_coexist() -> None:
+    # One fully converted two-stub linker (edge regime) and one partially
+    # converted six-arm junction in the same system.
+    edges = (("p", "q"), ("r", "s"))
+    full = [_Stub(800, (10.0, 0.0, 0.0), edges), _Stub(801, (12.0, 0.0, 0.0), edges)]
+    partial = [_PartialStub(900 + i, (float(i) * 0.1, 0.0, 0.0), ("x",)) for i in range(6)]
+    ends = _ends(
+        {
+            "p": ((10.0, 1.0, 0.0), 0),
+            "q": ((10.0, -1.0, 0.0), 1),
+            "r": ((12.0, 1.0, 0.0), 2),
+            "s": ((12.0, -1.0, 0.0), 3),
+            "x": ((0.0, 1.0, 0.0), 4),
+        }
+    )
+
+    assignments, notes = plan_dynamic_crosslinks({0: full, 1: partial}, ends, None)
+
+    assert len(assignments[0]) == 4
+    assert len(assignments[1]) == 1
+    assert any("edge_regime_linkers=1" in note for note in notes)
+    assert any("partial_conversion_linkers=1" in note for note in notes)
+    assert any("unreacted_stubs=5" in note for note in notes)

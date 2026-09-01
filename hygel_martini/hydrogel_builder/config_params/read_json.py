@@ -845,7 +845,18 @@ def _perform_dynamic_crosslinking(output_dir):
                     f"Linker {linker_index}: found {len(stubs)} BCK stub(s); a "
                     "crosslinker needs at least two"
                 )
-            expected_per_linker = len(stubs) * targets_per_stub
+            planned_unpaired = next(
+                (getattr(stub, "planned_endpoints", None) for stub in stubs
+                 if getattr(stub, "planned_endpoints", None) is not None),
+                None,
+            )
+            if planned_unpaired is not None:
+                # Partial conversion: the junction bonds exactly its planned
+                # ends; the remaining arms are unreacted by design, so the
+                # full stubs-times-targets expectation would be wrong here.
+                expected_per_linker = len(planned_unpaired)
+            else:
+                expected_per_linker = len(stubs) * targets_per_stub
             if len(chosen) != expected_per_linker:
                 assignment_issues.append(
                     f"Linker {linker_index}: expected {expected_per_linker} backbone-end "
@@ -862,11 +873,23 @@ def _perform_dynamic_crosslinking(output_dir):
                 stub_counts[stub_id] = stub_counts.get(stub_id, 0) + 1
                 used_end_ids.setdefault(end_id, []).append(linker_index)
             expected_stub_ids = {getattr(stub, "atom_id", None) for stub in stubs}
-            for stub_id in expected_stub_ids:
-                if stub_counts.get(stub_id, 0) != targets_per_stub:
-                    assignment_issues.append(
-                        f"Linker {linker_index}: stub {stub_id} has {stub_counts.get(stub_id, 0)} backbone assignments; expected {targets_per_stub}"
-                    )
+            if planned_unpaired is not None:
+                # Partial conversion: an unreacted arm carries zero assignments
+                # by design, so the only per-stub requirement is that no stub
+                # bonds more than one end. The total is already checked against
+                # the planned count above.
+                for stub_id, count in stub_counts.items():
+                    if count > 1:
+                        assignment_issues.append(
+                            f"Linker {linker_index}: stub {stub_id} has {count} "
+                            "backbone assignments; a single arm bonds at most one end"
+                        )
+            else:
+                for stub_id in expected_stub_ids:
+                    if stub_counts.get(stub_id, 0) != targets_per_stub:
+                        assignment_issues.append(
+                            f"Linker {linker_index}: stub {stub_id} has {stub_counts.get(stub_id, 0)} backbone assignments; expected {targets_per_stub}"
+                        )
         duplicate_end_ids = {
             end_id: owners
             for end_id, owners in used_end_ids.items()
@@ -973,9 +996,18 @@ def _perform_dynamic_crosslinking(output_dir):
                     )
                     success.append(False)
 
-            if len(success) == expected_per_linker and all(success):
+            # NOTE: this used to compare against expected_per_linker, a
+            # variable left over from the LAST iteration of the separate audit
+            # loop above. All linkers shared one expectation until partial
+            # conversion made it per-linker, which exposed the leak. The
+            # planned-versus-chosen count is already validated per linker in
+            # that audit loop; what this loop owns is only that every
+            # attempted bond was actually created.
+            if success and all(success):
                 bonds_created += len(success)
                 debug_f.write(f"Linker {linker_index}: Connected successfully.\n")
+            elif not success:
+                debug_f.write(f"Linker {linker_index}: no bonds planned (unreacted junction).\n")
             else:
                 bonds_created += sum(1 for item in success if item)
                 debug_f.write(f"Linker {linker_index}: Partial failure ({success}).\n")

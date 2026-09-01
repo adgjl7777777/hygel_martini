@@ -161,6 +161,44 @@ any fixed threshold below that floor can never fire. The floor scales as
 
 ---
 
+## Partial conversion
+
+```yaml
+network_layout:
+  conversion:
+    fraction: 0.5     # probability each strand chemically forms
+    seed: 3
+```
+
+The model is strand dilution: after any rewiring, each strand forms
+independently with the given probability, so the mean realized junction degree
+is `f x fraction`. Ordered after rewiring (conversion selects which of the
+rewired strands formed) and instead of transition planning — an incompletely
+converted junction has odd or uneven degree, which admits no perfect matching,
+so junctions carry an **unpaired** planned-endpoint set and arms beyond it stay
+unreacted. "One polymer" is then a reduced-graph statement, not a circuit one.
+
+Consequences to expect rather than fight:
+
+- **Fragmentation is physics.** Below the bond-percolation threshold the
+  network is supposed to be pieces (`pcu`: p_c ≈ 0.25). Configure the
+  connectivity audit to report, not gate, as `maker_partial.yaml` does; a
+  degree-0 junction is a free crosslinker molecule and shows up as its own
+  component.
+- Audit with `reduce_to_junctions()` first: partially converted networks are
+  full of degree-1/2 nodes, and the loop-order weighting is only valid after
+  reduction. Reduction can also *create* reduced-graph primary loops from
+  longer cycles — the coordinate layout's primary-loop ban is a strand-level
+  geometric statement and is not contradicted by that.
+- The realized fraction and per-degree histogram are printed in the layout
+  summary and should be compared against the target.
+
+For the DES system (Hexakis:PPG-TDI = 1:0.5 → SH conversion ≈ 1/6) this is the
+required mode; see the theory document's gelation section before interpreting
+component counts there.
+
+---
+
 ## Auditing what you built
 
 ```bash

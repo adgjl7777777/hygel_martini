@@ -205,7 +205,69 @@ def _plan_explicit_graph_crosslinks(
 
     edge_regime_linkers = set()
 
+    unpaired_planned: Dict[int, Tuple] = {}
+    unreacted_stub_count = 0
+
     for linker_index, stubs in sorted(linker_stubs.items()):
+        unpaired_values = [getattr(stub, "planned_endpoints", None) for stub in stubs]
+        if any(value is not None for value in unpaired_values):
+            # Partial conversion: the plan names WHICH chain ends this junction
+            # bonds, without pairing them (uneven degree admits no perfect
+            # matching). Geometry assigns each planned end to a distinct stub;
+            # stubs beyond the planned count stay unreacted arms.
+            if any(value != unpaired_values[0] for value in unpaired_values[1:]):
+                raise ValueError(
+                    f"Linker {linker_index}: stubs disagree about planned endpoints"
+                )
+            planned = tuple(unpaired_values[0] or ())
+            if len(planned) > len(stubs):
+                raise ValueError(
+                    f"Linker {linker_index}: {len(planned)} planned endpoints for "
+                    f"{len(stubs)} stubs; a junction cannot bond more ends than arms"
+                )
+            unpaired_planned[linker_index] = planned
+            resolved = []
+            for endpoint_id in planned:
+                if endpoint_id not in endpoint_lookup:
+                    raise ValueError(
+                        f"Linker {linker_index}: planned endpoint {endpoint_id!r} "
+                        "was not materialized"
+                    )
+                if endpoint_id in used_endpoint_ids:
+                    raise ValueError(
+                        f"Linker {linker_index}: planned endpoint {endpoint_id!r} is reused"
+                    )
+                resolved.append((endpoint_id, endpoint_lookup[endpoint_id]))
+
+            best_order = None
+            best_cost = None
+            for order in permutations(range(len(stubs)), len(resolved)):
+                cost = sum(
+                    pbc_distance(
+                        stubs[stub_position].position, atom.position, box_size
+                    )
+                    for stub_position, (_, atom) in zip(order, resolved)
+                )
+                if best_cost is None or cost < best_cost:
+                    best_cost = cost
+                    best_order = order
+            chosen = []
+            for stub_position, (endpoint_id, atom) in zip(best_order or (), resolved):
+                stub = stubs[stub_position]
+                chosen.append(
+                    StubAssignment(
+                        linker_index=linker_index,
+                        stub_atom=stub,
+                        backbone_atom=atom,
+                        chain_index=int(getattr(atom, "chain_index")),
+                        distance=pbc_distance(stub.position, atom.position, box_size),
+                    )
+                )
+                used_endpoint_ids.add(endpoint_id)
+            assignments[linker_index] = tuple(chosen)
+            unreacted_stub_count += len(stubs) - len(resolved)
+            continue
+
         planned_values = [getattr(stub, "planned_endpoint_edges", None) for stub in stubs]
         if not all(planned_values):
             raise ValueError(
@@ -299,7 +361,7 @@ def _plan_explicit_graph_crosslinks(
         len(edge)
         for stubs in linker_stubs.values()
         for edge in (getattr(stubs[0], "planned_endpoint_edges", None) or ())
-    )
+    ) + sum(len(planned) for planned in unpaired_planned.values())
     if len(used_endpoint_ids) != planned_endpoint_count:
         raise ValueError(
             "Planned endpoint accounting mismatch: "
@@ -339,6 +401,18 @@ def _plan_explicit_graph_crosslinks(
             f"planned={planned_hash} materialized={materialized_hash}"
         )
 
+    for linker_index, planned in sorted(unpaired_planned.items(), key=lambda kv: str(kv[0])):
+        realized = {
+            getattr(assignment.backbone_atom, "planned_endpoint_id", None)
+            for assignment in assignments.get(linker_index, ())
+        }
+        if realized != set(planned):
+            raise ValueError(
+                f"Linker {linker_index}: materialized endpoints "
+                f"{sorted(map(str, realized))} do not match the planned set "
+                f"{sorted(map(str, planned))}"
+            )
+
     endpoint_regime = set(planned_edges_by_linker) - edge_regime_linkers
     for linker_index in sorted(endpoint_regime, key=str):
         expected = {
@@ -358,8 +432,10 @@ def _plan_explicit_graph_crosslinks(
 
     notes.append(f"Materialized {len(used_endpoint_ids)} unique planned backbone endpoints.")
     notes.append(
-        "edge_regime_linkers={} endpoint_regime_linkers={}".format(
-            len(edge_regime_linkers), len(endpoint_regime)
+        "edge_regime_linkers={} endpoint_regime_linkers={} "
+        "partial_conversion_linkers={} unreacted_stubs={}".format(
+            len(edge_regime_linkers), len(endpoint_regime),
+            len(unpaired_planned), unreacted_stub_count,
         )
     )
     notes.append(
@@ -393,7 +469,13 @@ def plan_dynamic_crosslinks(
     notes: List[str] = []
 
     planned_stub_count = sum(
+        # An EMPTY planned-endpoint tuple is still a plan: it says this
+        # junction reacted zero of its arms (a fully unreacted crosslinker,
+        # which partial conversion legitimately produces). Truthiness testing
+        # here made such stubs look unplanned and tripped the partial-metadata
+        # guard on the first partial-conversion build.
         bool(getattr(stub, "planned_endpoint_edges", None))
+        or getattr(stub, "planned_endpoints", None) is not None
         for stubs in linker_stubs.values()
         for stub in stubs
     )

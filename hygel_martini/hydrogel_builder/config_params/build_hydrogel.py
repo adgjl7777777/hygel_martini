@@ -249,7 +249,7 @@ def _resolve_network_layout(sim_params):
             f"'network_layout' must be a mapping, got {type(raw).__name__}"
         )
 
-    known = {"net", "repeats", "cell_parameter", "rewiring"}
+    known = {"net", "repeats", "cell_parameter", "rewiring", "conversion"}
     unknown = sorted(set(raw) - known)
     if unknown:
         raise ValueError(
@@ -300,6 +300,26 @@ def _resolve_network_layout(sim_params):
             "so no rewiring would run. Set 'max_span' or remove the block."
         )
 
+    conversion = raw.get("conversion") or {}
+    if not isinstance(conversion, dict):
+        raise ValueError("'network_layout.conversion' must be a mapping")
+    conversion_known = {"fraction", "seed"}
+    conversion_unknown = sorted(set(conversion) - conversion_known)
+    if conversion_unknown:
+        raise ValueError(
+            f"'network_layout.conversion' has unknown key(s) {conversion_unknown}; "
+            f"expected {sorted(conversion_known)}"
+        )
+    fraction = conversion.get("fraction")
+    if fraction is not None:
+        fraction = float(fraction)
+        if not 0.0 < fraction <= 1.0:
+            raise ValueError(
+                f"'network_layout.conversion.fraction' must be in (0, 1], got {fraction}"
+            )
+        if fraction == 1.0:
+            fraction = None  # full conversion is the default path
+
     return {
         "net": str(net),
         "repeats": repeats,
@@ -307,6 +327,8 @@ def _resolve_network_layout(sim_params):
         "max_span": None if max_span is None else float(max_span),
         "rewire_seed": rewiring.get("seed"),
         "rewire_kwargs": rewire_kwargs,
+        "conversion_fraction": fraction,
+        "conversion_seed": conversion.get("seed"),
     }
 
 
@@ -408,6 +430,8 @@ def _plan_backbone_blueprint(sim_params, output_dir):
             max_span=net_layout_config["max_span"],
             rewire_seed=net_layout_config["rewire_seed"],
             rewire_kwargs=net_layout_config["rewire_kwargs"],
+            conversion_fraction=net_layout_config["conversion_fraction"],
+            conversion_seed=net_layout_config["conversion_seed"],
         )
         for key, value in net_result.summary().items():
             print(f"  network_layout.{key}: {value}")

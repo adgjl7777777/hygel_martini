@@ -28,6 +28,7 @@ rather than across its face.
 
 from __future__ import annotations
 
+from random import Random
 from typing import Any, Dict, List, Sequence, Tuple
 
 import numpy as np
@@ -56,29 +57,47 @@ __all__ = ["NetLayoutResult", "generate_net_layout_plan"]
 class NetLayoutResult:
     """A layout plan plus the topology record that produced it."""
 
-    def __init__(self, layout_plan, matching_plan, rewiring, net, repeats, cell):
+    def __init__(self, layout_plan, matching_plan, rewiring, net, repeats, cell,
+                 conversion=None):
         self.layout_plan = layout_plan
         self.matching_plan = matching_plan
         self.rewiring = rewiring
         self.net = net
         self.repeats = repeats
         self.cell = cell
+        self.conversion = conversion
 
     def summary(self) -> Dict[str, Any]:
-        diagnostics = self.matching_plan.diagnostics
         record: Dict[str, Any] = {
             "net": self.net.name,
             "coordination": self.net.coordination,
             "repeats": list(self.repeats),
             "junction_count": len(self.layout_plan.links),
             "strand_count": len(self.layout_plan.cells),
-            "circuit_count": diagnostics.component_count,
-            "single_circuit": self.matching_plan.is_single_cycle,
-            "endpoint_degree_violations": len(diagnostics.degree_violations),
-            "matching_state_counts": dict(diagnostics.state_counts),
-            "functionality_counts": dict(diagnostics.functionality_counts),
             "rewired": self.rewiring is not None,
         }
+        if self.matching_plan is not None:
+            diagnostics = self.matching_plan.diagnostics
+            record.update({
+                "circuit_count": diagnostics.component_count,
+                "single_circuit": self.matching_plan.is_single_cycle,
+                "endpoint_degree_violations": len(diagnostics.degree_violations),
+                "matching_state_counts": dict(diagnostics.state_counts),
+                "functionality_counts": dict(diagnostics.functionality_counts),
+            })
+        if self.conversion is not None:
+            degrees: Dict[int, int] = {}
+            counts: Dict[Any, int] = {}
+            for cell_ in self.layout_plan.cells:
+                for junction in cell_.metadata["junctions"]:
+                    counts[junction] = counts.get(junction, 0) + 1
+            for link in self.layout_plan.links:
+                degree = counts.get(link.metadata["junction_id"], 0)
+                degrees[degree] = degrees.get(degree, 0) + 1
+            record["conversion"] = {
+                **self.conversion,
+                "junction_degree_distribution": dict(sorted(degrees.items())),
+            }
         if self.rewiring is not None:
             record["rewiring"] = self.rewiring.summary()
         return record
@@ -116,6 +135,8 @@ def generate_net_layout_plan(
     rewire_seed: int | None = None,
     rewire_kwargs: Dict[str, Any] | None = None,
     plan_seed: int | None = None,
+    conversion_fraction: float | None = None,
+    conversion_seed: int | None = None,
 ) -> NetLayoutResult:
     """Build a :class:`LayoutPlan` on a periodic net.
 
@@ -161,15 +182,56 @@ def generate_net_layout_plan(
         )
         strands = rewiring.strands
 
-    # Planned after any rewiring: rewiring changes adjacency, so a transition
-    # system planned before it would describe a different network.
-    matching_plan = plan_single_circuit(vertices, strands)
+    # Partial conversion: each strand forms with probability
+    # conversion_fraction, so the mean realized junction degree is f times the
+    # fraction. Ordered after rewiring -- conversion selects which of the
+    # rewired strands chemically formed -- and before planning, because an
+    # incompletely converted junction has odd or uneven degree and the
+    # transition-system formalism (which needs a perfect matching of an even
+    # number of arms) simply does not apply to it. "One polymer" is then a
+    # statement about the reduced junction-strand graph, not about a circuit;
+    # see the theory document's partial-conversion section.
+    conversion = None
+    if conversion_fraction is not None:
+        fraction = float(conversion_fraction)
+        if not 0.0 < fraction < 1.0:
+            raise ValueError(
+                f"conversion_fraction must be in (0, 1) when given, got {fraction}"
+            )
+        rng = Random(conversion_seed)
+        formed = [strand for strand in strands if rng.random() < fraction]
+        if not formed:
+            raise ValueError(
+                f"conversion_fraction={fraction} left no strand formed "
+                f"(seed={conversion_seed}); nothing to build"
+            )
+        conversion = {
+            "target_fraction": fraction,
+            "seed": conversion_seed,
+            "strands_before": len(strands),
+            "strands_formed": len(formed),
+            "realized_fraction": len(formed) / len(strands),
+        }
+        strands = formed
 
-    edges_by_vertex: Dict[Any, Tuple] = {
-        choice.vertex_id: tuple(tuple(edge) for edge in choice.edges)
-        for choice in matching_plan.choices
-    }
     owner = _junction_of(vertices)
+
+    if conversion is None:
+        # Planned after any rewiring: rewiring changes adjacency, so a
+        # transition system planned before it would describe a different
+        # network.
+        matching_plan = plan_single_circuit(vertices, strands)
+        edges_by_vertex: Dict[Any, Tuple] = {
+            choice.vertex_id: tuple(tuple(edge) for edge in choice.edges)
+            for choice in matching_plan.choices
+        }
+    else:
+        matching_plan = None
+        edges_by_vertex = {}
+        endpoints_by_vertex: Dict[Any, list] = {}
+        for left, right in strands:
+            endpoints_by_vertex.setdefault(owner[left], []).append(left)
+            endpoints_by_vertex.setdefault(owner[right], []).append(right)
 
     # The populator names a chain's two ends (planned_chain_id, 0|1), head
     # first, and the runtime router looks planned endpoints up under exactly
@@ -307,15 +369,25 @@ def generate_net_layout_plan(
             "junction_index": index,
             "junction_id": vertex.vertex_id,
             "functionality": vertex.functionality,
-            "planned_endpoint_edges": tuple(
+        }
+        if conversion is None:
+            metadata["planned_endpoint_edges"] = tuple(
                 tuple(endpoint_name[endpoint] for endpoint in edge)
                 for edge in edges_by_vertex.get(vertex.vertex_id, ())
-            ),
+            )
+        else:
+            # Unpaired: which chain ends this junction bonds, with no claim
+            # about traversal pairing. Arms beyond these stay unreacted.
+            metadata["planned_endpoints"] = tuple(
+                endpoint_name[endpoint]
+                for endpoint in endpoints_by_vertex.get(vertex.vertex_id, ())
+            )
+        metadata.update({
             "net": definition.name,
             # A multi-arm template is placed on its stub centroid, so the
             # anchor is the site itself and only an orientation applies.
             "orientation": np.eye(3, dtype=float),
-        }
+        })
         if template_id is not None:
             metadata["linker_template_id"] = template_id
         links.append(
@@ -330,5 +402,6 @@ def generate_net_layout_plan(
 
     layout_plan = LayoutPlan(proto_plan=proto_plan, cells=cells, links=links)
     return NetLayoutResult(
-        layout_plan, matching_plan, rewiring, definition, counts, cell
+        layout_plan, matching_plan, rewiring, definition, counts, cell,
+        conversion=conversion,
     )

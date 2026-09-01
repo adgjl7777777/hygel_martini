@@ -109,6 +109,7 @@ class Atom():
         self.target_bb = None
         self.planned_endpoint_id = None
         self.planned_endpoint_edges = None
+        self.planned_endpoints = None
         
         # 생성된 원자 객체를 World 클래스의 Atoms 딕셔너리에 추가합니다.
         World.Atoms[self.atom_id].append(self)
