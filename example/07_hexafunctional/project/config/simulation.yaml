@@ -1,0 +1,82 @@
+# simulation.yaml — example 07 (hexafunctional, pcu net)
+#
+# 한글: 04의 simulation.yaml을 include하지 않고 자체 사본을 둔다.
+#   ${CONFIG_DIR}는 include된 파일의 위치가 아니라 최상위 maker.yaml의
+#   디렉터리 기준으로 해석되므로, 다른 예제의 설정을 include하면 그쪽의
+#   상대 경로(additional_itp_files 등)가 이 프로젝트 안을 가리키게 되어
+#   깨진다. 실제로 그렇게 깨진 상태로 처음 커밋되었다.
+# English: a self-contained copy instead of including example 04's file.
+#   ${CONFIG_DIR} resolves against the top maker.yaml's directory, not the
+#   included file's, so a cross-project include re-points that project's
+#   relative paths into this one. This example first shipped broken that way.
+#
+# 다이아몬드 전용 키(anisotropy / isotropy / number_of_cells의 격자 의미)는
+# 두지 않는다. 격자는 network.yaml의 network_layout 블록이 정한다.
+
+simulation_parameters:
+  gromacs_executable_path: gmx_mpi
+  packmol_path: packmol
+  gromacs_include_path: ${REPO_ROOT}/martini_v300
+  base_itp_file: ${REPO_ROOT}/martini_v300/martini_v3.0.0.itp
+  output_dir: ${CONFIG_DIR}/output
+
+  # network_layout 경로에서는 반복 수를 network.yaml의 repeats가 정한다.
+  # number_of_cells는 다이아몬드 경로의 값이므로 최소값으로 고정해 둔다.
+  number_of_cells: 1
+  segment_length: 20
+  gel_weight_fraction_mode: exclude_ions
+  pbc_true_or_false: true
+  mean_sep: 0.24
+
+  default_angle:
+    angle_funct: 1
+    angle_c0: 180
+    angle_c1: 25
+
+  gpu_id: null
+  omp_threads: 4
+  grompp_maxwarn: 2
+  neutral_em_coulombtype: Cut-off
+  neutral_em_rcoulomb: 1.5
+  neutral_em_rvdw: 1.5
+  random_seed: 2020
+  debug_mode: true
+  emit_rich_itp_sections: true
+
+  packmol_threshold: 3
+  overlap_check_limit: 10
+  min_distance_report_max_atoms: 3000
+  sidechain_num_candidates: 72
+  sidechain_overlap_threshold_factor: 0.8
+  sidechain_search_radius_factor: 10.0
+  sidechain_nearby_atom_limit: 800
+  sidechain_auto_threshold: 20000
+
+  default_dynamic_crosslink_bond:
+    bond_funct: 1
+    bond_c0: 0.47
+    bond_c1: 1250
+
+  # f=6: stub 6개가 backbone end를 하나씩 받는다 (다이아몬드는 2개 stub이
+  # 2개씩). runtime router가 stub 수 x targets로 기대치를 계산한다.
+  dynamic_crosslink_targets_per_stub: 1
+  respect_target_backbone: false
+  linker_terminal_compensation:
+    enabled: false
+    target_backbone: null
+    compensation_beads: 0
+  chain_orientation_policy: random
+  dynamic_crosslink_candidate_limit: 64
+  dynamic_crosslink_assignment_strategy: nearest
+  linker_orientation_strategy: connectivity_aware
+  dynamic_crosslink_relax_enabled: true
+  dynamic_crosslink_relax_fc: 50.0
+
+# 이 예제는 추가 이온 ITP를 쓰지 않는다.
+additional_itp_files: []
+
+hydrogel_topology_connectivity_audit:
+  enabled: true
+  min_largest_component_fraction: 0.95
+  max_components: 1
+  fail_on_violation: true

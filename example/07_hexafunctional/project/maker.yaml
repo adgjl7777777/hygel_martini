@@ -1,11 +1,10 @@
 # f=6 hexafunctional network on the primitive-cubic (pcu) net.
 #
-# The layout, the transition-system planner, the crosslink router and the
-# topology audit are all functionality-general. What makes this an f=6 build
-# rather than a diamond one is the network_layout block in config/network.yaml
-# and the six-stub crosslinker in config/hydrogel.yaml.
+# Self-contained: no cross-project includes. ${CONFIG_DIR} resolves against
+# THIS maker.yaml's directory for every included file, so including another
+# example's config re-points its relative paths into this project.
 includes:
-  - ../../04_full_builder/project/config/simulation.yaml
-  - ../../04_full_builder/project/config/mdp.yaml
+  - config/simulation.yaml
+  - config/mdp.yaml
   - config/hydrogel.yaml
   - config/network.yaml
