@@ -1,3 +1,10 @@
+> **ARCHIVED (2026-09-01).** This snapshot describes the Series-01
+> tetrafunctional/diamond state of the package (commit `d02a821`) and predates
+> the general-functionality work on this branch: pcu/f=6 nets, span-constrained
+> rewiring, cyclic-topology auditing, the `network_layout:` configuration, and
+> the unified core parsers do not appear in it. For the current state read
+> `README.md`, `START_HERE_ko.md`, and `docs/GENERAL_FUNCTIONALITY_NETWORKS.md`.
+
 # README detailed for LLM
 
 이 문서는 `/nas_0/software_backup/hygel_martini` 저장소를 나중에 LLM이 빠르게 다시 파악하도록 만든 상세 코드 지도입니다.

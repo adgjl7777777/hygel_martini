@@ -35,6 +35,26 @@ cd /path/to/hygel_martini/example/04_1_example_system/project
 bash ../../../hygel_martini/bash_settings/hydrogel_builder/run_example_system.sh maker.yaml
 ```
 
+## 2-1. f=6 (hexafunctional, 정육면체 net) 시스템을 볼 때
+
+`07_hexafunctional`을 봅니다. GROMACS 없이 layout/plan만 검사하려면:
+
+```bash
+cd /path/to/hygel_martini
+PYTHONPATH=$PWD python3 - <<'SNIP'
+from hygel_martini.hydrogel_builder.core_utils.layout.net_layout import generate_net_layout_plan
+class P: pass
+r = generate_net_layout_plan(P(), [{"id": "BB1"}], [{"id": "HEX"}],
+                             net="pcu", repeats=4, cell_parameter=3.0,
+                             max_span=6.0, rewire_seed=0)
+print(r.summary())
+SNIP
+```
+
+설정(`network_layout` 블록), net별 repeat 조건, rewiring 파라미터는
+`docs/GENERAL_FUNCTIONALITY_NETWORKS.md`에 있습니다. f=6 경로는 layout/plan
+수준까지 검증되었고 GROMACS end-to-end 빌드는 아직 수행되지 않았습니다.
+
 ## 3. build 뒤 추가 완화가 필요할 때
 
 `05_hydrogel_relaxation`을 봅니다.
@@ -135,6 +155,7 @@ sbatch run_slurm.sh config_common/common.yaml
 - `04`  Full hydrogel builder
 - `04_1`  예시 시스템 builder
 - `05`  Post-build relaxation
+- `07`  f=6 hexafunctional (pcu net) — 2-1 참조
 
 지금 `example/00`, `01`은 placeholder입니다. `02`는 기존 OPLS/GROMACS data를 연결해야 하는 template-ready workflow이고, 실제 ready-to-run example은 `03`, `04`, `04_1`, `05`입니다.
 

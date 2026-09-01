@@ -25,8 +25,12 @@
 - `04_full_builder`
 - `04_1_example_system`
 - `05_hydrogel_relaxation`
+- `06_physical_property`
+- `07_hexafunctional` — f=6 crosslinker를 `pcu` net에 배치. layout/plan은
+  GROMACS 없이 검사 가능하며 end-to-end 빌드는 아직 수행되지 않았습니다.
+  설정 설명은 `docs/GENERAL_FUNCTIONALITY_NETWORKS.md`.
 
-현재 바로 실행 가능한 example은 `03`, `04`, `04_1`, `05`입니다.
+현재 바로 실행 가능한 example은 `03`, `04`, `04_1`, `05`, `06`입니다.
 `02`는 이미 존재하는 OPLS/GROMACS trajectory와 Bartender input을 넣어 쓰는 template-ready example입니다. 저장소에는 실제 production trajectory가 들어 있지 않으므로 `config/opls_existing_data.yaml`의 `data/...` 경로를 사용자 데이터로 채운 뒤 실행합니다.
 `00`, `01`은 placeholder로만 남겨뒀습니다.
 
