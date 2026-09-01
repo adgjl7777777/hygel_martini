@@ -508,6 +508,67 @@ not `1250.000000`).
 
 *Fixed in `2662d1c`.*
 
+### 23. The writer's nrexcl lookup referenced a name that was never imported
+
+Found by the first all-atom end-to-end build (example 08): grompp reported
+"Excluding 1 bonded neighbours" on a topology configured with
+`topology_nrexcl: 3`. `write_combined_itp` resolved the setting via
+`Config.get_param(...)` -- but the module never imports `Config`, so the line
+raised `NameError`, the surrounding `except Exception` swallowed it, and
+every configured nrexcl silently became 1. The test suite never caught it
+because the tests pass `nrexcl` explicitly. Under nrexcl=1 with an OPLS
+force field, 1-3 and 1-4 neighbours interact at full strength *and* the
+`[ pairs ]` list double-counts the 1-4s -- all silently.
+
+**Fix.** The import now lives inside the function, before the guarded
+lookup. Same lesson as #12: a broad `except` around a lookup hides the
+lookup not existing at all.
+
+### 24. Pre-crosslink EM stages ran on an angle-less topology
+
+Angles were constructed only in `finalize` (after crosslinking), because the
+Martini path derives most of them from heuristics that want the final bond
+graph. But the staged build minimizes structures *before* that -- and an
+all-atom molecule held by bonds and dihedrals with no angles (and, under
+nrexcl=3, no nonbonded repulsion between its 1-3 pairs either) collapses
+onto itself. Measured directly: geminal hydrogens at 0.009 nm, EM pinned at
+Fmax ≈ 3×10⁴ on the same strand atom in every instance, and one mdrun
+segfault. The optional bonds-only soft-relax stage made it worse for the
+same reason.
+
+**Fixes.** Template-internal angles are registered by the blueprint
+populator at populate time, so every EM stage sees them;
+`construct_angles` skips triples that already exist instead of
+double-registering; and the soft-relax stage is skipped (with a printed
+reason) when whole-strand templates are in play -- its purpose, letting
+Martini bead chains drift until their ends reach the stubs, does not apply
+to ends placed at the junction gap by construction.
+
+### 25. construct_dihedrals collapses template instances onto one map
+
+The object-level walk processed each template *object* once and built its
+`source_index -> atom_id` map over every atom of every instance -- so with
+two or more instances the dict keeps whichever instance sorts last, and the
+registered dihedrals mix atoms across molecules. Latent until now because no
+Martini template on this branch declares dihedrals. It would also have
+re-registered every term the blueprint populator had already mapped
+per-instance.
+
+**Fix.** The populator records the templates it has handled
+(`World.template_dihedrals_done`); `construct_dihedrals` skips them. The
+monomer/Polymer path, which sets no such record, is unchanged.
+
+### 26. Ryckaert-Bellemans coefficients were truncated to three
+
+The populator's dihedral mapping stored `c0..c2` only, silently discarding
+coefficients four to six of a funct-3 (RB) dihedral -- the exact form OPLS
+templates carry. Parameter lists longer than three are now stored whole via
+`dihedral_params`, which both writers already emit verbatim.
+
+*All four found (or made findable) by building example 08 -- the first
+system to exercise the all-atom path end to end, which is precisely what the
+example exists for. Fixed in the commit adding this section.*
+
 ## Still open
 
 - The f=6 path now builds end to end under GROMACS (example 07): all EM

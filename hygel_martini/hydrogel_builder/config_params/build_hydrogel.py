@@ -195,11 +195,51 @@ def _reset_world_for_backbone(sim_params):
     )
 
 
+def _load_strand_templates(backbone_defs):
+    """Attach whole-strand templates to backbone entries declaring one.
+
+    A backbone entry may carry ``template: {gro: ..., itp: ...}`` instead of a
+    per-bead ``definition``: the strand is then one molecule ingested whole
+    (all-atom mode), with atoms named BCK1/BCK2 as its attachment ends. The
+    loaded object rides on the entry as ``strand_template`` so every later
+    stage sees one source of truth. Loading is idempotent per entry.
+    """
+    from hygel_martini.hydrogel_builder.core_utils.templates.strand_loader import (
+        load_strand_template,
+    )
+
+    for entry in backbone_defs or []:
+        spec = entry.get("template")
+        if spec is None:
+            continue
+        if entry.get("strand_template") is not None:
+            continue
+        if not isinstance(spec, dict):
+            raise ValueError(
+                f"backbone '{entry.get('id')}'의 'template'는 gro/itp 경로를 "
+                f"담은 mapping이어야 합니다 (현재 {type(spec).__name__})."
+            )
+        if entry.get("definition"):
+            raise ValueError(
+                f"backbone '{entry.get('id')}'가 'definition'(bead 정의)과 "
+                "'template'(whole-strand)을 동시에 선언합니다. 한 backbone은 "
+                "한 표현만 가질 수 있습니다."
+            )
+        template = load_strand_template({"id": entry.get("id"), **spec})
+        entry["strand_template"] = template
+        print(
+            f"[INFO] whole-strand template '{template.id}': "
+            f"{len(template.beads)} atoms, span {template.span_length:.3f} nm, "
+            f"mass {template.total_mass:.2f}"
+        )
+
+
 def _load_backbone_context():
     """Load template libraries and sequence strategies for backbone planning."""
     backbone_cfg = Config.get_param("hydrogel_components", "backbone_definitions")
     linker_cfg = Config.get_param("hydrogel_components", "linker_definitions")
     backbone_defs = backbone_cfg["BACKBONES"]
+    _load_strand_templates(backbone_defs)
     backbone_strategy = backbone_cfg.get("SEQUENCE_STRATEGY", {"strategy": "random"})
     linker_strategy = linker_cfg.get("SEQUENCE_STRATEGY", {"strategy": "random"})
 

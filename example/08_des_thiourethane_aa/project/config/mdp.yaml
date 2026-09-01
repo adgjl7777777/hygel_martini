@@ -1,0 +1,17 @@
+# EM settings for an all-atom periodic network. Small emstep: the rigidly
+# placed folded strand conformers start with real contacts to relax.
+simulation_parameters:
+  geo_opt:
+    output_dir_suffix: _geo_opt
+    deffnm_prefix: em
+    mdp:
+      integrator: steep
+      nsteps: 20000
+      emtol: 500.0
+      emstep: 0.002
+      coulombtype: PME
+      rcoulomb: 1.1
+      vdw_type: cutoff
+      rvdw: 1.1
+      # The covalent network threads the periodic boundary.
+      periodic_molecules: "yes"

@@ -1,0 +1,30 @@
+# Experimental stoichiometry: Hexakis-SH : PPG-TDI = 1 : 0.5 (molar), i.e.
+# one NCO per six SH -- SH conversion 1/6. Flory-Stockmayer for A6+B2 gels at
+# p*(f-1) = 1, i.e. p = 0.2 > 1/6: at the experimental ratio the covalent
+# system alone is BELOW the gel point, so fragments are the correct outcome
+# here (the real material's integrity comes from the DES hydrogen-bond
+# network on top). The connectivity audit therefore reports, not gates.
+#
+# All-atom caveat, documented in the example README: the junction template is
+# the fully reacted form, so the five-of-six unreacted arms carry a
+# reacted-form sulfur (no thiol hydrogen; H charge folded into S). Topology
+# and mechanics benchmark only -- chemically faithful partial conversion
+# needs per-stub cap atoms, which the builder does not have yet.
+includes:
+  - config/simulation.yaml
+  - config/mdp.yaml
+  - config/hydrogel.yaml
+  - config/network.yaml
+
+simulation_parameters:
+  output_dir: ${CONFIG_DIR}/output_partial
+  network_layout:
+    conversion:
+      fraction: 0.166667
+      seed: 3
+
+hydrogel_topology_connectivity_audit:
+  enabled: true
+  min_largest_component_fraction: 0.0
+  max_components: 100000
+  fail_on_violation: false

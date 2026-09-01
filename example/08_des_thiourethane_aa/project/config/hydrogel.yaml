@@ -1,0 +1,38 @@
+# One strand chemistry, one junction chemistry -- the experimental pair.
+monomer_definitions:
+  MONOMERS: []
+  SEQUENCE_STRATEGY:
+    strategy: random
+
+hydrogel_components:
+  backbone_definitions:
+    BACKBONES:
+      # Whole-strand template: TDI-PPG(n=3)-TDI with both thiourethane
+      # carbonyl carbons exposed as attachment atoms BCK1/BCK2.
+      - id: STR1
+        ratio: 1
+        template:
+          gro: ${CONFIG_DIR}/structure/STR.gro
+          itp: ${CONFIG_DIR}/structure/STR.itp
+    SEQUENCE_STRATEGY:
+      strategy: random
+
+  linker_definitions:
+    # Reacted Hexakis junction: six sulfurs (residue BCK) are the stubs; the
+    # builder bond S-C(=O) carries the LNK thiourethane values inline.
+    LINKERS:
+      - id: HEXR_junction
+        ratio: 1
+        gro: ${CONFIG_DIR}/structure/HEXR.gro
+        itp: ${CONFIG_DIR}/structure/HEXR.itp
+        linker_residue_name: HEX
+        backbone_residue_name: STR
+        stubs:
+          - [{between: STR1, bond_funct: 1, bond_c0: 0.1715, bond_c1: 187443.2}]
+          - [{between: STR1, bond_funct: 1, bond_c0: 0.1715, bond_c1: 187443.2}]
+          - [{between: STR1, bond_funct: 1, bond_c0: 0.1715, bond_c1: 187443.2}]
+          - [{between: STR1, bond_funct: 1, bond_c0: 0.1715, bond_c1: 187443.2}]
+          - [{between: STR1, bond_funct: 1, bond_c0: 0.1715, bond_c1: 187443.2}]
+          - [{between: STR1, bond_funct: 1, bond_c0: 0.1715, bond_c1: 187443.2}]
+    SEQUENCE_STRATEGY:
+      strategy: random

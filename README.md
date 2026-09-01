@@ -24,6 +24,9 @@ ORCID [0009-0007-1647-9270](https://orcid.org/0009-0007-1647-9270)
 - **격자(net) 선택.** 다이아몬드(`dia`, f=4)와 primitive cubic(`pcu`, f=6)을
   RCSR 정의 그대로 제공하며, transition-system planner·crosslink router·감사가
   전부 functionality-일반입니다.
+- **All-atom 모드.** strand 한 가닥을 통째 분자 템플릿(BCK1/BCK2 부착 원자)으로
+  받아 강체 배치하고, nrexcl=3·template `[pairs]`·교차 각도/이면각
+  parameterless 방출로 임의의 OPLS류 force field를 지원합니다 (예제 08).
 - **현실적 topology.** 완전 격자는 bipartite라 홀수 loop가 없습니다. span 제약
   rewiring이 loop-order 분포를 물리적 파라미터 하나(`max_span`)로 조절합니다.
 - **Topology 감사.** vertex symbol, loop-order 히스토그램, primary/secondary
@@ -94,6 +97,7 @@ PY
 | `05_hydrogel_relaxation` | staged minimization / settling MD / guarded shrink | 바로 실행 가능 |
 | `06_physical_property` | manifest 기반 물성 추출 | 바로 실행 가능 |
 | `07_hexafunctional` | **f=6 crosslinker + `pcu` net + rewiring** | GROMACS end-to-end 빌드·EM 수렴·감사 통과 |
+| `08_des_thiourethane_aa` | **All-atom (OPLS-AA) thiourethane 네트워크** — Hexakis-SH(f=6) + TDI-PPG-TDI whole-strand 템플릿, LigParGen 파라미터, 전환율 1/6 변형 포함 | GROMACS end-to-end 빌드·EM 수렴·감사 통과 |
 
 자세한 구성은 [`example/README_ko.md`](example/README_ko.md).
 
@@ -125,7 +129,7 @@ hygel_martini/
     core_utils/layout/  nets(dia/pcu) · net_layout · rewire ·
                         local_matching(일반 f transition system) · diamond layout
     core_utils/runtime/ dynamic_crosslink(일반 f router) · packer · geo_opt
-    core_utils/templates/ monomer/linker(N-stub) template loader
+    core_utils/templates/ monomer/linker(N-stub)/whole-strand template loader
     relax/              soft_em · soft_md · hard_em_shrink
   property_extract/     분석·감사 (network_topology, cyclic_topology, ...)
 example/                tracked 예제 (위 표)
@@ -152,9 +156,10 @@ construction claim을 지지할 뿐, force-field 정확도·equilibrium swelling
 유일한 pore/mesh 길이·experimental rheology를 자동으로 증명하지 않습니다.
 물성 claim은 `property_extract`의 requirement/observable/numerical/promotion
 gate를 별도로 통과해야 합니다. loop-order 분포를 맞춘 것 역시 topology
-statement이며 역학적 물성의 재현이 아닙니다. 이 브랜치의 f=6 경로는 GROMACS
-end-to-end로 1회 빌드·수렴·감사까지 통과했습니다(예제 07). **NPT/production
-MD, 용매화, relaxation(05) 워크플로는 아직 미실행입니다.**
+statement이며 역학적 물성의 재현이 아닙니다. 이 브랜치의 f=6 경로(예제 07)와 all-atom 경로(예제 08, OPLS-AA thiourethane)는
+GROMACS end-to-end로 빌드·수렴·감사까지 통과했습니다. **NPT/production MD,
+용매화, relaxation(05) 워크플로는 아직 미실행이며, 예제 08의 전하는
+1.14*CM1A-LBCC 수준의 근사입니다.**
 
 ## 인용, 연구비, 라이선스
 

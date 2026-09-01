@@ -140,7 +140,58 @@ def _alignment_basis(axis: np.ndarray) -> np.ndarray:
     return np.column_stack((x_axis, y_axis, z_axis))
 
 
+def _axis_rotation(axis: np.ndarray, angle: float) -> np.ndarray:
+    """Rodrigues rotation matrix about a unit ``axis`` by ``angle`` radians."""
+    x, y, z = axis
+    k = np.array([[0.0, -z, y], [z, 0.0, -x], [-y, x, 0.0]])
+    return np.eye(3) + np.sin(angle) * k + (1.0 - np.cos(angle)) * (k @ k)
+
+
+def _rotation_between(source: np.ndarray, target: np.ndarray) -> np.ndarray:
+    """Rotation matrix carrying unit vector ``source`` onto unit ``target``."""
+    cross = np.cross(source, target)
+    norm = float(np.linalg.norm(cross))
+    dot = float(np.dot(source, target))
+    if norm < 1e-12:
+        if dot > 0.0:
+            return np.eye(3)
+        # Antiparallel: rotate half a turn about any perpendicular axis.
+        seed = np.array([1.0, 0.0, 0.0])
+        if abs(source[0]) > 0.9:
+            seed = np.array([0.0, 1.0, 0.0])
+        perp = np.cross(source, seed)
+        perp /= np.linalg.norm(perp)
+        return _axis_rotation(perp, np.pi)
+    return _axis_rotation(cross / norm, np.arctan2(norm, dot))
+
+
 def instantiate_backbone(cell: LayoutCell, proto_positions: np.ndarray) -> InstantiatedChain:
+    strand_template = cell.metadata.get('strand_template') if cell.metadata else None
+    if strand_template is not None:
+        # Whole-strand template: one rigid molecule. Its local coordinates are
+        # centered on the attachment midpoint, so aligning the attachment axis
+        # with the segment direction and translating to the segment center
+        # (cell.origin) puts both attachment atoms on the junction line. No
+        # scaling: all-atom bond lengths are not free parameters.
+        rotation = _rotation_between(
+            np.asarray(strand_template.attachment_axis, dtype=np.float64),
+            np.asarray(cell.direction, dtype=np.float64),
+        )
+        roll = float(cell.metadata.get('roll', 0.0) or 0.0)
+        if roll:
+            rotation = _axis_rotation(
+                np.asarray(cell.direction, dtype=np.float64), roll
+            ) @ rotation
+        positions = cell.origin + strand_template.coords @ rotation.T
+        metadata = {'cell_index': cell.cell_index}
+        metadata.update(cell.metadata)
+        return InstantiatedChain(
+            positions=positions,
+            definition=cell.backbone_definition,
+            metadata=metadata,
+            template=strand_template,
+        )
+
     custom_positions = None
     if cell.metadata:
         custom_positions = cell.metadata.get('proto_positions')
@@ -314,6 +365,48 @@ def build_atom_blueprint(layout_plan: LayoutPlan,
     for chain_idx, chain in enumerate(inst.backbone_segments):
         component_entry = chain.definition or {}
         component_id = component_entry.get('id', f"BACKBONE_{chain_idx}")
+
+        strand_template = chain.metadata.get('strand_template') if chain.metadata else None
+        if strand_template is not None:
+            # Whole-strand template: every atom comes verbatim from the
+            # template (type, charge, mass, residue), with its rigidly placed
+            # coordinate. source_template/original_index make the populator's
+            # rich-section mapping and the angle machinery see this chain
+            # exactly like a linker template instance.
+            atom_indices = []
+            for bead_idx, bead in enumerate(strand_template.beads):
+                atoms.append(AtomBlueprint(
+                    chain_type='backbone',
+                    chain_index=chain_idx,
+                    bead_index=bead_idx,
+                    position=np.array(chain.positions[bead_idx], dtype=np.float64),
+                    component_id=component_id,
+                    atom_name=bead.name,
+                    atom_type=bead.atom_type,
+                    residue_name=bead.residue_name,
+                    residue_number=bead.residue_number,
+                    charge_group_number=bead.cgnr,
+                    mass=bead.mass,
+                    charge=bead.charge,
+                    backbone_type=component_id,
+                    extra={
+                        'source_template': strand_template,
+                        'original_index': bead.original_index,
+                    },
+                ))
+                atom_indices.append(len(atoms) - 1)
+            metadata = dict(chain.metadata or {})
+            metadata['attachment_positions'] = strand_template.attachment_positions
+            chains.append(ChainBlueprint(
+                chain_type='backbone',
+                chain_index=chain_idx,
+                component_id=component_id,
+                definition=component_entry.get('definition', component_entry),
+                atom_indices=atom_indices,
+                metadata=metadata,
+            ))
+            continue
+
         sequence = chain.metadata.get('sequence', []) if chain.metadata else []
         atom_indices: List[int] = []
         for bead_idx, position in enumerate(chain.positions):

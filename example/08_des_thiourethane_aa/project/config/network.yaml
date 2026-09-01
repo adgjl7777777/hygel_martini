@@ -1,0 +1,10 @@
+# Ideal pcu benchmark: no rewiring. A whole-strand template is one rigid
+# molecule with one length, so heterogeneous (rewired) junction gaps cannot
+# be spanned -- the layout refuses the combination outright.
+simulation_parameters:
+  network_layout:
+    net: pcu
+    repeats: [4, 4, 4]
+    # strand BCK-BCK span (2.473, extended conformer) +
+    # 2 * (junction arm 0.773 + S-C bond 0.1715); build_templates.py prints it.
+    cell_parameter: 4.36

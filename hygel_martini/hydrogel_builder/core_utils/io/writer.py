@@ -274,6 +274,10 @@ def write_combined_itp(world, filename, moleculetype_name, nrexcl=None,
     which ``extra_pairs`` supplies as (i, j) atom-id pairs (0-based).
     """
     if nrexcl is None:
+        # The import lives here (the module has no top-level Config import);
+        # referencing an unimported name under a broad except turned every
+        # configured topology_nrexcl into a silent 1.
+        from hygel_martini.hydrogel_builder.config_params.config import Config
         try:
             nrexcl = Config.get_param("simulation_parameters").get("topology_nrexcl", 1)
         except Exception:

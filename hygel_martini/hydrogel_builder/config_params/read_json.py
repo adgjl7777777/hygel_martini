@@ -306,6 +306,14 @@ def _validate_config():
         backbone_ids = {bb['id'] for bb in backbone_defs}
         print(f"정의된 Backbone ID: {backbone_ids}")
 
+        # Whole-strand templates must be attached before the linker check:
+        # stub targets pointing at a template backbone are validated (and
+        # their mass rule relaxed) against the loaded template.
+        from hygel_martini.hydrogel_builder.config_params.build_hydrogel import (
+            _load_strand_templates,
+        )
+        _load_strand_templates(backbone_defs)
+
         # 2. Monomer 템플릿 검증
         monomer_defs = Config.get_param('monomer_definitions', 'MONOMERS')
         monomer_library = None
@@ -1287,7 +1295,27 @@ def _execute_all_mode():
     # Optional pre-relax for freshly created dynamic crosslinks. This is off
     # unless the YAML explicitly enables it, because it changes the staged build
     # path for every system that uses all-mode.
-    if sim_params.get('dynamic_crosslink_relax_enabled', False):
+    _has_strand_templates = any(
+        (entry or {}).get('strand_template') is not None
+        for entry in (Config.get_param('hydrogel_components',
+                                       'backbone_definitions',
+                                       'BACKBONES') or [])
+    )
+    if sim_params.get('dynamic_crosslink_relax_enabled', False) and _has_strand_templates:
+        # The soft relax exists to let Martini bead chains drift until their
+        # ends reach the stubs. A whole-strand template's ends already sit at
+        # the retreat points -- and its soft topology (bonds only, no angles,
+        # nrexcl-excluded 1-3 pairs without their angle terms) lets an
+        # all-atom molecule collapse onto itself, which the final EM then has
+        # to untangle or, past a fold, cannot. Measured directly: geminal
+        # hydrogens at 0.009 nm and an EM pinned at Fmax ~3e4 on the same
+        # strand atom in every instance.
+        print(
+            "[INFO] dynamic_crosslink_relax skipped: whole-strand templates "
+            "place their attachment atoms at the junction gap already, and a "
+            "bonds-only soft topology would collapse an all-atom molecule."
+        )
+    elif sim_params.get('dynamic_crosslink_relax_enabled', False):
         _soft_fc = float(sim_params.get('dynamic_crosslink_relax_fc', 50.0))
         _soft_itp = backbone_itp + '.soft_relax.tmp'
         _make_soft_bonds_itp(backbone_itp, _soft_fc, _soft_itp)

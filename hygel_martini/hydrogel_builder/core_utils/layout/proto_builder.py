@@ -354,9 +354,31 @@ def prepare_proto_plan(segment_length: int,
                        linker_axes: Optional[Sequence[str]] = None) -> ProtoPlan:
 
     bond_lookup = _build_bond_lookup(bond_rules, mean_sep)
-    proto_backbone = build_proto_backbone(segment_length, backbone_defs, mean_sep,
-                                          strategy=backbone_strategy, bond_rules=bond_rules,
-                                          bond_lookup=bond_lookup)
+    strand_templates = [entry.get('strand_template') for entry in backbone_defs]
+    if any(template is not None for template in strand_templates):
+        if not all(template is not None for template in strand_templates):
+            raise ValueError(
+                "whole-strand template backbone과 bead 정의 backbone을 한 빌드에 "
+                "섞을 수 없습니다: proto/배치 기하가 서로 다릅니다."
+            )
+        # A whole-strand molecule is placed rigidly, so its prototype is just
+        # a straight segment of its own span (ratio-weighted when several
+        # strand chemistries coexist). Three points, because downstream code
+        # treats a <3-point prototype as absent.
+        spans = [float(t.span_length) for t in strand_templates]
+        weights = [max(float(entry.get('ratio', 1.0)), 0.0) for entry in backbone_defs]
+        span = _weighted_average(spans, weights if any(weights) else [1.0] * len(spans))
+        positions = np.linspace([0.0, 0.0, 0.0], [span, 0.0, 0.0], 3)
+        # types rows are (bead_id, params) pairs; None ids match no backbone
+        # entry, so the Martini sequence machinery sees an empty prototype.
+        proto_backbone = ProtoChain(positions=np.array(positions, dtype=np.float64),
+                                    types=[(None, None)] * 3,
+                                    length=span,
+                                    raw_length=span)
+    else:
+        proto_backbone = build_proto_backbone(segment_length, backbone_defs, mean_sep,
+                                              strategy=backbone_strategy, bond_rules=bond_rules,
+                                              bond_lookup=bond_lookup)
     proto_linker = build_proto_linker(linker_defs, linker_strategy)
 
     linker_span_lookup: Dict[str, float] | None = None

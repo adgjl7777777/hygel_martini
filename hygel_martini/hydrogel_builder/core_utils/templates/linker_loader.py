@@ -231,6 +231,12 @@ def _backbone_mass_lookup(backbone_defs: List[Dict]) -> Dict[str, float]:
     masses: Dict[str, float] = {}
     for backbone in backbone_defs:
         backbone_id = backbone.get("id")
+        if backbone_id is not None and backbone.get("strand_template") is not None:
+            # A whole-strand template's end is a real atom with its own mass;
+            # the stub facing it is likewise real (a sulfur, say) and keeps
+            # its ITP mass. None marks "no placeholder-mass override".
+            masses[str(backbone_id)] = None
+            continue
         definition = backbone.get("definition", {}) or {}
         mass = definition.get("mass")
         if backbone_id is not None and mass is not None:
@@ -315,12 +321,24 @@ def _stub_mass_for_targets(
     rather than silently resolved to whichever target happens to sort first.
     """
     try:
-        masses = {target: float(backbone_masses[target]) for target in targets}
+        masses = {target: backbone_masses[target] for target in targets}
     except KeyError as exc:
         raise ValueError(
             f"링커 '{linker_id}'의 {side_name} target '{exc.args[0]}'을 "
             f"backbone definition에서 찾을 수 없습니다."
         ) from exc
+    if any(mass is None for mass in masses.values()):
+        # Whole-strand template targets: the stub keeps its own ITP mass.
+        # Mixing such a target with a bead-mass one leaves the stub mass
+        # two-valued, so it is refused like any other disagreement.
+        if not all(mass is None for mass in masses.values()):
+            raise ValueError(
+                f"링커 '{linker_id}'의 {side_name}는 whole-strand 템플릿과 "
+                f"bead 정의 backbone을 동시에 target으로 가집니다 ({masses}). "
+                "stub 질량이 결정되지 않으므로 stub을 분리하십시오."
+            )
+        return None
+    masses = {target: float(mass) for target, mass in masses.items()}
     distinct = set(masses.values())
     if len(distinct) > 1:
         raise ValueError(
@@ -417,7 +435,8 @@ def _load_single_linker(entry: Dict, backbone_defs: List[Dict]) -> LinkerTemplat
     definition['name'] = linker_name
     for bead in beads:
         if bead['nr'] in stub_indices:
-            bead['mass'] = stub_masses[bead['nr']]
+            if stub_masses[bead['nr']] is not None:
+                bead['mass'] = stub_masses[bead['nr']]
             stub_definitions.append(bead.copy()) # Save original stub definition
         if bead['residue'] == 'BCK':
             if isinstance(backbone_name, (list, tuple)):

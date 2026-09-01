@@ -33,3 +33,7 @@ mdout.mdp
 
 # Example build outputs
 example/*/project/output/
+
+# Example 08 outputs: a curated evidence subset is tracked explicitly (git add -f)
+example/08_des_thiourethane_aa/project/output/
+example/08_des_thiourethane_aa/project/output_partial/

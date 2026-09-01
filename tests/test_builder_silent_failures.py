@@ -35,21 +35,29 @@ def test_martini_atomtype_layout_is_read(tmp_path) -> None:
     }
 
 
-def test_foreign_atomtype_layout_is_named_rather_than_silently_empty(
-    tmp_path, capsys
-) -> None:
-    # The mass sits in column 4, so every row is discarded and the map comes
-    # back empty.  Downstream that used to surface much later as an unrelated
-    # "mass could not be determined" error on some unrelated molecule.
+def test_opls_atomtype_layout_is_read(tmp_path) -> None:
+    # OPLS-style rows carry bonded-type and atomic-number columns before the
+    # mass. The mass sits two columns before the particle-type letter in
+    # every GROMACS layout, which is how the parser locates it: guessing
+    # "first numeric column" would read the atomic number (6, 8) as a mass.
     path = tmp_path / "opls.itp"
     path.write_text(OPLS_ATOMTYPES)
 
-    assert read_atom_types(str(path)) == {}
+    assert read_atom_types(str(path)) == {
+        "opls_001": {"mass": 12.011},
+        "opls_002": {"mass": 15.9994},
+    }
 
-    warning = capsys.readouterr().err
-    assert "atomtypes" in warning
-    assert "column 2" in warning
-    assert "column 4" in warning
+
+def test_opls_layout_without_atomic_number_is_read(tmp_path) -> None:
+    # LigParGen writes name/btype/mass/charge/ptype/sigma/epsilon.
+    path = tmp_path / "lpg.itp"
+    path.write_text(
+        "[ atomtypes ]\n"
+        "  opls_800  C800  12.0110  0.000  A  3.50000E-01  2.76144E-01\n"
+    )
+
+    assert read_atom_types(str(path)) == {"opls_800": {"mass": 12.011}}
 
 
 def test_atomtype_file_without_the_section_does_not_warn(tmp_path, capsys) -> None:

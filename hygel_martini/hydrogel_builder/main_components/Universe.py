@@ -146,6 +146,11 @@ class World:
         cls.Angles = collections.defaultdict(list)
         cls.Dihedrals = collections.defaultdict(list)
         cls.OtherSections = collections.defaultdict(list)
+        # Template ids whose dihedrals/impropers the blueprint populator has
+        # already registered per instance; construct_dihedrals must not
+        # re-walk them (its object-level pass would double-register, and its
+        # source_index map collapses multiple instances onto one).
+        cls.template_dihedrals_done = set()
         print("World state has been reset.")
 
     def __init__(self):

@@ -59,10 +59,29 @@ def read_atom_types(itp_file_path):
                     if len(parts) >= 2:
                         atom_type_name = parts[0]
                         try:
+                            # Martini layout: name mass charge ptype ...
                             mass = float(parts[1])
                         except (ValueError, IndexError):
-                            # Not a valid atomtype row in this column layout.
-                            continue
+                            # GROMACS also allows an optional bonded-type (and
+                            # atomic-number) column before the mass, which is
+                            # how OPLS-style files are laid out:
+                            #   name btype [at.num] mass charge ptype V W
+                            # In every layout the mass sits two columns before
+                            # the particle-type letter, so locate that instead
+                            # of guessing which numeric column is which.
+                            ptype_positions = [
+                                k for k, token in enumerate(parts)
+                                if token in ('A', 'S', 'V', 'D')
+                            ]
+                            mass = None
+                            if len(ptype_positions) == 1 and ptype_positions[0] >= 3:
+                                try:
+                                    mass = float(parts[ptype_positions[0] - 2])
+                                except ValueError:
+                                    mass = None
+                            if mass is None:
+                                # Not a valid atomtype row in any layout.
+                                continue
                         # Raised outside the try above on purpose:
                         # DuplicateDeclaration subclasses ValueError, so a
                         # check inside it would be swallowed by the same

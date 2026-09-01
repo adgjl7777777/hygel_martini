@@ -1,0 +1,11 @@
+# All-atom thiourethane network: Hexakis-SH (f=6) + PPG-TDI strand, OPLS-AA.
+#
+# The first all-atom end-to-end exercise of the builder: whole-strand
+# templates (BCK1/BCK2 attachment atoms), nrexcl=3, template [pairs],
+# parameterless crossing angles/dihedrals resolved from structure/forcefield.itp.
+# Chemistry and parameters: see ../parameterization/build_templates.py.
+includes:
+  - config/simulation.yaml
+  - config/mdp.yaml
+  - config/hydrogel.yaml
+  - config/network.yaml

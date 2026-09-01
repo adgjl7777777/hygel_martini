@@ -20,8 +20,17 @@ def _ordered_chain_entries(chain_key: Tuple[str, int],
 def _mark_backbone_terminals(hydrogel, atom_ids: List[int], metadata: Dict | None = None):
     if not atom_ids:
         return
-    head = World.Atoms[atom_ids[0]][0]
-    tail = World.Atoms[atom_ids[-1]][0]
+    # A bead chain attaches at its first and last bead; a whole-strand
+    # template names its two attachment atoms (BCK1/BCK2) explicitly, and
+    # they are rarely the first and last atoms of the ITP.
+    attachment = (metadata or {}).get('attachment_positions')
+    if attachment is not None:
+        head_pos, tail_pos = attachment
+        head = World.Atoms[atom_ids[head_pos]][0]
+        tail = World.Atoms[atom_ids[tail_pos]][0]
+    else:
+        head = World.Atoms[atom_ids[0]][0]
+        tail = World.Atoms[atom_ids[-1]][0]
 
     planned_chain_id = (metadata or {}).get('planned_chain_id')
     if planned_chain_id is not None:
@@ -112,7 +121,12 @@ def populate_hydrogel_from_blueprint(hydrogel, blueprint: LayoutBlueprint):
         # Pass source_template directly to constructor if available
         source_template = atom_bp.extra.get('source_template') if atom_bp.extra else None
         atom = Attributes.Atom(source_template=source_template)
-        
+        if source_template is not None and atom_bp.bead_index >= 0:
+            # construct_angles matches template-internal angles against this
+            # 0-based bead position; without it the lookup never fires and
+            # every template angle silently falls to the Martini heuristics.
+            atom.source_index = atom_bp.bead_index
+
         atom.atom_type = atom_bp.atom_type
         atom.residue_number = atom_bp.residue_number
         atom.residue_name = atom_bp.residue_name
@@ -184,7 +198,13 @@ def populate_hydrogel_from_blueprint(hydrogel, blueprint: LayoutBlueprint):
         atom_ids = [atom_id for _, atom_id in entries]
         if chain.chain_type == 'backbone':
             _mark_backbone_terminals(hydrogel, atom_ids, chain.metadata)
-            _create_backbone_bonds(chain, atom_ids)
+            if (chain.metadata or {}).get('strand_template') is not None:
+                # A whole-strand template's bonds are its own [ bonds ]
+                # section, mapped below with the other rich sections;
+                # sequential bead-to-bead bonds would be fabrications here.
+                pass
+            else:
+                _create_backbone_bonds(chain, atom_ids)
         elif chain.chain_type == 'linker':
             bead_atom_ids = [atom_id for bead_idx, atom_id in entries if bead_idx >= 0]
             _mark_linker_terminals(hydrogel, chain, bead_atom_ids)
@@ -208,13 +228,46 @@ def populate_hydrogel_from_blueprint(hydrogel, blueprint: LayoutBlueprint):
         World.OtherSections[sec].append(payload)
 
     for chain in blueprint.chains:
-        if chain.chain_type != "linker":
+        is_strand_template_chain = (
+            chain.chain_type == "backbone"
+            and (chain.metadata or {}).get("strand_template") is not None
+        )
+        if chain.chain_type != "linker" and not is_strand_template_chain:
             continue
         chain_key = (chain.chain_type, chain.chain_index)
         template = template_by_chain.get(chain_key)
         if template is None:
             continue
         idx_map = orig_to_global_by_chain.get(chain_key, {})
+
+        # A whole-strand template owns its own [ bonds ]: they are created
+        # here from the parsed rows (a linker's are split into internal/stub
+        # bonds at load time instead, so this branch is strand-only).
+        if is_strand_template_chain:
+            mapped_bonds = 0
+            for bond_def in getattr(template, "internal_bonds", []) or []:
+                gi = idx_map.get(bond_def.get("from"))
+                gj = idx_map.get(bond_def.get("to"))
+                if gi is None or gj is None:
+                    raise ValueError(
+                        f"strand 템플릿 '{getattr(template, 'id', '?')}'의 결합 "
+                        f"{bond_def.get('from')}-{bond_def.get('to')}이 존재하지 "
+                        "않는 atom을 참조합니다."
+                    )
+                params = bond_def.get("params", [])
+                Attributes.Bond(
+                    gi,
+                    gj,
+                    funct=int(bond_def.get("funct", 1)),
+                    c0=float(params[0]) if len(params) > 0 else None,
+                    c1=float(params[1]) if len(params) > 1 else None,
+                )
+                mapped_bonds += 1
+            if Config is not None:
+                Config.debug_log(
+                    f"[proto-strand-bonds] chain={chain.chain_index} "
+                    f"template={getattr(template, 'id', None)} bonds={mapped_bonds}"
+                )
         mapped_counts = defaultdict(int)
         skipped_counts = defaultdict(int)
         stub_original_indices = {
@@ -330,6 +383,13 @@ def populate_hydrogel_from_blueprint(hydrogel, blueprint: LayoutBlueprint):
                 dihedral.dihedral_params = None
                 mapped_counts["dihedrals"] += 1
                 continue
+            if len(params) > 3:
+                # Ryckaert-Bellemans (funct 3) carries six coefficients; the
+                # c0..c2 slots below would silently truncate them. The writer
+                # emits dihedral_params verbatim when it is set.
+                dihedral.dihedral_params = [float(x) for x in params]
+                mapped_counts["dihedrals"] += 1
+                continue
             # GROMACS funct=1 proper dihedral requires 3 params; if template provides 2, assume multiplicity=1.
             if dihedral.dihedral_funct == 1 and len(params) == 2:
                 params = list(params) + [1.0]
@@ -364,6 +424,10 @@ def populate_hydrogel_from_blueprint(hydrogel, blueprint: LayoutBlueprint):
                 dihedral.dihedral_params = None
                 mapped_counts["impropers"] = mapped_counts.get("impropers", 0) + 1
                 continue
+            if len(params) > 3:
+                dihedral.dihedral_params = [float(x) for x in params]
+                mapped_counts["impropers"] += 1
+                continue
             if dihedral.dihedral_funct == 1 and len(params) == 2:
                 params = list(params) + [1.0]
             if dihedral.dihedral_funct == 1 and len(params) < 3:
@@ -390,6 +454,41 @@ def populate_hydrogel_from_blueprint(hydrogel, blueprint: LayoutBlueprint):
             for ln in lines:
                 _add_other(sec_lower, {"line": ln})
                 mapped_counts[sec_lower] += 1
+
+        # Template-internal angles are registered here, not deferred to
+        # construct_angles in finalize: the pre-crosslink EM stages minimize
+        # whatever topology exists at populate time, and an all-atom molecule
+        # under bonds and dihedrals but no angles collapses onto itself
+        # (nrexcl leaves its 1-3 pairs without nonbonded repulsion either).
+        # construct_angles skips triples that already exist.
+        position_to_global = {}
+        for position, bead in enumerate(getattr(template, "beads", []) or []):
+            gidx = idx_map.get(getattr(bead, "original_index", None))
+            if gidx is not None:
+                position_to_global[position] = gidx
+        for angle_def in getattr(template, "internal_angles", []) or []:
+            gi = position_to_global.get(angle_def.get("from"))
+            gj = position_to_global.get(angle_def.get("center"))
+            gk = position_to_global.get(angle_def.get("to"))
+            if gi is None or gj is None or gk is None:
+                skipped_counts["angles"] += 1
+                continue
+            angle = Attributes.Angle(gi, gj, gk)
+            angle.angle_funct = int(angle_def.get("funct", 1))
+            params = angle_def.get("params", [])
+            angle.angle_c0 = float(params[0]) if len(params) > 0 else None
+            angle.angle_c1 = float(params[1]) if len(params) > 1 else None
+            mapped_counts["angles"] += 1
+
+        # This pass registered the template's dihedrals/impropers for THIS
+        # instance; the object-level construct_dihedrals walk must skip the
+        # template entirely or every instance gets a duplicate set (mapped
+        # through a source_index table that collapses instances).
+        done = getattr(World, "template_dihedrals_done", None)
+        if done is None:
+            done = set()
+            World.template_dihedrals_done = done
+        done.add(id(template))
 
         if Config is not None:
             Config.debug_log(

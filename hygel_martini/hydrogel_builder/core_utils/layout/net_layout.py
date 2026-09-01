@@ -278,6 +278,24 @@ def generate_net_layout_plan(
     proto_positions_base = getattr(proto_backbone, "positions", None)
     BOW_CLEARANCE_NM = 0.5
 
+    # Whole-strand template mode: the strand is one rigid molecule, placed as
+    # is. Rigidity removes the two degrees of freedom the Martini layout leans
+    # on -- a chain cannot be stretched to a rewired (heterogeneous) gap
+    # length, nor bowed off its line -- so rewiring is refused outright, and a
+    # gap/span mismatch is only *absorbed* (by the crosslink bonds, as
+    # pre-strain) rather than fixed, which is reported loudly below.
+    strand_template = None
+    if backbone_defs:
+        strand_template = (backbone_defs[0] or {}).get("strand_template")
+    if strand_template is not None and max_span is not None:
+        raise ValueError(
+            "whole-strand template backbone은 rewiring과 함께 쓸 수 없습니다: "
+            "rewiring은 junction 간격을 여러 길이로 만들지만 강체 분자의 "
+            "길이는 하나입니다. 'rewiring' 블록을 제거하거나 bead 정의 "
+            "backbone을 쓰십시오."
+        )
+    span_mismatch_worst = 0.0
+
     def _bowed_proto(strand_index: int, duplicate_rank: int,
                      length_scale: float) -> np.ndarray | None:
         if proto_positions_base is None or len(proto_positions_base) < 3:
@@ -342,13 +360,28 @@ def generate_net_layout_plan(
                     # a chain keeps its prototype contour and either overlaps
                     # its junctions or never reaches them.
                     "length_scale": (
-                        _effective_span(length, retreat, index) / proto_length
-                        if proto_length > 1e-9 else 1.0
+                        1.0 if strand_template is not None else (
+                            _effective_span(length, retreat, index) / proto_length
+                            if proto_length > 1e-9 else 1.0
+                        )
                     ),
                     "net": definition.name,
                 },
             )
         )
+        if strand_template is not None:
+            cells[-1].metadata["strand_template"] = strand_template
+            # Rotation about the segment axis is the molecule's one free
+            # rigid degree of freedom; a distinct golden-angle roll per
+            # strand keeps equivalent strands from stacking their side
+            # groups in identical orientations.
+            cells[-1].metadata["roll"] = 2.399963229728653 * index
+            gap = _effective_span(length, retreat, index)
+            span_mismatch_worst = max(
+                span_mismatch_worst,
+                abs(gap - strand_template.span_length),
+            )
+            continue
         pair = tuple(sorted((owner[left], owner[right]), key=repr))
         duplicate_rank = pair_seen.get(pair, 0)
         pair_seen[pair] = duplicate_rank + 1
@@ -357,6 +390,15 @@ def generate_net_layout_plan(
         if bowed is not None:
             cells[-1].metadata["proto_positions"] = bowed
             cells[-1].metadata["parallel_rank"] = duplicate_rank
+
+    if strand_template is not None and span_mismatch_worst > 0.1:
+        print(
+            f"[경고] whole-strand template '{strand_template.id}' span "
+            f"{strand_template.span_length:.3f} nm이 junction 간격과 최대 "
+            f"{span_mismatch_worst:.3f} nm 어긋납니다. 이 차이는 crosslink "
+            "결합의 pre-strain으로 흡수되므로, cell_parameter를 "
+            "(strand span + junction arm + 결합길이)에 맞추십시오."
+        )
 
     link_definition = linker_defs[0] if linker_defs else {}
     template_id = None

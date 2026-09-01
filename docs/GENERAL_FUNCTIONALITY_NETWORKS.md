@@ -273,7 +273,11 @@ forbids primary loops by default; orders two and above place normally.
 Reproducing a target primary-loop fraction in coordinates needs a layout able
 to place a loop excursion.
 
-**All-atom mode: mostly enabled, not yet exercised.** The working model is
+**All-atom mode: built end to end** (example 08, a thiourethane network of
+a hexafunctional thiol crosslinker and TDI-PPG-TDI strands under OPLS-AA:
+all EM stages converge, crosslink bonds land on their equilibrium length,
+and the connectivity audit passes at full and at 1/6 conversion). The
+working model is
 "whole strand as one template with BCK-marked attachment atoms" -- the builder
 never needs to know the force field, and no per-monomer polymerization engine
 is required (a defined prepolymer such as PPG-TDI is a single molecule anyway).
@@ -295,13 +299,61 @@ pairs those paths' endpoints lose to the exclusions -- both emitted
 *parameterless* (`i j k l funct`), so grompp resolves them from the force
 field's `[ *types ]` tables and the builder stays force-field-agnostic.
 Template-internal paths are never regenerated (that would double-count 1-4
-energy); ring-closing endpoint pairs are kept out of the 1-4 list; templates
-should carry explicit masses since `read_atom_types` still assumes the Martini
-`[ atomtypes ]` column layout.
+energy); ring-closing endpoint pairs are kept out of the 1-4 list; `read_atom_types` accepts both the Martini and the
+OPLS-style (bonded-type/atomic-number) `[ atomtypes ]` layouts, locating the
+mass relative to the particle-type column.
 
-Not yet done: no all-atom system has actually been built and run -- these are
-tested at the unit level (round-tripped through the shared parser) but not
-end to end against a real OPLS topology.
+A strand is declared as a whole molecule instead of a bead definition:
+
+```yaml
+hydrogel_components:
+  backbone_definitions:
+    BACKBONES:
+      - id: STR1
+        ratio: 1
+        template:
+          gro: ${CONFIG_DIR}/structure/STR.gro
+          itp: ${CONFIG_DIR}/structure/STR.itp   # atoms named BCK1/BCK2 are the ends
+```
+
+The two atoms *named* ``BCK1`` and ``BCK2`` are the attachment ends (real
+atoms -- for a thiourethane strand, the carbonyl carbons); residue names stay
+chemical. The junction stays a linker template whose stub atoms carry residue
+``BCK`` (real atoms too -- the sulfurs -- keeping their ITP mass, since a
+whole-strand target suspends the Martini stub-mass-override rule). Everything
+in the template survives into the combined topology: atoms, bonds, angles
+(registered at populate time so the pre-crosslink EM stages already see
+them), dihedrals (full Ryckaert-Bellemans coefficient lists included), pairs
+(under ``topology_nrexcl >= 2``), exclusions, constraints.
+
+Placement is **rigid**: the BCK1-BCK2 axis is rotated onto the junction-gap
+segment, centered, rolled by a per-strand golden angle, and never scaled or
+bowed. Three consequences, all enforced or reported rather than absorbed:
+
+* **rewiring is refused** with a strand template -- rewired gaps are
+  heterogeneous, a molecule has one length;
+* choose ``cell_parameter`` ≈ strand span + 2·(junction arm + bond length);
+  a mismatch above 0.1 nm is reported as pre-strain the crosslink bonds
+  would have to absorb (the defect-#21 lesson, applied forward);
+* feed an **extended conformer**: a gas-phase-optimized (folded) molecule
+  placed rigidly is a blob that overlaps its neighbours
+  (``example/08_des_thiourethane_aa/parameterization/extend_conformer.py``).
+
+In all-atom mode (``topology_nrexcl >= 2``) an angle *crossing* a
+builder-created bond is emitted parameterless -- the Martini shape heuristics
+(90/120/180 degrees) have no business there -- and resolves from the force
+field's ``[ angletypes ]``, exactly like the crossing dihedrals and 1-4
+pairs. The project supplies those entries; example 08's
+``build_templates.py`` shows one way to generate them mechanically from a
+small model compound of the formed linkage.
+
+Known limits of the all-atom path, in one place: partial conversion leaves
+unreacted stubs in their reacted form (no per-stub cap atoms yet -- for a
+thiol junction that means a missing S-H hydrogen per unreacted arm);
+impropers spanning a builder-created bond are not generated (the carbonyl
+planarity improper at a thiourethane linkage is lost); and a strand template
+is placed rigidly, so strand-length polydispersity within one build needs
+one backbone entry per length.
 
 **The per-monomer chain generator remains Martini-shaped** (one backbone bead
 per repeat unit, head and tail coincide). Under the whole-template model it is

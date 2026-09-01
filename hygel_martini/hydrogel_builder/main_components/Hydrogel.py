@@ -1058,8 +1058,29 @@ class Hydrogel():
             except Exception:
                 default_params = {'angle_funct': 1, 'angle_c0': 180.0, 'angle_c1': 25.0}
 
+        # All-atom mode (nrexcl >= 2): an angle not owned by one template
+        # instance -- one crossing a builder-created bond -- has no business
+        # receiving the Martini shape heuristics (90/120/180 degrees). It is
+        # emitted parameterless instead, and grompp resolves it from the
+        # force field's [ angletypes ] table, like the crossing dihedrals.
+        aa_parameterless = False
+        try:
+            aa_parameterless = int(
+                p.Config.get_param('simulation_parameters').get('topology_nrexcl', 1)
+            ) >= 2
+        except Exception:
+            aa_parameterless = False
+
         _atom = World.Atoms
-        
+
+        # Angles already registered (template-internal ones arrive from the
+        # blueprint populator at populate time, so the pre-crosslink EM stages
+        # see them). Creating a second object for the same triple would write
+        # the term twice.
+        existing_angles = set()
+        for key in World.Angles:
+            existing_angles.add(min(tuple(key), tuple(reversed(key))))
+
         # 모든 결합 정보 수집
         bonds_by_atom = {i: [] for i in _atom.keys()}
         for bond_obj in World.Bonds.values():
@@ -1083,11 +1104,22 @@ class Hydrogel():
                     side_atom1 = _atom[side_atom1_id][0]
                     side_atom2 = _atom[side_atom2_id][0]
 
+                    triple = (side_atom1_id, cen_atom_id, side_atom2_id)
+                    if min(triple, tuple(reversed(triple))) in existing_angles:
+                        continue
+
                     # --- 1. 내부 각도 (ITP) 우선 적용 ---
+                    # Ownership is per template *instance*: two molecules
+                    # stamped from one template object are different owners,
+                    # so the chain identity is compared alongside the
+                    # template identity (None == None keeps the legacy
+                    # monomer path, which never sets chain metadata, intact).
                     is_internal = (
                         cen_atom.source_template is not None and
                         cen_atom.source_template is side_atom1.source_template and
-                        cen_atom.source_template is side_atom2.source_template
+                        cen_atom.source_template is side_atom2.source_template and
+                        getattr(cen_atom, 'chain_type', None) == getattr(side_atom1, 'chain_type', None) == getattr(side_atom2, 'chain_type', None) and
+                        getattr(cen_atom, 'chain_index', None) == getattr(side_atom1, 'chain_index', None) == getattr(side_atom2, 'chain_index', None)
                     )
 
                     if is_internal:
@@ -1112,6 +1144,14 @@ class Hydrogel():
                         
                         if found_internal_angle:
                             continue # 내부 각도를 찾았으면 다음 조합으로
+
+                    # --- 1.5 all-atom: 교차 각도는 parameterless ---
+                    if aa_parameterless:
+                        angle = Attributes.Angle(side_atom1_id, cen_atom_id, side_atom2_id)
+                        angle.angle_funct = 1
+                        angle.angle_c0 = None
+                        angle.angle_c1 = None
+                        continue
 
                     # --- 2. 분자 간 각도 규칙 적용 ---
                     angle = Attributes.Angle(side_atom1_id, cen_atom_id, side_atom2_id)
@@ -1154,18 +1194,25 @@ class Hydrogel():
         processed_templates = set()
         all_atoms_list = [a[0] for a in World.Atoms.values()]
 
+        # Templates whose dihedrals the blueprint populator already
+        # registered per instance. Re-walking them here would duplicate every
+        # term, and the source_index map below collapses instances anyway.
+        populator_done = getattr(World, "template_dihedrals_done", None) or set()
+
         for atom in all_atoms_list:
             if atom.source_template is None or id(atom.source_template) in processed_templates:
                 continue
-            
+
             template = atom.source_template
             processed_templates.add(id(template))
+            if id(template) in populator_done:
+                continue
 
             # 템플릿에 속한 실제 원자들을 찾기 위한 맵
             template_atoms = [a for a in all_atoms_list if a.source_template is template]
             source_idx_to_atom_id = {a.source_index: a.atom_id for a in template_atoms}
 
-            for dihedral_def in template.internal_dihedrals:
+            for dihedral_def in getattr(template, "internal_dihedrals", []) or []:
                 try:
                     atom_i_id = source_idx_to_atom_id[dihedral_def['i']]
                     atom_j_id = source_idx_to_atom_id[dihedral_def['j']]

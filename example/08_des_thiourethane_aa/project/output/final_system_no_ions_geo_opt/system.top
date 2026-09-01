@@ -1,0 +1,11 @@
+#include "/nas_1/transcendence/2026_2/omni_hygel_package/package/example/08_des_thiourethane_aa/project/structure/forcefield.itp"
+#include "/nas_1/transcendence/2026_2/omni_hygel_package/package/example/08_des_thiourethane_aa/project/structure/HEXR.itp"
+#include "/nas_1/transcendence/2026_2/omni_hygel_package/package/example/08_des_thiourethane_aa/project/structure/STR.itp"
+#include "/nas_1/transcendence/2026_2/omni_hygel_package/package/example/08_des_thiourethane_aa/project/output/initial_hydrogel.itp"
+
+[ system ]
+My System
+
+[ molecules ]
+; Compound        #mols
+HYDROGEL        1
