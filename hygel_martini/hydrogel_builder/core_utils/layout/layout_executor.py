@@ -429,6 +429,16 @@ def build_atom_blueprint(layout_plan: LayoutPlan,
                 ))
                 atom_indices.append(len(atoms) - 1)
         
+        # The diamond layout materializes a left/right stub pair. A template
+        # with a different functionality would silently lose its other arms
+        # here, so it is refused instead.
+        declared = definition.get('functionality')
+        if declared is not None and int(declared) != 2:
+            raise ValueError(
+                f"Linker template declares functionality {declared}, but this "
+                "layout path materializes exactly two stubs. A multi-arm "
+                "junction needs a layout that places all of its arms."
+            )
         # Process stubs for backbone_1 and backbone_2
         stub_loops = [
             (definition.get('external_bonds_1', []), 'backbone_1', 0),
