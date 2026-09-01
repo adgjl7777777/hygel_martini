@@ -613,7 +613,7 @@ duplicated any stub with two body bonds, exactly what an unreacted thiol
 sulfur (CH2 and H) is -- with one atom per stub carrying all its attachment
 rows. Regression tests pin both; Martini example 07 rebuilds bit-for-bit.
 
-*Fixed in the commit adding this section.*
+*Fixed in `1820be2`.*
 
 ## Still open
 
