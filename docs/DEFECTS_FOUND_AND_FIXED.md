@@ -333,7 +333,7 @@ Not code defects; statements in the theory document that measurement changed.
 - The stub/junction model is still fixed at two stubs in the runtime router
   and its caller (`dynamic_crosslink.py:203,349,492`, `read_json.py:831`), so a
   six-arm crosslinker loads but cannot yet be materialized. The template loader
-  is general (`52eb7cf`) and the diamond layout now refuses a
+  is general (`97b0a0b`) and the diamond layout now refuses a
   multi-arm template rather than truncating it.
 - The coordinate layout still uses the hard-coded diamond constants in
   `proto_layout.py`; `nets.py` and `rewire.py` are not yet wired into it.
