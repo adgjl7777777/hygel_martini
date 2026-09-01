@@ -120,6 +120,7 @@ def reduce_to_junctions(
     alive = set(range(n_nodes))
 
     def degree(node: int) -> int:
+        """Multigraph degree over live edges; a self-loop contributes two."""
         return sum(
             2 if live_edges[e][0] == live_edges[e][1] else 1
             for e in incident[node]
@@ -230,6 +231,7 @@ def _odd_walk(
     """Reconstruct a closed walk of odd length through the edge (left, right)."""
 
     def to_root(node: int) -> list[int]:
+        """Node path from ``node`` up the BFS tree to its root."""
         path = []
         while node is not None:
             path.append(node)
@@ -460,6 +462,12 @@ def report_from_itp(
 
 
 def main(argv: list[str] | None = None) -> int:
+    """CLI: audit an ITP's cyclic topology and print/save the report.
+
+    Exit code 0 on success; argparse handles usage errors. See ``--help``
+    for the observable definitions (vertex symbols, loop-order histogram,
+    reduced-graph statistics, bipartiteness).
+    """
     parser = argparse.ArgumentParser(
         description=(
             "Measure the cyclic topology (vertex symbols, loop-order "

@@ -612,6 +612,7 @@ def build_atom_blueprint(layout_plan: LayoutPlan,
             raw_backbone_name = definition.get('backbone_name') or definition.get('backbone_residue_name') or 'BCK'
 
             def _target_for_stub(stub_type):
+                """Admissible backbone target(s) for the named stub slot."""
                 key = 'backbone_1_bonds' if stub_type == 'backbone_1' else 'backbone_2_bonds'
                 rows = definition.get(key, []) or []
                 if not rows:

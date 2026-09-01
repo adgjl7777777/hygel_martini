@@ -153,6 +153,7 @@ def linker_definitions_from_library(library: LinkerTemplateLibrary) -> List[Dict
                 })
         
         def _external(bonds):
+            """Stub bonds rendered as flat external-bond dicts (legacy shape)."""
             return [
                 {
                     "from_bead": idx,

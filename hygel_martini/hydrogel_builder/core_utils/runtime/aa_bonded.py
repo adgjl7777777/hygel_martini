@@ -40,6 +40,7 @@ __all__ = ["generate_junction_bonded_terms"]
 
 
 def _adjacency(world) -> Dict[int, Set[int]]:
+    """Undirected bond adjacency over every atom currently in ``world``."""
     adjacency: Dict[int, Set[int]] = {atom_id: set() for atom_id in world.Atoms}
     for bond_entry in world.Bonds.values():
         bond = bond_entry[0]

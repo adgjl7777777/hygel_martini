@@ -291,15 +291,19 @@ def generate_layout_plan(proto_plan: ProtoPlan,
                     )
 
                     def _axis_center(idx: int) -> float:
+                        """Center coordinate along an axis without linkers."""
                         return small_edge * (0.5 + idx)
 
                     def _x_center(idx: int) -> float:
+                        """Center along x, offset by the linkers stacked before it."""
                         return linker_len * (1.0 + idx) + small_edge * (0.5 + idx)
 
                     def _y_center(idx: int) -> float:
+                        """Center along y when y is the linker axis."""
                         return linker_len * (1.0 + idx) + small_edge * (0.5 + idx)
 
                     def _z_center(idx: int) -> float:
+                        """Center along z when z is the linker axis."""
                         return linker_len * (1.0 + idx) + small_edge * (0.5 + idx)
 
                     primary_axis = linker_axes[0] if linker_axes else "x"

@@ -126,6 +126,7 @@ class Hydrogel():
         midpoint_shift = max(link_midpoint_factor * World.mean_sep, 0.5 * World.mean_sep)
 
         def axis_shift(box_point, magnitude):
+            """Shift along the link axis, signed toward the box center."""
             sign = -1.0 if box_point[0] > 0.5 else 1.0
             return sign * magnitude * link_axis
 
@@ -207,9 +208,15 @@ class Hydrogel():
                 raise ValueError("BACKBONES 리스트가 비어있습니다.")
 
             def get_backbone_generator_factory(strategy_info, backbones):
+                """Factory of infinite backbone-entry generators under the strategy.
+
+                A fresh generator per chain keeps per-chain strategy state
+                (block offsets etc.) independent between chains.
+                """
                 from hygel_martini.hydrogel_builder.core_utils.common.sequence_strategy import TemplateStrategyIterator, StrategyRecord
                 records = [StrategyRecord(template=b, ratio=b.get("ratio", 1.0), template_id=b.get("id")) for b in backbones]
                 def create_generator():
+                    """One infinite generator over strategy-ordered entries."""
                     iterator = TemplateStrategyIterator(records, strategy_info)
                     while True:
                         yield iterator.next()
@@ -258,8 +265,10 @@ class Hydrogel():
             """
             from hygel_martini.hydrogel_builder.main_components.Universe import World
             def _add(sec, payload):
+                """Append one pass-through row to World.OtherSections[sec]."""
                 World.OtherSections[sec].append(payload)
             def get_list(name):
+                """Section rows from a dict-shaped template; [] otherwise."""
                 return template_like.get(name, []) if isinstance(template_like, dict) else []
             # constraints
             for c in get_list("constraints"):
@@ -409,6 +418,8 @@ class Hydrogel():
                 linker_strategy_cfg = p.Config.get_param('linker_definitions', 'SEQUENCE_STRATEGY', default={'strategy': 'random'})
 
                 def get_linker_generator(strategy_info, library):
+                    """Infinite linker-template generator: ratio-weighted random,
+                    or a plain cycle for any other strategy name."""
                     if not library.records:
                         return None
                     strategy = strategy_info.get('strategy', 'random')
@@ -416,6 +427,7 @@ class Hydrogel():
                         templates = [rec.template for rec in library.records]
                         ratios = [rec.ratio for rec in library.records]
                         def random_generator():
+                            """Yield ratio-weighted random templates forever."""
                             while True:
                                 yield random.choices(templates, weights=ratios, k=1)[0]
                         return random_generator()
@@ -544,6 +556,7 @@ class Hydrogel():
                         from hygel_martini.hydrogel_builder.main_components.Universe import World
                         idx_map = {e["original_index"]: e["global_atom_id"] for e in linker_map_entries}
                         def _add(sec, payload):
+                            """Append one pass-through row to World.OtherSections[sec]."""
                             World.OtherSections[sec].append(payload)
                         for c in chosen_linker.constraints:
                             i = idx_map.get(c.get("i"))
@@ -674,9 +687,19 @@ class Hydrogel():
             axis_idx = axis_index.get(str(axis).lower(), 0)
 
             def _pos(atom):
+                """The pre-compress position when one exists, else the current one.
+
+                Crosslink pairing must be judged in the geometry the plan was
+                made in, not in coordinates a later compression moved.
+                """
                 return getattr(atom, 'pre_compress_position', atom.position)
 
             def _pick_backbone(stub, avoid_ids=None):
+                """Nearest admissible backbone end for a stub (PBC distance).
+
+                Honors the stub's ``target_bb`` restriction and skips ids in
+                ``avoid_ids`` so one end never serves two stubs.
+                """
                 target_type = getattr(stub, 'target_bb', None)
                 best_atom = None
                 best_dist = None
@@ -965,6 +988,7 @@ class Hydrogel():
                 mapped_by_template.setdefault(entry["template_id"], []).append(entry)
 
             def _add_other(section, payload):
+                """Append one pass-through row to World.OtherSections[section]."""
                 from hygel_martini.hydrogel_builder.main_components.Universe import World as W
                 W.OtherSections[section].append(payload)
 

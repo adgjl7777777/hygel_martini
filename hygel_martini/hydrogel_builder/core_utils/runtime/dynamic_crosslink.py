@@ -125,6 +125,11 @@ def collect_backbone_ends(atoms: Iterable[object]) -> Dict[int, List[object]]:
 
 
 def _stub_target_backbone(stub: object):
+    """The backbone id this stub is restricted to, or ``None`` for any.
+
+    ``dummy_id`` and empty strings mean unrestricted; a stub that belongs to
+    a linker chain but names no target likewise falls through to ``None``.
+    """
     target = getattr(stub, "target_backbone", None)
     if target not in (None, "", "dummy_id"):
         return target
@@ -136,6 +141,7 @@ def _stub_target_backbone(stub: object):
 
 
 def _is_compatible_target(stub: object, backbone_atom: object) -> bool:
+    """Whether this backbone end satisfies the stub's target restriction."""
     target = _stub_target_backbone(stub)
     if not target:
         return True
@@ -331,6 +337,7 @@ def _plan_explicit_graph_crosslinks(
             groups = [[item] for edge in resolved_edges for item in edge]
 
         def permutation_cost(order) -> float:
+            """Total stub-to-endpoint distance (nm, PBC) of one assignment."""
             return sum(
                 pbc_distance(stub.position, endpoint_atom.position, box_size)
                 for stub, group_index in zip(stubs, order)
@@ -618,6 +625,13 @@ def plan_dynamic_crosslinks(
         )
 
         def _search(depth: int, used_end_ids: set) -> bool:
+            """Depth-first candidate assignment under the search budget.
+
+            Tries this stub's nearest candidates in distance order and
+            recurses; returns False (triggering backtracking, or giving up
+            once ``search_budget`` visits are spent) rather than ever
+            assigning one backbone end to two stubs.
+            """
             nonlocal search_visits
             search_visits += 1
             if search_visits > search_budget:

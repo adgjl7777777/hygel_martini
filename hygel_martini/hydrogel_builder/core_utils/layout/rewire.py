@@ -84,9 +84,11 @@ class RewiringResult:
 
     @property
     def acceptance_rate(self) -> float:
+        """Accepted swaps over proposed swaps (0 when nothing was proposed)."""
         return self.accepted / self.proposed if self.proposed else 0.0
 
     def summary(self) -> Dict[str, object]:
+        """Flat dict of the run's counters and the final loop-order snapshot."""
         return {
             "proposed": self.proposed,
             "accepted": self.accepted,
@@ -102,6 +104,7 @@ class RewiringResult:
 
 
 def _endpoint_owner(vertices) -> Dict[Endpoint, Hashable]:
+    """Map every endpoint to its owning junction's id."""
     owner: Dict[Endpoint, Hashable] = {}
     for vertex in vertices:
         vertex.validate()
@@ -221,11 +224,13 @@ def span_constrained_rewire(
         swaps_per_sweep = len(working)
 
     def span(first: Endpoint, second: Endpoint) -> float:
+        """Minimum-image distance (nm) between two endpoints' junctions."""
         delta = coordinates[owner[first]] - coordinates[owner[second]]
         return float(np.linalg.norm(_minimum_image(delta, box_vector)))
 
     # Multiset of junction pairs, so parallel strands can be detected in O(1).
     def pair_key(strand: Strand) -> Tuple[int, int]:
+        """Canonical (sorted) junction-id pair of a strand, for parallel checks."""
         left, right = node_index[owner[strand[0]]], node_index[owner[strand[1]]]
         return (left, right) if left <= right else (right, left)
 
@@ -389,6 +394,7 @@ def _assert_degree_preserved(
         )
 
     def degrees(strands: Sequence[Strand]) -> Dict[Hashable, int]:
+        """Junction-id -> endpoint count over a strand set."""
         counts: Dict[Hashable, int] = {vertex.vertex_id: 0 for vertex in vertices}
         for left, right in strands:
             counts[owner[left]] += 1

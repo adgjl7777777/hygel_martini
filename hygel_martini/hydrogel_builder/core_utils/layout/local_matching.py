@@ -61,6 +61,7 @@ def perfect_matchings(size: int) -> Tuple[Tuple[Tuple[int, int], ...], ...]:
         return ((),)
 
     def build(items: Tuple[int, ...]):
+        """Recursively pair the first item with each partner, (n-1)!! leaves."""
         if not items:
             yield ()
             return
@@ -122,6 +123,7 @@ class LocalVertex:
 
     @property
     def functionality(self) -> int:
+        """How many strand endpoints meet at this vertex (its degree f)."""
         return len(self.endpoints)
 
     @property
@@ -139,6 +141,12 @@ class LocalVertex:
             return tuple(sorted(self.endpoints, key=repr))
 
     def validate(self) -> None:
+        """Refuse a vertex whose endpoint count admits no perfect matching.
+
+        Non-tetrahedral vertices must have an even functionality of at least
+        two; a transition system pairs endpoints, so an odd count cannot be
+        paired at all.
+        """
         if self.is_tetrahedral:
             return
         count = len(self.endpoints)
@@ -193,6 +201,11 @@ class MatchingPlan:
 
     @property
     def is_single_cycle(self) -> bool:
+        """True when the transition system closes into ONE Eulerian circuit.
+
+        This is the "one polymer" statement of the endpoint graph: a single
+        component and no endpoint used a wrong number of times.
+        """
         return (
             self.diagnostics.component_count == 1
             and not self.diagnostics.degree_violations
@@ -200,11 +213,14 @@ class MatchingPlan:
 
 
 class _UnionFind:
+    """Path-compressing union-find over endpoint ids, for circuit counting."""
+
     def __init__(self, nodes: Iterable[EndpointId]):
         self.parent = {node: node for node in nodes}
         self.size = {node: 1 for node in nodes}
 
     def find(self, node: EndpointId) -> EndpointId:
+        """Root of ``node``'s set, compressing the path on the way up."""
         parent = self.parent.setdefault(node, node)
         if parent != node:
             self.parent[node] = self.find(parent)
@@ -212,6 +228,7 @@ class _UnionFind:
         return self.parent[node]
 
     def union(self, first: EndpointId, second: EndpointId) -> None:
+        """Merge the two sets, smaller root under the larger."""
         root_a = self.find(first)
         root_b = self.find(second)
         if root_a == root_b:
@@ -253,6 +270,7 @@ def matching_edges_for_axis(vertex: LocalVertex, axis: str) -> Tuple[Edge, Edge]
 
 
 def _all_nodes(vertices: Sequence[LocalVertex], chain_edges: Sequence[Edge]) -> List[EndpointId]:
+    """Every endpoint id, deduplicated, with each vertex validated first."""
     nodes = []
     seen = set()
     for vertex in vertices:
@@ -363,6 +381,8 @@ def state_for_pairing(vertex: LocalVertex, pairs: Sequence[Edge]) -> int:
 
 @dataclass(frozen=True)
 class _Traversal:
+    """One directed pass of the Hierholzer walk across a strand edge."""
+
     edge_index: int
     from_vertex: Hashable
     from_endpoint: EndpointId
@@ -510,6 +530,11 @@ def plan_single_circuit(
 
 
 def _balanced_axis_pool(count: int, rng: Random) -> List[str]:
+    """A shuffled pool of ``count`` axis labels with x/y/z counts within one.
+
+    Used to seed tetrahedral vertex states so the initial assignment starts
+    near axis balance instead of leaving it all to the search.
+    """
     axes = list(AXES)
     rng.shuffle(axes)
     base = count // 3
@@ -534,11 +559,14 @@ def _axis_balance_penalty(axis_counts: Mapping[str, int]) -> int:
 
 
 def _is_nearly_balanced(axis_counts: Mapping[str, int]) -> bool:
+    """True when x/y/z state counts differ by at most one."""
     counts = [int(axis_counts.get(axis, 0)) for axis in AXES]
     return max(counts, default=0) - min(counts, default=0) <= 1
 
 
 def _score(plan: MatchingPlan) -> Tuple[int, int, int, int]:
+    """Lexicographic plan quality: fewer circuits, then fewer degree
+    violations, then better axis balance, then a larger main component."""
     diag = plan.diagnostics
     return (
         diag.component_count,
@@ -625,6 +653,7 @@ def _greedy_balanced_kotzig_descent(
             seen_pairs = set()
 
             def _sample_pairs():
+                """Yield random distinct vertex pairs, capped by the check budget."""
                 attempts = 0
                 max_attempts = max_pair_checks * 8
                 while len(seen_pairs) < max_pair_checks and attempts < max_attempts:

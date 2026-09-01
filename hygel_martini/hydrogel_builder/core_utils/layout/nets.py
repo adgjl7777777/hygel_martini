@@ -94,6 +94,12 @@ class NetDefinition:
         return tuple(outgoing + incoming)
 
     def validate(self) -> None:
+        """Check every basis site exposes exactly ``coordination`` arms.
+
+        A miscounted arm list would build a lattice whose realized degree
+        disagrees with the declared functionality -- caught here, at
+        definition time, rather than as a router failure.
+        """
         for site in range(len(self.basis)):
             arms = self.arms_of_site(site)
             if len(arms) != self.coordination:

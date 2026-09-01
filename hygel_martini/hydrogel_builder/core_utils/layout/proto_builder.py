@@ -1,4 +1,21 @@
-"""Proto-level backbone/linker utilities."""
+"""Prototype geometry: the reference strand and linker every placement copies.
+
+First stage of the layout pipeline. A *proto chain* is one straight,
+un-placed template of a backbone strand (beads along the <111> CHAIN_AXIS,
+spacing from BONDS rules or ``mean_sep``) or of a linker (beads along +x).
+``prepare_proto_plan`` bundles them with the derived cell sizes and the
+:class:`BackboneSequenceFactory` that draws per-placement monomer sequences.
+
+Sizing conventions inherited from Series-01: a chain of ``segment_length``
+beads contributes ``segment_length - 2`` proto beads (the two ends are the
+crosslink attachment beads created at materialization), and the small/
+medium/big cell edges are derived from the proto lengths so the diamond
+layout tiles without overlap.
+
+Whole-strand template mode short-circuits most of this: the "prototype" is a
+straight 3-point segment of the template's own attachment span, and the
+sequence machinery sees an empty prototype (see ``prepare_proto_plan``).
+"""
 
 from dataclasses import dataclass
 from typing import List, Dict, Any, Sequence, Tuple, Optional
@@ -13,6 +30,7 @@ LINKER_AXIS = np.array([1.0, 0.0, 0.0])
 
 
 def _weighted_average(lengths: Sequence[float], weights: Sequence[float]) -> float:
+    """Ratio-weighted mean; plain mean when the weights sum to nothing."""
     total_weight = sum(weights)
     if total_weight <= 0:
         return float(np.mean(lengths)) if lengths else 0.0
@@ -20,6 +38,11 @@ def _weighted_average(lengths: Sequence[float], weights: Sequence[float]) -> flo
 
 
 def _normalize_linker_axes(linker_axes: Optional[Sequence[str]]) -> List[str]:
+    """Sanitize configured linker axes to exactly two of 'x'/'y'/'z'.
+
+    Same contract as the copy in ``proto_layout`` (two linkers per medium
+    cell); junk collapses to ``['x', 'x']``.
+    """
     if linker_axes is None:
         axes = ["x", "x"]
     elif isinstance(linker_axes, str):
@@ -39,6 +62,7 @@ def _normalize_linker_axes(linker_axes: Optional[Sequence[str]]) -> List[str]:
 
 
 def _compute_linker_length(definition: Dict[str, Any]) -> float:
+    """Linker contour length (nm): sum of internal plus external bond lengths."""
     internal = definition.get("bonds", [])
     external = definition.get("external_bonds", [])
     total = 0.0
@@ -51,6 +75,15 @@ def _compute_linker_length(definition: Dict[str, Any]) -> float:
 
 @dataclass
 class ProtoChain:
+    """A straight reference chain in its local frame.
+
+    ``types`` rows are ``(definition_id, atom_name)`` per bead -- ``(None,
+    None)`` rows mark the whole-strand stub prototype, which matches no
+    backbone entry on purpose. ``raw_length`` is the contour of the proto
+    beads themselves; ``length`` is that rescaled to the full
+    ``segment_length``-bead chain the placement will materialize.
+    """
+
     positions: np.ndarray
     types: List[Tuple[str, str]]
     length: float  # scaled length (n segments)
@@ -59,6 +92,15 @@ class ProtoChain:
 
 @dataclass
 class ProtoPlan:
+    """Everything the layout stages share: prototypes, sizes, sequence machinery.
+
+    ``cell_vector``/``medium_size``/``small_size`` are the diamond tiling
+    edges (nm) derived from the proto lengths; the net path ignores them for
+    geometry (its cell comes from the net) but still reads the prototypes
+    and ``sequence_factory``. ``linker_span_lookup`` maps template id ->
+    measured span (nm).
+    """
+
     segment_length: int
     proto_backbone: ProtoChain
     proto_linker: Optional[ProtoChain]
@@ -73,11 +115,18 @@ class ProtoPlan:
     linker_span_lookup: Dict[str, float] | None = None
 
     def box_vector(self, repeats: Tuple[int, int, int]) -> np.ndarray:
+        """Diamond-path box lengths (nm) for the given big-cell repeats."""
         return self.cell_vector * np.array(repeats, dtype=np.float64)
 
 
 def _build_bond_lookup(bond_rules: Optional[List[Dict[str, Any]]],
                        fallback: float) -> Dict[Tuple[str, str], Dict[str, Any]]:
+    """Index BONDS rules by their sorted ``between`` pair.
+
+    Raises:
+        DuplicateDeclaration: The same backbone pair declared twice -- one
+            set of bond parameters would be discarded silently.
+    """
     if not bond_rules:
         return {}
     pairs = [
@@ -95,6 +144,11 @@ def _build_bond_lookup(bond_rules: Optional[List[Dict[str, Any]]],
 
 def _next_backbone_entry(strategy: Dict[str, Any],
                          backbones: List[Dict[str, Any]]):
+    """Infinite generator of backbone entries under the sequence strategy.
+
+    'alternating' cycles the declaration order; 'block' cycles the expanded
+    block pattern; anything else draws ratio-weighted at random.
+    """
     strat = (strategy or {}).get('strategy', 'random').lower()
     if strat == 'alternating':
         while True:
@@ -125,6 +179,7 @@ def _next_backbone_entry(strategy: Dict[str, Any],
 def _build_backbone_sequence(length: int,
                              strategy: Dict[str, Any],
                              backbones: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """The first ``length`` entries of the strategy's infinite sequence."""
     if length <= 0 or not backbones:
         return []
     gen = _next_backbone_entry(strategy, backbones)
@@ -134,6 +189,11 @@ def _build_backbone_sequence(length: int,
 def _build_backbone_positions(sequence: List[Dict[str, Any]],
                               bond_lookup: Dict[Tuple[str, str], Dict[str, Any]],
                               fallback: float) -> Tuple[np.ndarray, float]:
+    """Straight-chain bead positions along CHAIN_AXIS for a monomer sequence.
+
+    Each interval takes the BONDS rule's ``bond_c0`` for its monomer pair,
+    else ``fallback`` (nm). Returns (positions, contour length).
+    """
     if not sequence:
         return np.zeros((0, 3), dtype=np.float64), 0.0
     positions = []
@@ -158,6 +218,13 @@ def _chain_geometry_from_sequence(sequence: List[Dict[str, Any]],
                                   segment_length: int,
                                   mean_sep: float,
                                   bond_lookup: Dict[Tuple[str, str], Dict[str, Any]]) -> Tuple[np.ndarray, float, float]:
+    """Positions plus raw/scaled lengths for one drawn monomer sequence.
+
+    The scale factor ``(segment_length - 1) / (segment_length - 3)`` stretches
+    the proto contour (``segment_length - 2`` beads, hence ``- 3`` intervals)
+    to the full chain the placement materializes, which includes the two
+    attachment beads the prototype omits.
+    """
     positions, raw_length = _build_backbone_positions(sequence, bond_lookup, mean_sep)
     num_proto_beads = max(len(sequence), 1)
     if positions.size == 0:
@@ -174,6 +241,10 @@ def _chain_geometry_from_sequence(sequence: List[Dict[str, Any]],
 
 def _resolve_block_pattern(strategy: Dict[str, Any],
                            backbones: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Expand ``blocks: [{id, size}, ...]`` into the concrete entry pattern.
+
+    Unknown ids are skipped; an empty result falls back to declaration order.
+    """
     blocks = (strategy or {}).get('blocks', [])
     if not blocks:
         return backbones
@@ -191,8 +262,16 @@ def _resolve_block_pattern(strategy: Dict[str, Any],
 
 
 class BackboneSequenceFactory:
-    """
-    Generates backbone sequences/rescaled coordinates per placement, honoring the requested strategy.
+    """Draws one monomer sequence (and its geometry) per placed strand.
+
+    Strategy semantics: 'random' draws ratio-weighted per bead;
+    'long_random' draws once and reuses the same sequence for every strand
+    (one chemistry, sampled once); 'alternating' cycles definitions;
+    'block' cycles an expanded block pattern. Block patterns start at
+    offset 0 for every chain unless ``advance_pattern_offset`` is set --
+    a block copolymer is a sequence-specific object, so phase-shifting it
+    per chain must be an explicit choice (alternating keeps the historical
+    shifting default).
     """
 
     def __init__(self,
@@ -229,11 +308,13 @@ class BackboneSequenceFactory:
                 self._long_random_cache = list(prototype_sequence)
 
     def _random_sequence(self) -> List[Dict[str, Any]]:
+        """One ratio-weighted random draw of ``num_proto_beads`` entries."""
         if self.num_proto_beads <= 0 or not self.definitions:
             return []
         return random.choices(self.definitions, weights=self.weights, k=self.num_proto_beads)
 
     def next_sequence(self) -> List[Dict[str, Any]]:
+        """The next sequence under the configured strategy (see class doc)."""
         if self.num_proto_beads <= 0:
             return []
         if self.pattern:
@@ -258,6 +339,16 @@ class BackboneSequenceFactory:
                     enforce_unique: bool = False,
                     used_signatures: Optional[set] = None,
                     max_attempts: int = 50) -> Tuple[List[Dict[str, Any]], np.ndarray, float, float]:
+        """Draw a sequence and compute its geometry for one placement.
+
+        With ``enforce_unique`` (and >1 definition), redraws until the id
+        signature is new to ``used_signatures``, giving up after
+        ``max_attempts`` rather than looping forever on a small state space.
+
+        Returns:
+            ``(sequence, positions, raw_length, scaled_length)`` -- lengths
+            in nm, positions along CHAIN_AXIS.
+        """
         attempt = 0
         sequence: List[Dict[str, Any]] = []
         signature: Tuple[str, ...] = tuple()
@@ -278,6 +369,7 @@ class BackboneSequenceFactory:
     
     @property
     def definition_count(self) -> int:
+        """How many backbone chemistries exist (uniqueness is moot at 1)."""
         return len(self.definitions)
 
 
@@ -287,6 +379,14 @@ def build_proto_backbone(segment_length: int,
                          strategy: Optional[Dict[str, Any]] = None,
                          bond_rules: Optional[List[Dict[str, Any]]] = None,
                          bond_lookup: Optional[Dict[Tuple[str, str], Dict[str, Any]]] = None) -> ProtoChain:
+    """Build the reference Martini backbone prototype.
+
+    Draws one sequence of ``segment_length - 2`` monomers under the strategy
+    and lays it straight along CHAIN_AXIS.
+
+    Raises:
+        ValueError: ``segment_length < 2`` -- no chain to speak of.
+    """
     if segment_length < 2:
         raise ValueError("segment_length must be >= 2")
 
@@ -309,6 +409,13 @@ def build_proto_backbone(segment_length: int,
 
 def build_proto_linker(linker_definitions: List[Dict[str, Any]],
                        strategy: Optional[Dict[str, Any]] = None) -> Optional[ProtoChain]:
+    """Build the reference linker prototype, or ``None`` without linkers.
+
+    Picks one definition (first for alternating/block, ratio-weighted random
+    otherwise) and spaces its beads evenly along +x over the definition's
+    summed bond length. Loaded templates later override this length with
+    their measured span (see ``prepare_proto_plan``).
+    """
     if not linker_definitions:
         return None
 
@@ -352,7 +459,20 @@ def prepare_proto_plan(segment_length: int,
                        bond_rules: Optional[List[Dict[str, Any]]] = None,
                        linker_library: LinkerTemplateLibrary | None = None,
                        linker_axes: Optional[Sequence[str]] = None) -> ProtoPlan:
+    """Assemble the shared ProtoPlan: prototypes, cell sizes, sequence factory.
 
+    Builds the reference backbone (or, when every backbone entry carries a
+    whole-strand template, a rigid 3-point stub of the ratio-weighted
+    template span -- mixing the two representations is refused), the
+    reference linker (its length overridden by the loaded templates'
+    ratio-weighted measured span when a library exists), and derives the
+    diamond tiling sizes (small edge from the chain length, medium/big cells
+    padded by the linker length along the configured axes).
+
+    Raises:
+        ValueError: Mixed template/bead backbones, or an invalid
+            ``segment_length`` via ``build_proto_backbone``.
+    """
     bond_lookup = _build_bond_lookup(bond_rules, mean_sep)
     strand_templates = [entry.get('strand_template') for entry in backbone_defs]
     if any(template is not None for template in strand_templates):
@@ -453,6 +573,7 @@ def describe_proto_summary(segment_length: int,
                            backbone_defs: List[Dict[str, Any]],
                            linker_defs: List[Dict[str, Any]],
                            **kwargs):
+    """Small dict of proto lengths/sizes, for logs and quick inspection."""
     proto = prepare_proto_plan(segment_length, mean_sep, backbone_defs, linker_defs, 0.0, **kwargs)
     return {
         'backbone_length': proto.proto_backbone.length,

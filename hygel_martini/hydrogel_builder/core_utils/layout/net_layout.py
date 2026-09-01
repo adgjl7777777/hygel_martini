@@ -68,6 +68,15 @@ class NetLayoutResult:
         self.conversion = conversion
 
     def summary(self) -> Dict[str, Any]:
+        """Flat dict of construction facts for logs and audits.
+
+        Always: net name/coordination, repeats, junction/strand counts,
+        whether rewiring ran. With a matching plan: circuit count and the
+        single-circuit flag ("one polymer"), degree violations, state
+        counts. With conversion: the target/realized fractions and the
+        realized junction-degree histogram (a formed strand counts once per
+        end it lands on).
+        """
         record: Dict[str, Any] = {
             "net": self.net.name,
             "coordination": self.net.coordination,
@@ -116,6 +125,7 @@ def _effective_span(length: float, retreat: float, index: int) -> float:
 
 
 def _junction_of(vertices) -> Dict[Any, Any]:
+    """Map every strand endpoint to the id of the junction that owns it."""
     owner = {}
     for vertex in vertices:
         for endpoint in vertex.endpoints.values():
@@ -306,6 +316,13 @@ def generate_net_layout_plan(
 
     def _bowed_proto(strand_index: int, duplicate_rank: int,
                      length_scale: float) -> np.ndarray | None:
+        """The prototype bowed off its line with a half-sine (see comment above).
+
+        Amplitude clears a junction bead and grows per duplicate of the same
+        junction pair; azimuth is a distinct golden angle per strand. Returns
+        None when there is no usable prototype (or a degenerate axis/scale),
+        in which case the straight prototype is used as-is.
+        """
         if proto_positions_base is None or len(proto_positions_base) < 3:
             return None
         base = np.array(proto_positions_base, dtype=np.float64)

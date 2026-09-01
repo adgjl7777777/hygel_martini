@@ -7,13 +7,13 @@ for two reasons.  The analysis package carried a second, partial parser of the
 same format, and a force-field generalization cannot start from a module whose
 name asserts one force field.
 
-One force-field assumption does remain, and is now explicit rather than
-implied: :func:`read_atom_types` reads the mass from the second column of
-``[ atomtypes ]``, which is the Martini layout.  OPLS-AA puts a bonded type and
-an atomic number there and the mass in the fourth, so an OPLS file yields no
-masses at all.  The function says so rather than returning an empty table in
-silence; replacing it with a layout-aware reader is the first step of the
-force-field generalization.
+The ``[ atomtypes ]`` reader is layout-aware: GROMACS permits optional
+bonded-type and atomic-number columns before the mass, so
+:func:`read_atom_types` locates the particle-type letter and reads the mass
+two columns before it rather than assuming the Martini column order (the
+history of getting this wrong twice lives in defects #23 and #27). A file
+whose atomtypes rows parse in no layout still warns instead of returning an
+empty table in silence.
 
 Mass resolution is optional.  A caller that needs only connectivity -- the
 topology audit, for instance -- passes ``require_mass=False`` instead of being
@@ -30,9 +30,17 @@ from hygel_martini.hydrogel_builder.core_utils.common.collisions import (
 )
 
 def read_atom_types(itp_file_path):
-    """
-    Parses an .itp file and extracts only the [ atomtypes ] section.
-    Returns a dictionary mapping atom type names to their mass.
+    """Map atom-type name -> {'mass': amu} from an ITP's [ atomtypes ].
+
+    Layout-agnostic: handles Martini (name mass charge ptype V W), OPLS
+    without atomic number (name btype mass charge ptype V W) and with it
+    (name btype at.num mass charge ptype V W); see the column-location
+    comment below. Missing file returns what was collected with a warning;
+    a present-but-unparseable section warns too.
+
+    Raises:
+        DuplicateDeclaration: One type name declared with two different
+            masses -- the second row would silently win.
     """
     atom_types = {}
     section = None
@@ -113,16 +121,12 @@ def read_atom_types(itp_file_path):
         )
         return atom_types
     if saw_atomtypes_section and not atom_types:
-        # Martini writes 'name mass charge ptype c6 c12', so mass is column 2.
-        # OPLS-AA ffnonbonded.itp writes 'name btype at.num mass charge ptype
-        # sigma eps', so column 2 is a bonded-type string and every row is
-        # discarded, leaving an empty map.  Downstream that surfaces much later
-        # as an unrelated mass error, so name it here.
+        # Every row failed the layout scan above. Downstream that would
+        # surface much later as an unrelated mass error, so name it here.
         print(
             f"Warning: '{itp_file_path}' has an [ atomtypes ] section but no row "
-            "exposed a numeric mass in column 2. This parser expects the Martini "
-            "column layout; an OPLS-AA style file carries the mass in column 4 "
-            "and needs a force-field-specific reader.",
+            "matched any known column layout (Martini or OPLS-style with/without "
+            "bonded-type and atomic-number columns). No masses were loaded.",
             file=sys.stderr,
         )
     return atom_types
@@ -159,6 +163,11 @@ def read_itp_definitions(itp_file_path, atom_type_masses=None,
         "dihedral_restraints","orientation_restraints",
     }
     def stash_raw(sec_name, line):
+        """Keep an unrecognized section's raw line under other_sections.
+
+        Known sections are parsed structurally elsewhere; everything else is
+        preserved verbatim so a rewrite of the file loses nothing.
+        """
         if not current_molecule or not sec_name:
             return
         sec_lower = sec_name.lower()

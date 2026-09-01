@@ -1,4 +1,35 @@
-"""Populate Hydrogel atoms/bonds from a proto layout blueprint."""
+"""Turn a LayoutBlueprint into World state: atoms, bonds, and rich terms.
+
+Third stage of the layout pipeline (plan -> instantiate -> populate). Input
+is the flat :class:`LayoutBlueprint` from ``layout_executor``; output is
+mutated global ``World`` state plus terminal markers on the ``hydrogel``
+object, which is everything the crosslink router and ``finalize`` need.
+
+Responsibilities, in the order they run:
+
+* create one ``Attributes.Atom`` per blueprint atom, carrying identity,
+  position, chain/planned-endpoint metadata, template provenance
+  (``source_template`` + ``source_index``, which the angle machinery matches
+  template-internal angles against);
+* mark chain terminals -- backbone head/tail (first/last bead, or the
+  explicit BCK1/BCK2 attachment atoms of a whole-strand template) with
+  ``end_tag = 1`` and linker stubs with ``end_tag = 2``;
+* create bonds: sequential bead-to-bead for Martini backbones, the
+  definition's bead-indexed list for linker bodies, stub-to-body bonds, and
+  -- for template chains -- the template's own [ bonds ] rows;
+* map every template rich section per *instance* through the
+  original-index -> atom-id map: constraints, pairs (only when
+  ``topology_nrexcl >= 2``), exclusions (stub-stub dropped: they become
+  long-ranged once the stubs bond different partners), angles (registered
+  here so the pre-crosslink EM stages already see them), dihedrals and
+  impropers (full parameter lists preserved; parameterless kept
+  parameterless), and pass-through sections.
+
+Templates whose dihedrals were mapped here are recorded in
+``World.template_dihedrals_done`` so ``construct_dihedrals`` in finalize
+does not double-register them; ``construct_angles`` likewise skips triples
+that already exist.
+"""
 
 from collections import defaultdict
 from typing import Dict, List, Tuple
@@ -12,12 +43,24 @@ from hygel_martini.hydrogel_builder.main_components.Universe import World
 
 def _ordered_chain_entries(chain_key: Tuple[str, int],
                            chain_atom_map: Dict[Tuple[str, int], List[Tuple[int, int]]]) -> List[Tuple[int, int]]:
+    """This chain's (bead_index, atom_id) pairs, sorted by bead order.
+
+    Bead order is the contract every index-based consumer (terminal marking,
+    sequential bonds, source_index) relies on; blueprint emission order alone
+    is not guaranteed.
+    """
     entries = chain_atom_map.get(chain_key, [])
     entries.sort(key=lambda item: item[0])
     return entries
 
 
 def _mark_backbone_terminals(hydrogel, atom_ids: List[int], metadata: Dict | None = None):
+    """Mark a backbone chain's two attachment ends (``end_tag = 1``).
+
+    Also stamps ``planned_endpoint_id = (chain_id, 0|1)`` from the metadata's
+    ``planned_chain_id`` so the crosslink router can verify that exactly the
+    planned endpoints materialized.
+    """
     if not atom_ids:
         return
     # A bead chain attaches at its first and last bead; a whole-strand
@@ -44,6 +87,13 @@ def _mark_backbone_terminals(hydrogel, atom_ids: List[int], metadata: Dict | Non
 
 
 def _mark_linker_terminals(hydrogel, chain: ChainBlueprint, bead_atom_ids: List[int]):
+    """Mark linker beads that carry external bonds as stubs (``end_tag = 2``).
+
+    Each gets its admissible ``target_bb`` and the external bond length the
+    router uses as the search radius. Legacy path: the N-stub route emits
+    stub atoms separately with richer metadata; this covers definitions whose
+    external bonds hang off body beads.
+    """
     ext_bonds = chain.definition.get('external_bonds', []) or []
     if not ext_bonds or not bead_atom_ids:
         return
@@ -63,6 +113,13 @@ def _mark_linker_terminals(hydrogel, chain: ChainBlueprint, bead_atom_ids: List[
 
 
 def _create_backbone_bonds(chain: ChainBlueprint, atom_ids: List[int]):
+    """Bond consecutive Martini backbone beads along the chain.
+
+    Per-pair parameters resolve in priority order: the BONDS rule for the two
+    monomer ids at that position (``bond_lookup``), then the chain
+    definition's own bond keys, then ``mean_sep``/56000 defaults. Whole-strand
+    template chains never come here -- their bonds are the template's own.
+    """
     if len(atom_ids) < 2:
         return
     metadata = chain.metadata or {}
@@ -87,6 +144,11 @@ def _create_backbone_bonds(chain: ChainBlueprint, atom_ids: List[int]):
 
 
 def _create_linker_bonds(chain: ChainBlueprint, atom_ids: List[int]):
+    """Create the linker body's internal bonds from its bead-indexed list.
+
+    Rows whose indices fall outside this chain's bead range are skipped:
+    stub bonds are created separately from stub metadata.
+    """
     bonds = chain.definition.get('bonds', []) or []
     if not bonds or len(atom_ids) < 2:
         return
@@ -102,13 +164,17 @@ def _create_linker_bonds(chain: ChainBlueprint, atom_ids: List[int]):
 
 
 def _finalize_counts(hydrogel):
+    """Refresh the hydrogel's atom/bond counters from the class registries."""
     hydrogel.num_HDG_atoms = Attributes.Atom.num_atoms
     hydrogel.num_HDG_bonds = Attributes.Bond.num_bonds
 
 
 def populate_hydrogel_from_blueprint(hydrogel, blueprint: LayoutBlueprint):
-    """
-    Construct Atom objects and backbone/linker internal bonds directly from a proto blueprint.
+    """Materialize the blueprint into World atoms, bonds, and rich terms.
+
+    See the module docstring for the full contract. ``hydrogel`` receives
+    terminal markers (``terminals[1]``/``terminals[2]``) and updated counts;
+    everything else lands on the global ``World`` registries.
     """
     chain_atom_map: Dict[Tuple[str, int], List[Tuple[int, int]]] = {}
     stub_meta_by_chain = defaultdict(list)
@@ -225,6 +291,7 @@ def populate_hydrogel_from_blueprint(hydrogel, blueprint: LayoutBlueprint):
         Config = None  # type: ignore
 
     def _add_other(sec: str, payload: Dict):
+        """Append one pass-through row to World.OtherSections[sec]."""
         World.OtherSections[sec].append(payload)
 
     for chain in blueprint.chains:
@@ -277,6 +344,7 @@ def populate_hydrogel_from_blueprint(hydrogel, blueprint: LayoutBlueprint):
         }
 
         def _map_constraints(rows: List[Dict]):
+            """Register template [ constraints ] rows through the index map."""
             for row in rows or []:
                 i_local = row.get("i")
                 j_local = row.get("j")

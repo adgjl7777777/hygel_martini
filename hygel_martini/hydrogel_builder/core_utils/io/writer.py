@@ -1,5 +1,25 @@
 # 작성자: Seunghyok Rho, Chongyong Nam, Sebin Kim
+"""Topology and coordinate writers for World state.
 
+Owns every file the builder emits from the in-memory ``World``:
+``write_combined_itp`` (the single [ moleculetype ] holding the whole
+network -- atoms, bonds, angles, dihedrals, [ pairs ], constraints,
+exclusions, plus validated rich sections), the legacy ``write_itp``, GRO
+coordinate output, and xyz debugging dumps.
+
+Conventions that matter to consumers:
+
+* atom ids are 0-based in World and written 1-based;
+* bonded parameters are written through ``_bonded_params_text``, which stops
+  at the first ``None`` -- a parameterless entry is complete GROMACS and is
+  resolved by grompp from the force field's [ *types ] tables (the all-atom
+  path depends on this);
+* ``nrexcl`` defaults from ``simulation_parameters.topology_nrexcl``
+  (Martini 1; OPLS-AA needs 3 together with the [ pairs ] list from
+  ``World.generated_pairs``);
+* a ``dihedral_params`` list is emitted verbatim, preserving all six
+  Ryckaert-Bellemans coefficients.
+"""
 
 ##### 수정 이력 (2021/04/20) ######
 # .gro 파일 수정: atom type -> atom name
@@ -161,6 +181,7 @@ def write_to_itp(object, filename='gromacs.itp', moleculetype_name='HDGEL'):
         extras = getattr(object, "OtherSections", {}) or {}
 
         def _write_simple_section(sec_name, rows):
+            """Emit a section of preformatted lines, skipping it when empty."""
             if not rows:
                 return
             f.write(f"\n[ {sec_name} ]\n")
@@ -407,6 +428,7 @@ def write_combined_itp(world, filename, moleculetype_name, nrexcl=None,
                             f.write('{} {} {} {}\n'.format(ids_str, dihedral.dihedral_c0, dihedral.dihedral_c1, c2))
 
             def _write_section(sec, rows):
+                """Emit one validated rich section (raw 'line' or 'values' rows)."""
                 if not rows:
                     return
                 f.write(f"\n[ {sec} ]\n")

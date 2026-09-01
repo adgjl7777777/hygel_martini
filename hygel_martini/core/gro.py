@@ -61,12 +61,14 @@ class GroFrame:
 
     @property
     def positions(self) -> np.ndarray:
+        """(N, 3) coordinates in nm; empty (0, 3) array for an empty frame."""
         if not self.atoms:
             return np.empty((0, 3), dtype=float)
         return np.array([atom.position for atom in self.atoms], dtype=float)
 
     @property
     def atom_names(self) -> List[str]:
+        """Atom names in file order."""
         return [atom.atom_name for atom in self.atoms]
 
 

@@ -41,6 +41,7 @@ class DuplicateDeclaration(ValueError):
 
 
 def _format(value: Any, limit: int = 120) -> str:
+    """repr() truncated to ``limit`` characters for error messages."""
     text = repr(value)
     return text if len(text) <= limit else text[: limit - 3] + "..."
 

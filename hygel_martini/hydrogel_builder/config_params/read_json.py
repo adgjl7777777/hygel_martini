@@ -78,6 +78,7 @@ class ProgressTracker:
         self.run_id = run_id
 
     def _emit(self, label=None):
+        """Log every whole-percent step crossed since the last emission."""
         target = int(min(self.total, max(0.0, self.current)))
         while self.last_logged < target:
             self.last_logged += 1
@@ -89,16 +90,19 @@ class ProgressTracker:
             Config.debug_log(msg)
 
     def advance(self, delta, label=None):
+        """Move the bar forward by ``delta`` percent (clamped to total)."""
         self.current = min(self.total, self.current + float(delta))
         self._emit(label)
 
     def start_stage(self, label, weight):
+        """Open a named stage worth ``weight`` percent of the whole run."""
         self.stage_base = self.current
         self.stage_weight = float(weight)
         self.stage_label = label
         self._emit(label)
 
     def stage_tick(self, fraction, label=None):
+        """Set progress within the open stage to ``fraction`` (never backwards)."""
         if self.stage_weight <= 0:
             return
         frac = max(0.0, min(1.0, float(fraction)))
@@ -108,6 +112,7 @@ class ProgressTracker:
             self._emit(label or self.stage_label)
 
     def end_stage(self, label=None):
+        """Close the open stage, snapping progress to its full weight."""
         if self.stage_weight <= 0:
             return
         target = self.stage_base + self.stage_weight
@@ -134,6 +139,7 @@ VALID_CHAIN_ORIENTATION_POLICIES = {"random", "one_direction", "graph_directed"}
 
 
 def _coerce_bool(value, default=False):
+    """Lenient bool from YAML-ish input ('true'/'1'/'yes'... else default)."""
     if value is None:
         return default
     if isinstance(value, bool):
@@ -297,6 +303,15 @@ def _load_base_parameters():
     print(f"최종 토폴로지에 포함될 ITP 파일 목록(중복 제거): {len(final_itp_list)}개")
 
 def _validate_config():
+    """Validate the merged configuration before anything is built.
+
+    In dependency order: backbone ids exist; whole-strand templates load
+    (before the linker check, whose stub targets and mass rule depend on
+    them); monomer templates load; linker templates load and validate; and
+    cross-references (stub targets, sequence-strategy ids) resolve. Any
+    failure raises ValueError naming the offending section -- construction
+    never starts on a config that would fail later.
+    """
     print("\n--- 설정 파일 유효성 검사 중 ---")
     try:
         # 1. Backbone ID 수집
@@ -414,6 +429,7 @@ def _run_packing_step(step_name, base_structure_gro, molecules_to_add, final_out
 
 
 def _get_optional_config_section(*names):
+    """First existing Config section among ``names``, else an empty dict."""
     for name in names:
         try:
             return Config.get_param(name)
@@ -423,6 +439,14 @@ def _get_optional_config_section(*names):
 
 
 def _as_box_lengths_nm(job):
+    """Normalize a two-stage-packmol job's box spec to [x, y, z] in nm.
+
+    Accepts ``box_lengths_nm``/``box_nm``/``packmol_box_nm`` as a scalar,
+    a 1-list (cubic) or a 3-list.
+
+    Raises:
+        ValueError: No box key at all, or a 2-element list (ambiguous).
+    """
     if "box_lengths_nm" in job:
         value = job["box_lengths_nm"]
     elif "box_nm" in job:
@@ -442,6 +466,10 @@ def _as_box_lengths_nm(job):
 
 
 def _has_packmol_route_md_outputs(output_dir):
+    """Whether a previous packmol-route run left EM/NVT/NPT outputs here.
+
+    Used to decide between resuming and rebuilding.
+    """
     md_names = (
         "em.gro",
         "em.cpt",
@@ -458,6 +486,7 @@ def _has_packmol_route_md_outputs(output_dir):
 
 
 def _merge_two_stage_job_defaults(defaults, job):
+    """Job dict = shared two-stage defaults (minus 'jobs') overlaid by the job."""
     merged = {
         key: value
         for key, value in defaults.items()
@@ -933,6 +962,13 @@ def _perform_dynamic_crosslinking(output_dir):
         bonds_created = 0
 
         def _resolve_bond_params(stub, backbone_atom):
+            """Crosslink bond parameters for one stub-end pair.
+
+            Priority: the stub's own per-stub bond table from its template
+            (matched to the partner's backbone type when several targets are
+            admissible), then ``default_dynamic_crosslink_bond`` from the
+            simulation parameters.
+            """
             default_params = sim_params.get(
                 'default_dynamic_crosslink_bond',
                 {'bond_funct': 1, 'bond_c0': 0.25, 'bond_c1': 5000},
@@ -1061,6 +1097,7 @@ def _audit_and_guard_connectivity(gro_path, itp_path, output_dir):
     fail_on_violation = bool((audit_cfg or {}).get('fail_on_violation', True))
 
     def _handle_audit_error(message):
+        """Report an audit violation; raise only when the audit gates."""
         print(f"[ERROR] {message}")
         if audit_enabled and fail_on_violation:
             raise RuntimeError(message)
@@ -1115,17 +1152,21 @@ def _audit_and_guard_connectivity(gro_path, itp_path, output_dir):
 
     # 3. Union-Find to find components
     class UnionFind:
+        """Size-balanced union-find over 1-based atom ids, for components."""
+
         def __init__(self, n: int):
             self.parent = list(range(n + 1))
             self.size = [1] * (n + 1)
 
         def find(self, x: int) -> int:
+            """Root of ``x``'s component, halving the path as it walks."""
             while self.parent[x] != x:
                 self.parent[x] = self.parent[self.parent[x]]
                 x = self.parent[x]
             return x
 
         def union(self, a: int, b: int) -> None:
+            """Merge two components, smaller under larger."""
             ra, rb = self.find(a), self.find(b)
             if ra == rb:
                 return
