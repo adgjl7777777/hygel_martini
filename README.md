@@ -527,6 +527,12 @@ builder 쪽에서 막히면 보통 이 순서로 확인하면 됩니다.
 
 ## 추가 문서
 
+- `docs/GENERAL_FUNCTIONALITY_NETWORKS.md`
+  임의의 짝수 junction functionality (f=6 hexafunctional 포함) 네트워크 구성.
+  `network_layout` 설정, net별 repeat 조건, span 제약 rewiring, cyclic topology 감사
+- `docs/DEFECTS_FOUND_AND_FIXED.md`
+  이 확장 과정에서 발견·수정한 결함 기록. 무엇이 어떻게 조용히 틀렸는지와
+  어떤 주장이 측정으로 바뀌었는지
 - `docs/VALIDATION_HISTORY_AND_DESIGN_RATIONALE.md`
   A/B validation의 실패, 교정, 폐기 기준과 현재 코드의 설계 추적성
 - `example/README_ko.md`
