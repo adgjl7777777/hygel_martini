@@ -47,7 +47,9 @@ Measured on the shipped configuration (pcu 4×4×4, a = 4.36 nm):
 * **Full**: 19 584 atoms, 384 S–C crosslinks, post-EM bond lengths
   0.170–0.177 nm against b₀ = 0.1715, one connected component, every sulfur
   exactly 2-coordinated, all EM stages converge to Fmax < 500
-  (Epot ≈ −1.4×10⁵ kJ/mol).
+  (Epot ≈ −8.9×10⁴ kJ/mol; an earlier revision quoted −1.4×10⁵, which was
+  the angle-less failed build one defect earlier — lower because a missing
+  angle term costs nothing).
 * **Partial 1/6**: 7 612 atoms, 56 crosslinks, sulfur coordination
   {1: 328, 2: 56} (85.4 % unreacted vs 5/6 expected), 36 fragments. The
   fragmentation is physics, not a defect: Flory–Stockmayer for A₆+B₂ gels at
@@ -59,7 +61,15 @@ Measured on the shipped configuration (pcu 4×4×4, a = 4.36 nm):
 
 * **Charges are rough.** 1.14*CM1A-LBCC validates construction; quantitative
   ion transport (the cowork's Q1–Q3) needs better charges (and likely charge
-  scaling) via `param_opt`.
+  scaling) via `param_opt`. LigParGen rounding leaves −0.0001 e per molecule
+  (−0.026 e over the full system) under PME with a uniform background;
+  `grompp_maxwarn: 2` covers the resulting warning.
+* **The stub-sulfur angle parameters live in `forcefield.itp`.** The linker
+  loader keeps stub atoms out of a template's own angle list, so the 18
+  S-adjacent angles per junction are emitted parameterless and resolve from
+  `[ angletypes ]`. `build_templates.py` generates those entries from the
+  same HEXR rows, so they agree by construction — but if you edit one file,
+  edit both: grompp resolves, it never compares.
 * **Partial conversion leaves reacted-form sulfurs dangling.** The junction
   template is the fully reacted form, so unreacted arms have no thiol
   hydrogen. Topology/mechanics benchmark only; chemically faithful partial

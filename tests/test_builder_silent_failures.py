@@ -60,6 +60,32 @@ def test_opls_layout_without_atomic_number_is_read(tmp_path) -> None:
     assert read_atom_types(str(path)) == {"opls_800": {"mass": 12.011}}
 
 
+def test_atomic_number_without_bonded_type_is_not_read_as_the_mass(tmp_path) -> None:
+    # name/at.num/mass/charge/ptype -- the standard Amber/CHARMM port layout.
+    # A first-numeric-column guess returns the atomic number (6) as the mass,
+    # silently; found by adversarial probing of the previous heuristic.
+    path = tmp_path / "atnum.itp"
+    path.write_text(
+        "[ atomtypes ]\n"
+        "  CT  6  12.0110  0.000  A  3.39967e-01  4.57730e-01\n"
+    )
+
+    assert read_atom_types(str(path)) == {"CT": {"mass": 12.011}}
+
+
+def test_a_bonded_type_that_looks_like_a_ptype_letter_is_not_fatal(tmp_path) -> None:
+    # 'S' is a real OPLS bonded type. The previous heuristic saw two ptype
+    # candidates and silently dropped the row; the ptype is the candidate
+    # followed only by numbers, scanned from the right.
+    path = tmp_path / "sulfur.itp"
+    path.write_text(
+        "[ atomtypes ]\n"
+        "  opls_202  S  16  32.0600  0.000  A  3.55000e-01  1.04600e+00\n"
+    )
+
+    assert read_atom_types(str(path)) == {"opls_202": {"mass": 32.06}}
+
+
 def test_atomtype_file_without_the_section_does_not_warn(tmp_path, capsys) -> None:
     path = tmp_path / "plain.itp"
     path.write_text("[ moleculetype ]\nFOO 1\n")

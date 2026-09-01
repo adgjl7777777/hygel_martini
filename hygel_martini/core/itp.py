@@ -58,30 +58,40 @@ def read_atom_types(itp_file_path):
                     parts = line.split()
                     if len(parts) >= 2:
                         atom_type_name = parts[0]
-                        try:
-                            # Martini layout: name mass charge ptype ...
-                            mass = float(parts[1])
-                        except (ValueError, IndexError):
-                            # GROMACS also allows an optional bonded-type (and
-                            # atomic-number) column before the mass, which is
-                            # how OPLS-style files are laid out:
-                            #   name btype [at.num] mass charge ptype V W
-                            # In every layout the mass sits two columns before
-                            # the particle-type letter, so locate that instead
-                            # of guessing which numeric column is which.
-                            ptype_positions = [
-                                k for k, token in enumerate(parts)
-                                if token in ('A', 'S', 'V', 'D')
-                            ]
-                            mass = None
-                            if len(ptype_positions) == 1 and ptype_positions[0] >= 3:
-                                try:
-                                    mass = float(parts[ptype_positions[0] - 2])
-                                except ValueError:
-                                    mass = None
-                            if mass is None:
-                                # Not a valid atomtype row in any layout.
+                        # GROMACS allows optional bonded-type and atomic-number
+                        # columns before the mass:
+                        #   name [btype] [at.num] mass charge ptype V W ...
+                        # In every layout the mass sits two columns before the
+                        # particle-type letter, so the ptype column is located
+                        # first and the mass read relative to it. Two traps a
+                        # first-numeric-column guess falls into, both found by
+                        # adversarial probing: an at.num layout without btype
+                        # ('CT 6 12.011 ...') hands back the atomic number as
+                        # the mass, and a row whose *bonded type* is literally
+                        # 'A' or 'S' (real OPLS bonded types) fakes a second
+                        # ptype. The real ptype is the candidate followed only
+                        # by numbers (V, W, and any extra columns) and preceded
+                        # by numeric charge and mass -- scanned from the right
+                        # so a masquerading bonded type on the left never wins.
+                        mass = None
+                        for k in range(len(parts) - 1, 1, -1):
+                            if parts[k] not in ('A', 'S', 'V', 'D'):
                                 continue
+                            tail = parts[k + 1:]
+                            if len(tail) < 2:
+                                continue
+                            try:
+                                for token in tail:
+                                    float(token)
+                                candidate = float(parts[k - 2])
+                                float(parts[k - 1])  # the charge column
+                            except ValueError:
+                                continue
+                            mass = candidate
+                            break
+                        if mass is None:
+                            # Not a valid atomtype row in any layout.
+                            continue
                         # Raised outside the try above on purpose:
                         # DuplicateDeclaration subclasses ValueError, so a
                         # check inside it would be swallowed by the same

@@ -287,6 +287,14 @@ def generate_net_layout_plan(
     strand_template = None
     if backbone_defs:
         strand_template = (backbone_defs[0] or {}).get("strand_template")
+    if strand_template is not None and len(backbone_defs) > 1:
+        # Everything below keys off backbone_defs[0]; a second entry would be
+        # silently ignored rather than mixed in.
+        raise ValueError(
+            "whole-strand template 모드는 backbone 정의를 정확히 하나만 "
+            f"지원합니다 (현재 {len(backbone_defs)}개). strand 길이 분포는 "
+            "아직 미구현입니다."
+        )
     if strand_template is not None and max_span is not None:
         raise ValueError(
             "whole-strand template backbone은 rewiring과 함께 쓸 수 없습니다: "

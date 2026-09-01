@@ -351,9 +351,9 @@ Known limits of the all-atom path, in one place: partial conversion leaves
 unreacted stubs in their reacted form (no per-stub cap atoms yet -- for a
 thiol junction that means a missing S-H hydrogen per unreacted arm);
 impropers spanning a builder-created bond are not generated (the carbonyl
-planarity improper at a thiourethane linkage is lost); and a strand template
-is placed rigidly, so strand-length polydispersity within one build needs
-one backbone entry per length.
+planarity improper at a thiourethane linkage is lost); and the net layout
+supports exactly one whole-strand backbone entry per build (refused
+otherwise), so strand-length polydispersity is future work.
 
 **The per-monomer chain generator remains Martini-shaped** (one backbone bead
 per repeat unit, head and tail coincide). Under the whole-template model it is

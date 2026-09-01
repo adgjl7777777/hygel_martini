@@ -150,7 +150,7 @@ class World:
         # already registered per instance; construct_dihedrals must not
         # re-walk them (its object-level pass would double-register, and its
         # source_index map collapses multiple instances onto one).
-        cls.template_dihedrals_done = set()
+        cls.template_dihedrals_done = {}
         print("World state has been reset.")
 
     def __init__(self):

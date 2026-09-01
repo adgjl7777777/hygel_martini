@@ -473,9 +473,19 @@ def populate_hydrogel_from_blueprint(hydrogel, blueprint: LayoutBlueprint):
             if gi is None or gj is None or gk is None:
                 skipped_counts["angles"] += 1
                 continue
+            params = angle_def.get("params", [])
+            if len(params) > 2:
+                # An Angle stores (c0, c1) only; truncating a Urey-Bradley
+                # (funct 5) or other multi-constant angle would be defect 26
+                # again, one section over.
+                raise ValueError(
+                    f"템플릿 '{getattr(template, 'id', '?')}'의 angle "
+                    f"{angle_def}이 파라미터를 {len(params)}개 가집니다. "
+                    "Angle 저장은 2개(c0, c1)까지만 지원하므로 조용히 자르는 "
+                    "대신 거부합니다."
+                )
             angle = Attributes.Angle(gi, gj, gk)
             angle.angle_funct = int(angle_def.get("funct", 1))
-            params = angle_def.get("params", [])
             angle.angle_c0 = float(params[0]) if len(params) > 0 else None
             angle.angle_c1 = float(params[1]) if len(params) > 1 else None
             mapped_counts["angles"] += 1
@@ -486,9 +496,12 @@ def populate_hydrogel_from_blueprint(hydrogel, blueprint: LayoutBlueprint):
         # through a source_index table that collapses instances).
         done = getattr(World, "template_dihedrals_done", None)
         if done is None:
-            done = set()
+            done = {}
             World.template_dihedrals_done = done
-        done.add(id(template))
+        # Keyed by id() but holding the object: the reference pins the
+        # template alive, so a garbage-collected template can never hand its
+        # id to a fresh one that would then be silently skipped.
+        done[id(template)] = template
 
         if Config is not None:
             Config.debug_log(

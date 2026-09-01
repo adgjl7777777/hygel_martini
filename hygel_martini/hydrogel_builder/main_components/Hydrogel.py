@@ -1197,7 +1197,7 @@ class Hydrogel():
         # Templates whose dihedrals the blueprint populator already
         # registered per instance. Re-walking them here would duplicate every
         # term, and the source_index map below collapses instances anyway.
-        populator_done = getattr(World, "template_dihedrals_done", None) or set()
+        populator_done = getattr(World, "template_dihedrals_done", None) or {}
 
         for atom in all_atoms_list:
             if atom.source_template is None or id(atom.source_template) in processed_templates:

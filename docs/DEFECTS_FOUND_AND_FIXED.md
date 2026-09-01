@@ -569,6 +569,32 @@ templates carry. Parameter lists longer than three are now stored whole via
 system to exercise the all-atom path end to end, which is precisely what the
 example exists for. Fixed in `3dc09e5`.*
 
+### 27. The atomtypes layout fix could still hand back an atomic number as a mass
+
+Found by the second adversarial verification round, probing the very fix
+entry 23's commit advertised. Two rows the previous heuristic got silently
+wrong: `CT 6 12.011 0.0 A ...` (the standard Amber/CHARMM port layout,
+atomic number but no bonded type) took the numeric-second-column fast path
+and returned **6.0** as carbon's mass; and `opls_202 S 16 32.06 0.0 A ...`
+(bonded type literally `S`, a real OPLS bonded type) produced two
+particle-type candidates and was silently dropped. Example 08 dodged both by
+luck of its renamed types, so the shipped outputs were unaffected -- the trap
+was armed for the next force field.
+
+**Fix.** The fast path is gone. The particle-type column is now identified
+from the right as the A/S/V/D token followed only by numbers and preceded by
+a numeric charge and mass, and the mass is read two columns before it. A
+masquerading bonded type on the left can never win that scan. Both probe
+rows are now regression tests.
+
+The same round also caught the example README quoting Epot ≈ −1.4e5 for the
+full build -- a number copied from the angle-less failed build one defect
+earlier (entry 24), lower than the true −8.9e4 precisely because a missing
+angle term costs nothing. Corrected in place; the commit message of
+`3dc09e5` carries the wrong number permanently, which this entry supersedes.
+
+*Fixed in the commit adding this section.*
+
 ## Still open
 
 - The f=6 path now builds end to end under GROMACS (example 07): all EM
