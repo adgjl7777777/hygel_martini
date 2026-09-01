@@ -476,7 +476,7 @@ FCC primitive cell does not). After the fix, pre-EM crosslink lengths max
 1.24 nm, post-EM mean 0.555 / max 0.93 / none above 1 nm, and the converged
 potential energy is negative rather than +8.8e5 kJ/mol.
 
-*Fixed in the commit adding this section.*
+*Fixed in `2662d1c`.*
 
 ### 22. The all-atom ownership rationale was contradicted by the pipeline
 
@@ -506,7 +506,7 @@ partial-conversion docs; and "byte-compatible" writer output is
 value-identical, not byte-identical (integer force constants print as `1250`,
 not `1250.000000`).
 
-*Fixed in the commit adding this section.*
+*Fixed in `2662d1c`.*
 
 ## Still open
 
