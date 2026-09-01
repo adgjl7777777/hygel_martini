@@ -379,7 +379,7 @@ stated in it and in `maker.yaml`. The audit also confirmed: 0 syntax errors,
 and no configuration key that the code never reads (`example_metadata` is
 intentional self-description).
 
-*Fixed in the commit adding this section.*
+*Fixed in `a4396ce`.*
 
 ## Still open
 
