@@ -632,7 +632,7 @@ library holds no records. Verified behaviour-preserving rather than argued:
 example 08's n = 3 build drops from minutes to 40 s and its
 ``initial_hydrogel.itp`` is **bit-identical** to the pre-fix file.
 
-*Fixed in the commit adding this section.*
+*Fixed in `02c8f17`.*
 
 ### 30. The topology writer rounded charges away, four decimals at a time
 
@@ -657,7 +657,7 @@ from a strange energy. Rebuilt: the n = 33 network now writes -0.0256 e,
 matching the prediction to the last digit; example 07 (Martini) is unchanged
 in value, and now prints charges as ``0.000000`` rather than ``0.0000``.
 
-*Fixed in the commit adding this section.*
+*Fixed in `02c8f17`.*
 
 ## Still open
 
