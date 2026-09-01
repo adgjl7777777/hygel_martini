@@ -442,21 +442,27 @@ def build_atom_blueprint(layout_plan: LayoutPlan,
                 ))
                 atom_indices.append(len(atoms) - 1)
         
-        # The diamond layout materializes a left/right stub pair. A template
-        # with a different functionality would silently lose its other arms
-        # here, so it is refused instead.
-        declared = definition.get('functionality')
-        if declared is not None and int(declared) != 2:
-            raise ValueError(
-                f"Linker template declares functionality {declared}, but this "
-                "layout path materializes exactly two stubs. A multi-arm "
-                "junction needs a layout that places all of its arms."
-            )
-        # Process stubs for backbone_1 and backbone_2
-        stub_loops = [
-            (definition.get('external_bonds_1', []), 'backbone_1', 0),
-            (definition.get('external_bonds_2', []), 'backbone_2', 1)
-        ]
+        # One entry per stub. The two-stub spelling keeps its historical
+        # stub_type names because the diamond runtime matches on them; a
+        # junction of any other functionality gets indexed names.
+        by_stub = definition.get('external_bonds_by_stub') or []
+        if by_stub:
+            if len(by_stub) == 2:
+                names = ('backbone_1', 'backbone_2')
+            else:
+                names = tuple(f'stub_{i}' for i in range(len(by_stub)))
+            stub_loops = [
+                (group, names[i], i) for i, group in enumerate(by_stub)
+            ]
+        else:
+            stub_loops = [
+                (definition.get('external_bonds_1', []), 'backbone_1', 0),
+                (definition.get('external_bonds_2', []), 'backbone_2', 1),
+            ]
+
+        arm_vectors = getattr(chain.template, 'arm_vectors', None)
+        orientation = chain.metadata.get('orientation') if chain.metadata else None
+        multi_arm = len(stub_loops) != 2
 
         for external_bonds, stub_type, stub_def_idx in stub_loops:
             stub_definitions = definition.get('stub_definitions', [])
@@ -491,12 +497,21 @@ def build_atom_blueprint(layout_plan: LayoutPlan,
                     'charge': original_stub_def.get('charge', 0.0)
                 }
 
-                bead_pos = np.array(chain.positions[bead_idx], dtype=np.float64)
-                proj = float(np.dot(bead_pos - anchor, axis_dir))
-                sign = 1.0 if proj >= 0 else -1.0
-                _proto_linker = layout_plan.proto_plan.proto_linker
-                ext_length = float(ext.get('length', _proto_linker.length if _proto_linker is not None else 0.0))
-                stub_pos = bead_pos + axis_dir * ext_length * sign
+                if multi_arm and arm_vectors is not None and stub_def_idx < len(arm_vectors):
+                    # A multi-arm junction is anchored on its stub centroid,
+                    # so each stub sits at its template arm position; the
+                    # two-stub axis projection below has no meaning for it.
+                    arm = np.asarray(arm_vectors[stub_def_idx], dtype=np.float64)
+                    if orientation is not None:
+                        arm = np.asarray(orientation, dtype=np.float64).reshape(3, 3) @ arm
+                    stub_pos = anchor + arm
+                else:
+                    bead_pos = np.array(chain.positions[bead_idx], dtype=np.float64)
+                    proj = float(np.dot(bead_pos - anchor, axis_dir))
+                    sign = 1.0 if proj >= 0 else -1.0
+                    _proto_linker = getattr(layout_plan.proto_plan, 'proto_linker', None)
+                    ext_length = float(ext.get('length', _proto_linker.length if _proto_linker is not None else 0.0))
+                    stub_pos = bead_pos + axis_dir * ext_length * sign
                 
                 extra = {
                     'stub_from_bead': bead_idx,

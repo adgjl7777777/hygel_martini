@@ -15,3 +15,9 @@ simulation_parameters:
       rcoulomb: 1.5
       vdw_type: cutoff
       rvdw: 1.5
+      # 무한 공유결합 네트워크가 주기경계를 관통하므로 GROMACS가 분자를
+      # whole로 만들려는 시도를 꺼야 한다. 없으면 mdrun이
+      # "inconsistent shifts over periodic boundaries"로 중단된다.
+      # An infinite covalent network threads the periodic boundary, so
+      # molecule re-wholing must be off.
+      periodic_molecules: "yes"

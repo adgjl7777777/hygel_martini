@@ -3,7 +3,7 @@
 Record of every defect found while extending the builder toward general force
 fields and general junction functionality, on branch `omni/general-ff-and-f6`.
 
-Baseline: `d02a821` (Series-01 frozen tree). Tests at baseline: 48. Now: 192.
+Baseline: `d02a821` (Series-01 frozen tree). Tests at baseline: 48. Now: 192. First f=6 end-to-end GROMACS build: converged, all audits passing.
 
 **The common shape.** Almost every defect below produced a *plausible but
 wrong* result rather than an error. A build succeeded, a topology was written,
@@ -387,13 +387,50 @@ intentional self-description).
 
 *Fixed in `a4396ce`.*
 
+### 19. Integration defects found by the first f=6 end-to-end build
+
+Running example 07 through GROMACS -- previously listed as untested --
+surfaced four defects in one afternoon, each invisible to the unit tests
+because each lives between layers:
+
+- **`external_bonds` reused with a different shape.** The per-stub emitter
+  put a nested list under a key that three consumers (`proto_builder`,
+  `proto_layout`, `isotropic_builder`) read as a flat list to sum bond
+  lengths, crashing at plan time. The flat key keeps its old shape; the
+  nested one is `external_bonds_by_stub`.
+- **mdp overrides silently dropped.** `_create_mdp_file` accepted overrides
+  into its defaults dict but only ever wrote six templated keys, so
+  `periodic_molecules` -- the option an infinite covalent network *requires*
+  (mdrun otherwise aborts with "inconsistent shifts over periodic
+  boundaries") -- was configured and then never written. Overrides now pass
+  through generically.
+- **Straight-segment placement collides on a lattice.** Coordinates measured
+  directly: parallel strands lie on one segment bead-for-bead, and a rewired
+  strand longer than one lattice step is collinear with the lattice line,
+  running through intermediate junctions and every shorter strand on it
+  (whole-chain contact trains at ~0.006 nm; EM stuck at 1e21-1e24 kJ/mol,
+  "converged to machine precision in 15 steps"). Every strand is now bowed
+  off its line with a half-sine of ~0.5 nm real-space amplitude, ends fixed,
+  azimuth spread per strand -- the placement-time deformation approach the
+  original layout already used.
+- **The coincidence resolver only caught exact duplicates.** It hashed atoms
+  to cells of one threshold and compared atoms in the *same* cell, so a pair
+  0.8 threshold apart in adjacent cells survived and produced Fmax = inf in
+  single precision. It now searches the 27 neighbouring cells and pushes the
+  pair apart along their actual separation direction.
+
+After these: all EM stages converge (Fmax < 1000), the built network audits
+as one component with all 64 junctions at degree exactly 6, planned and
+materialized endpoint sets match exactly, and the loop spectrum is
+non-bipartite with peak loop order 5 -- inside the provisional f=6 target.
+
+*Fixed in the commit adding this section.*
+
 ## Still open
 
-- A net-driven coordinate layout (`net_layout.py`) places both `dia` and `pcu`
-  with minimum-image strand geometry, and is selected from `maker.yaml` by a
-  `network_layout:` block. `example/07_hexafunctional` declares a complete f=6
-  system. What remains untested end to end is the GROMACS half: no f=6
-  structure has been minimized or run.
+- The f=6 path now builds end to end under GROMACS (example 07): all EM
+  stages converge and every audit passes. Still untouched: NPT/production MD,
+  solvation of the f=6 system, and the relaxation-stage (05) workflows on it.
 - The straight-segment coordinate model cannot express a primary loop, so
   rewiring for a coordinate build forbids them by default and the layout
   refuses one rather than straightening it. Loop orders of two and above place

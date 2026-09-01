@@ -140,6 +140,25 @@ vdw_type    = {mdp_defaults['vdw_type']}
 rvdw        = {mdp_defaults['rvdw']}
 """
 
+    # Any override beyond the templated keys is written through generically.
+    # Overrides used to be accepted into the defaults dict and then silently
+    # dropped unless they happened to be one of the six templated names, so a
+    # config could set e.g. periodic_molecules and the .mdp came out without
+    # it -- an infinite covalent network then fails in mdrun with
+    # "inconsistent shifts over periodic boundaries" although the user had
+    # configured exactly the option that prevents it.
+    templated = {"integrator", "nsteps", "emtol", "emstep",
+                 "coulombtype", "rcoulomb", "vdw_type", "rvdw"}
+    passthrough = {
+        key: value for key, value in mdp_defaults.items() if key not in templated
+    }
+    if passthrough:
+        mdp_content += "\n; Passed through from configuration\n"
+        for key, value in passthrough.items():
+            if isinstance(value, bool):
+                value = "yes" if value else "no"
+            mdp_content += f"{key.replace('_', '-')} = {value}\n"
+
     mdp_filepath = os.path.join(directory, "minim.mdp")
     with open(mdp_filepath, "w") as f:
         f.write(mdp_content)

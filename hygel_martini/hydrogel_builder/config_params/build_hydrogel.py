@@ -504,6 +504,29 @@ def build_backbone_only():
     populate_hydrogel_from_blueprint(hd, plan_context["blueprint"])
     _debug_stage("[stage] populate_hydrogel_from_blueprint done")
 
+    # Reuse the isotropic path's coincidence resolution (spatial hash at
+    # 0.001 nm, deterministic 0.05 nm jitter, fixed seed) for every layout.
+    # Its docstring names the exact failure it prevents -- Epot ~ 1e37 at EM
+    # step 0 from overlapping atoms -- and the net-driven layout reproduces
+    # that failure through parallel strands: two strands between the same
+    # junction pair are laid on the same straight segment bead-for-bead.
+    # Below the threshold nothing matches, so the generic diamond path is
+    # unchanged by this call.
+    from hygel_martini.hydrogel_builder.core_utils.layout.isotropic_builder import (
+        _resolve_close_contacts,
+    )
+    # Threshold/jitter are raised from the isotropic defaults (0.001/0.05):
+    # bowed chains cross each other at ~0.02 nm, where single-precision LJ
+    # forces overflow to inf, and 0.05 nm of separation still leaves ~1e17
+    # kJ/mol pair energies. 0.05/0.12 clears single precision while staying
+    # below the smallest legitimate bonded spacing produced by either layout
+    # (~0.08 nm for the most compressed strand).
+    _resolve_close_contacts(
+        [World.Atoms[i][0] for i in sorted(World.Atoms)],
+        threshold=0.05,
+        jitter=0.12,
+    )
+
     _debug_stage("[stage] construct_bonds start")
     hd.construct_bonds(
         sim_params.get("pbc_true_or_false"),

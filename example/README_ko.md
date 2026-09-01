@@ -26,8 +26,8 @@
 - `04_1_example_system`
 - `05_hydrogel_relaxation`
 - `06_physical_property`
-- `07_hexafunctional` — f=6 crosslinker를 `pcu` net에 배치. layout/plan은
-  GROMACS 없이 검사 가능하며 end-to-end 빌드는 아직 수행되지 않았습니다.
+- `07_hexafunctional` — f=6 crosslinker를 `pcu` net에 배치. GROMACS
+  end-to-end 빌드·EM 수렴·topology 감사까지 통과했습니다.
   설정 설명은 `docs/GENERAL_FUNCTIONALITY_NETWORKS.md`.
 
 현재 바로 실행 가능한 example은 `03`, `04`, `04_1`, `05`, `06`입니다.

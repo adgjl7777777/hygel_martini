@@ -30,3 +30,6 @@ mdout.mdp
 # Editor / backup noise
 *~
 \#*\#
+
+# Example build outputs
+example/*/project/output/
