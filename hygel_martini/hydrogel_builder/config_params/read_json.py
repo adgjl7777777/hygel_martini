@@ -1345,7 +1345,25 @@ def _execute_all_mode():
     if progress:
         progress.end_stage("finalize_hydrogel")
 
-
+    # All-atom force fields need the bonded terms one step beyond what Martini
+    # does: proper dihedrals along three-bond paths through builder-created
+    # bonds, and the 1-4 pairs that nrexcl=3 excludes. Off by default; a
+    # Martini build is unchanged.
+    junction_cfg = sim_params.get("junction_bonded_generation") or {}
+    if junction_cfg:
+        from hygel_martini.hydrogel_builder.core_utils.runtime.aa_bonded import (
+            generate_junction_bonded_terms,
+        )
+        added, pairs = generate_junction_bonded_terms(
+            hydrogel_world,
+            dihedral_funct=int(junction_cfg.get("dihedral_funct", 3)),
+            generate_dihedrals=bool(junction_cfg.get("dihedrals", True)),
+            generate_pairs=bool(junction_cfg.get("pairs", True)),
+        )
+        print(
+            f"[INFO] junction bonded terms: dihedrals+{added}, pairs+{len(pairs)} "
+            f"(funct {junction_cfg.get('dihedral_funct', 3)}, parameterless)"
+        )
 
     current_gro_file = os.path.join(output_dir, "initial_hydrogel.gro")
 

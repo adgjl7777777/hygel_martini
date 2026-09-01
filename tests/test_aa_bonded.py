@@ -1,0 +1,178 @@
+"""Junction-crossing dihedrals and 1-4 pairs for all-atom mode.
+
+The builder already enumerates every angle. What all-atom force fields add is
+the next shell out: dihedrals along three-bond paths through builder-created
+bonds, and the 1-4 pairs that nrexcl=3 excludes. Both are emitted
+parameterless, so the force field's [ *types ] tables own the numbers and the
+builder stays force-field-agnostic. Paths internal to one template are the
+template's own business and are never regenerated -- for pairs that would
+double-count 1-4 energy, silently.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from hygel_martini.hydrogel_builder.core_utils.io.writer import write_combined_itp
+from hygel_martini.hydrogel_builder.core_utils.runtime.aa_bonded import (
+    generate_junction_bonded_terms,
+)
+from hygel_martini.hydrogel_builder.main_components import Attributes
+from hygel_martini.hydrogel_builder.main_components.Universe import World
+
+
+class _Template:
+    """Stand-in for a source template; only identity matters here."""
+
+
+def _fresh_world():
+    World.Atoms.clear()
+    World.Bonds.clear()
+    World.Angles.clear()
+    World.Dihedrals.clear()
+    # World is a class-level registry, so generated pairs from one test would
+    # leak into the next -- exactly the shape of bug this suite exists to
+    # catch elsewhere.
+    World.generated_pairs = None
+    Attributes.initialize()
+    return World
+
+
+def _chain(template, count, start_mass=72.0):
+    ids = []
+    for _ in range(count):
+        atom = Attributes.Atom(source_template=template)
+        atom.mass = start_mass
+        ids.append(atom.atom_id)
+    for left, right in zip(ids, ids[1:]):
+        Attributes.Bond(left, right, funct=1, c0=0.15, c1=1000.0)
+    return ids
+
+
+def test_a_crosslink_bond_generates_its_crossing_dihedrals_and_pairs() -> None:
+    # Two three-atom chains from different templates, joined by one new bond:
+    #   a0-a1-a2  x  b0-b1-b2   (crosslink a2-b0)
+    world = _fresh_world()
+    chain_a = _chain(_Template(), 3)
+    chain_b = _chain(_Template(), 3)
+    Attributes.Bond(chain_a[2], chain_b[0], funct=1, c0=0.15, c1=1000.0)
+
+    added, pairs = generate_junction_bonded_terms(world)
+
+    # Crossing torsions: a0-a1-a2-b0, a1-a2-b0-b1, a2-b0-b1-b2.
+    assert added == 3
+    keys = {tuple(key) for key in world.Dihedrals}
+    canonical = {min(key, tuple(reversed(key))) for key in keys}
+    assert canonical == {
+        (chain_a[0], chain_a[1], chain_a[2], chain_b[0]),
+        (chain_a[1], chain_a[2], chain_b[0], chain_b[1]),
+        (chain_a[2], chain_b[0], chain_b[1], chain_b[2]),
+    }
+    # 1-4 pairs are those torsions' endpoints, each at bond distance three.
+    assert pairs == [
+        (chain_a[0], chain_b[0]),
+        (chain_a[1], chain_b[1]),
+        (chain_a[2], chain_b[2]),
+    ]
+    assert world.generated_pairs == pairs
+
+
+def test_template_internal_paths_are_never_regenerated() -> None:
+    # One template owns the whole chain: every three-bond path is internal, so
+    # regenerating its dihedrals or pairs would double-count what the template
+    # ITP already declares (or deliberately omits).
+    world = _fresh_world()
+    _chain(_Template(), 5)
+
+    added, pairs = generate_junction_bonded_terms(world)
+
+    assert added == 0
+    assert pairs == []
+
+
+def test_ring_closures_are_kept_out_of_the_one_four_list() -> None:
+    # A four-ring built from two templates: every endpoint pair of a
+    # three-bond path is ALSO a 1-2 neighbour through the other side, so no
+    # pair qualifies as 1-4, while the crossing torsions still exist.
+    world = _fresh_world()
+    left = _Template()
+    right = _Template()
+    a0 = Attributes.Atom(source_template=left)
+    a1 = Attributes.Atom(source_template=left)
+    b0 = Attributes.Atom(source_template=right)
+    b1 = Attributes.Atom(source_template=right)
+    for i, j in ((a0.atom_id, a1.atom_id), (a1.atom_id, b0.atom_id),
+                 (b0.atom_id, b1.atom_id), (b1.atom_id, a0.atom_id)):
+        Attributes.Bond(i, j, funct=1, c0=0.15, c1=1000.0)
+
+    added, pairs = generate_junction_bonded_terms(world)
+
+    assert added > 0
+    assert pairs == []
+
+
+def test_existing_template_dihedrals_are_not_duplicated() -> None:
+    world = _fresh_world()
+    chain_a = _chain(_Template(), 3)
+    chain_b = _chain(_Template(), 3)
+    Attributes.Bond(chain_a[2], chain_b[0], funct=1, c0=0.15, c1=1000.0)
+
+    # Suppose an earlier stage already registered one of the crossing torsions
+    # (with parameters). The walk must keep it and not add a twin.
+    existing = Attributes.Dihedral(chain_a[1], chain_a[2], chain_b[0], chain_b[1], 0)
+    existing.dihedral_funct = 1
+    existing.dihedral_c0 = 180.0
+    existing.dihedral_c1 = 5.0
+
+    added, _ = generate_junction_bonded_terms(world)
+
+    assert added == 2  # the other two crossing torsions only
+
+
+def test_the_writer_emits_nrexcl_pairs_and_parameterless_terms(tmp_path) -> None:
+    world = _fresh_world()
+    chain_a = _chain(_Template(), 3)
+    chain_b = _chain(_Template(), 3)
+    Attributes.Bond(chain_a[2], chain_b[0], funct=1, c0=0.15, c1=1000.0)
+    generate_junction_bonded_terms(world)
+
+    path = tmp_path / "aa.itp"
+    write_combined_itp(world, filename=str(path), moleculetype_name="AAMOL", nrexcl=3)
+    text = path.read_text()
+
+    assert "AAMOL           3" in text
+    # generated pairs present, 1-based
+    assert "[ pairs ]" in text
+    assert f"{chain_a[0] + 1}  {chain_b[0] + 1}   1" in text
+    # parameterless dihedral line: five integers, nothing after funct
+    dihedral_lines = [
+        line.strip()
+        for line in text.splitlines()
+        if line.strip() and line.split() and "dihedrals" not in line
+    ]
+    parameterless = [
+        line for line in dihedral_lines
+        if len(line.split()) == 5 and line.split()[4] == "3"
+    ]
+    assert len(parameterless) == 3
+    # and the round trip parses: parameterless entries survive the shared parser
+    from hygel_martini.core.itp import read_itp_definitions
+
+    definition = read_itp_definitions(str(path), require_mass=False)["AAMOL"]
+    assert len(definition["dihedrals"]) == 3
+    assert all(d["params"] == [] for d in definition["dihedrals"])
+    assert len(definition["pairs"]) == 3
+
+
+def test_martini_defaults_are_untouched(tmp_path) -> None:
+    # No junction_bonded_generation config, no generated pairs: nrexcl stays 1
+    # and no [ pairs ] section appears.
+    world = _fresh_world()
+    _chain(_Template(), 3)
+
+    path = tmp_path / "cg.itp"
+    write_combined_itp(world, filename=str(path), moleculetype_name="CGMOL")
+    text = path.read_text()
+
+    assert "CGMOL           1" in text
+    assert "[ pairs ]" not in text

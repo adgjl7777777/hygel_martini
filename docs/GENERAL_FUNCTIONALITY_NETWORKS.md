@@ -268,14 +268,39 @@ forbids primary loops by default; orders two and above place normally.
 Reproducing a target primary-loop fraction in coordinates needs a layout able
 to place a loop excursion.
 
-**The force field is still Martini.** `read_atom_types` reads the mass from the
-second `[ atomtypes ]` column, which is the Martini layout; OPLS-AA puts it in
-the fourth. The mismatch is now reported where it happens instead of yielding
-an empty table in silence, but it is reported, not handled.
+**All-atom mode: mostly enabled, not yet exercised.** The working model is
+"whole strand as one template with BCK-marked attachment atoms" -- the builder
+never needs to know the force field, and no per-monomer polymerization engine
+is required (a defined prepolymer such as PPG-TDI is a single molecule anyway).
+The pieces:
 
-**The monomer model has one backbone bead per repeat unit**, so head and tail
-attachment sites coincide. An all-atom repeat unit has distinct ones. This is
-the structural obstacle to the all-atom path.
+```yaml
+simulation_parameters:
+  topology_nrexcl: 3            # Martini convention is 1; OPLS-AA needs 3
+  junction_bonded_generation:   # off by default; Martini builds unchanged
+    dihedrals: true
+    pairs: true
+    dihedral_funct: 3           # OPLS-AA torsions are Ryckaert-Bellemans
+```
+
+Angles are already enumerated over the whole bond graph, crosslinks included.
+`junction_bonded_generation` adds what nrexcl=3 additionally demands: proper
+dihedrals along three-bond paths through builder-created bonds and the 1-4
+pairs those paths' endpoints lose to the exclusions -- both emitted
+*parameterless* (`i j k l funct`), so grompp resolves them from the force
+field's `[ *types ]` tables and the builder stays force-field-agnostic.
+Template-internal paths are never regenerated (that would double-count 1-4
+energy); ring-closing endpoint pairs are kept out of the 1-4 list; templates
+should carry explicit masses since `read_atom_types` still assumes the Martini
+`[ atomtypes ]` column layout.
+
+Not yet done: no all-atom system has actually been built and run -- these are
+tested at the unit level (round-tripped through the shared parser) but not
+end to end against a real OPLS topology.
+
+**The per-monomer chain generator remains Martini-shaped** (one backbone bead
+per repeat unit, head and tail coincide). Under the whole-template model it is
+not on the all-atom path, so it stays as-is rather than being generalized.
 
 **The f = 6 loop-order target is provisional.** Measurement puts the `pcu`/`dia`
 ratio at 0.73 in the mean and 0.67 at the peak, against 0.60 from the
