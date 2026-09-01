@@ -360,6 +360,27 @@ unbonded without a word.
 
 *Fixed in `9830385`.*
 
+### 18. A cross-project include silently re-pointed another example's paths
+
+Found by a whole-tree YAML audit (syntax, in-file duplicate keys, include
+resolution, resolved-path existence, ghost keys). Example 07's `maker.yaml`
+included example 04's `simulation.yaml` for convenience. But `${CONFIG_DIR}`
+resolves against the **top maker's** directory for every included file, so
+04's `additional_itp_files: ${CONFIG_DIR}/structure/additional_ions.itp` came
+to point inside example 07, where no such file exists — and 04's
+`anisotropy: false` switched the isotropic diamond path on, which the
+`network_layout` guard then (correctly) refused. The example shipped unable to
+build, and the load-time checks did not catch it because path existence is not
+checked at load.
+
+**Fix.** Example 07 carries its own `simulation.yaml`; the semantics are
+stated in it and in `maker.yaml`. The audit also confirmed: 0 syntax errors,
+0 in-file duplicate keys, 0 unresolvable includes across all 43 YAML files,
+and no configuration key that the code never reads (`example_metadata` is
+intentional self-description).
+
+*Fixed in the commit adding this section.*
+
 ## Still open
 
 - A net-driven coordinate layout (`net_layout.py`) places both `dia` and `pcu`
