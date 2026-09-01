@@ -424,7 +424,7 @@ as one component with all 64 junctions at degree exactly 6, planned and
 materialized endpoint sets match exactly, and the loop spectrum is
 non-bipartite with peak loop order 5 -- inside the provisional f=6 target.
 
-*Fixed in the commit adding this section.*
+*Fixed in `aa3fee6`.*
 
 ## Still open
 
