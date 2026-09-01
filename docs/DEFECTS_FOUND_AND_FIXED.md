@@ -3,7 +3,7 @@
 Record of every defect found while extending the builder toward general force
 fields and general junction functionality, on branch `omni/general-ff-and-f6`.
 
-Baseline: `d02a821` (Series-01 frozen tree). Tests at baseline: 48. Now: 170.
+Baseline: `d02a821` (Series-01 frozen tree). Tests at baseline: 48. Now: 182.
 
 **The common shape.** Almost every defect below produced a *plausible but
 wrong* result rather than an error. A build succeeded, a topology was written,
@@ -362,10 +362,14 @@ unbonded without a word.
 
 ## Still open
 
-- The coordinate layout is the remaining blocker for a six-arm build. The
-  template loader (`97b0a0b`), the crosslink router and its audit are general;
-  the diamond layout refuses a multi-arm template rather than truncating it,
-  but nothing yet places one.
+- A net-driven coordinate layout now exists (`net_layout.py`) and places both
+  `dia` and `pcu` with correct minimum-image strand geometry, but it is not yet
+  reachable from `maker.yaml`: `build_hydrogel.py` still calls the diamond
+  `generate_layout_plan` unconditionally. Config plumbing is the next step.
+- The straight-segment coordinate model cannot express a primary loop, so
+  rewiring for a coordinate build forbids them by default and the layout
+  refuses one rather than straightening it. Loop orders of two and above place
+  normally. A layout that can place a loop excursion would lift this.
 - The coordinate layout still uses the hard-coded diamond constants in
   `proto_layout.py`; `nets.py` and `rewire.py` are not yet wired into it.
 - `read_atom_types()` still assumes the Martini column layout (#2 makes it

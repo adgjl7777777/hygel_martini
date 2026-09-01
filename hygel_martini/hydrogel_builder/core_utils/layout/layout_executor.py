@@ -186,12 +186,25 @@ def instantiate_linker(layout_plan: LayoutPlan,
     positions = None
 
     if template is not None and template.coords.shape[0] == len(bead_defs):
-        span_length = metadata.get('span_length') or template.span_length
-        start_pos = anchor - axis_unit * (span_length / 2.0)
-        basis = _alignment_basis(axis_unit)
         local_coords = np.array(template.coords, dtype=np.float64)
-        oriented = local_coords @ basis.T
-        positions = start_pos + oriented
+        if getattr(template, 'functionality', 2) == 2:
+            # Two-stub convention: the template's local frame puts its origin
+            # on the first stub with x along the span, so the anchor is the
+            # midpoint and the placement backs off half a span.
+            span_length = metadata.get('span_length') or template.span_length
+            start_pos = anchor - axis_unit * (span_length / 2.0)
+            basis = _alignment_basis(axis_unit)
+            positions = start_pos + local_coords @ basis.T
+        else:
+            # A multi-arm junction has no span to halve: its local frame is
+            # already centred on the stub centroid, so the anchor is that
+            # centroid and only an orientation is applied.
+            orientation = metadata.get('orientation')
+            if orientation is None:
+                basis = np.eye(3, dtype=np.float64)
+            else:
+                basis = np.array(orientation, dtype=np.float64).reshape(3, 3)
+            positions = anchor + local_coords @ basis.T
     elif template is not None and template.coords.shape[0] != len(bead_defs):
         print(f"[경고] 템플릿 '{template_id}' bead 수({template.coords.shape[0]})가 "
               f"정의({len(bead_defs)})와 달라 proto 좌표를 사용합니다.")
