@@ -1,4 +1,14 @@
-"""Shared helpers for applying random/alternating/block strategies to template selections."""
+"""Shared helpers for applying random/alternating/block strategies to template selections.
+
+Used wherever a build step must repeatedly pick one template out of a weighted
+set (polymer backbones, side chains, terminals). Callers wrap their template
+entries in ``StrategyRecord`` objects and then draw templates one at a time
+with ``TemplateStrategyIterator.next()``.
+
+Invariant: with zero or one record the iterator degenerates to always
+returning that single template (strategy ``'single'``), regardless of the
+configured strategy.
+"""
 
 from dataclasses import dataclass
 from typing import List, Optional
@@ -8,6 +18,17 @@ import random
 
 @dataclass
 class StrategyRecord:
+    """One selectable template plus its selection weight.
+
+    Attributes:
+        template: The template object to hand back to the caller (opaque to
+            this module; may be a dict definition or a loaded template).
+        ratio: Relative selection weight (dimensionless). Non-positive values
+            are clamped to a weight of 1.0 at draw time.
+        template_id: Optional stable identifier used by the ``block`` strategy
+            to match ``blocks[].id`` entries against records.
+    """
+
     template: object
     ratio: float
     template_id: Optional[str] = None
@@ -22,6 +43,15 @@ class TemplateStrategyIterator:
     def __init__(self,
                  records: List[StrategyRecord],
                  strategy_cfg: Optional[dict] = None):
+        """Prepare the iterator state for the requested strategy.
+
+        Args:
+            records: Candidate templates with weights. May be empty.
+            strategy_cfg: Optional dict with keys ``strategy`` (``random`` |
+                ``alternating`` | ``block``), ``seed`` (for the internal RNG),
+                and, for ``block``, ``blocks``: a list of
+                ``{'id': ..., 'size': ...}`` entries.
+        """
         self.records = records or []
         self.strategy_cfg = strategy_cfg or {}
         self.strategy = (self.strategy_cfg.get('strategy') or 'random').lower()
@@ -32,6 +62,14 @@ class TemplateStrategyIterator:
         self._prepare_sequences()
 
     def _prepare_sequences(self):
+        """Precompute the repeating sequences used by non-random strategies.
+
+        For ``alternating`` the records are cycled in listed order. For
+        ``block`` the sequence is built from explicit ``blocks`` entries when
+        given; otherwise block sizes are derived from the record ratios
+        (normalized by the smallest weight, at least one per record). Unknown
+        strategy names fall back to ``random``.
+        """
         if len(self.records) <= 1:
             self.strategy = 'single'
             return
@@ -59,6 +97,13 @@ class TemplateStrategyIterator:
             self.strategy = 'random'
 
     def next(self):
+        """Return the next template according to the configured strategy.
+
+        Returns:
+            The selected record's ``template``, or ``None`` when no records
+            were supplied. Weighted-random draws use the seeded internal RNG;
+            alternating/block strategies advance a shared position counter.
+        """
         if not self.records:
             return None
         if len(self.records) == 1 or self.strategy == 'single':

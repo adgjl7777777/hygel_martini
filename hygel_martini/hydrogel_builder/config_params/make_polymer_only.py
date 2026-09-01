@@ -1,8 +1,31 @@
+"""Batch driver for the standalone-polymer ("polymer only") build mode.
+
+Loops over the requested number of chains and delegates each build to
+``core_utils.generators.polymer_generator.generate_single_polymer_gro``.
+Invoked from the execution-mode dispatch in ``config_params.read_json``.
+"""
+
 import os
 from hygel_martini.hydrogel_builder.core_utils.generators import polymer_generator
 from hygel_martini.hydrogel_builder.main_components.Polymer import Polymer
 
 def generate_polymer_only_from_config(sim_params, poly_gen_params, polymer_config=None):
+    """Generate one or more standalone polymer chains from config parameters.
+
+    Args:
+        sim_params: ``simulation_parameters`` dict; uses ``random_seed``
+            (incremented per chain), ``output_dir``, and ``mean_sep`` (nm).
+        poly_gen_params: Polymer-generation dict with ``num_polymers``,
+            ``length`` (monomer count), ``polymer_output_gro_filename``,
+            ``polymer_output_itp_filename``, and ``molecule_name``.
+        polymer_config: Optional template config forwarded to
+            ``Polymer.configure`` (backbones/side chains/terminals).
+
+    Returns:
+        tuple[list[str], list[str]]: Paths of the generated ``.gro`` files and
+        the corresponding ``.itp`` paths. When ``num_polymers > 1`` an
+        ``_<index>`` suffix is inserted before each file extension.
+    """
     print("\n--- 단일 고분자 .gro 및 .itp 파일 생성 시작 (전달된 파라미터 기반) ---\n")
 
     random_seed = sim_params['random_seed']

@@ -1,7 +1,26 @@
+"""Standard result container shared by every property extractor.
+
+Owns :class:`PropertyResult`, the single return type through which all
+extractors, the job runner (``analysis_jobs``) and the CLI communicate.
+It encodes the package's claim-boundary design in data: a result always
+carries an explicit computability ``status`` and an interpretation
+``validation_role``, and any non-``computed`` status forcibly revokes
+``direct_experiment_comparison_allowed`` so downstream reporting cannot
+compare a failed/missing analysis against experimental targets.
+
+Invariants:
+    * ``status`` must be one of :data:`ALLOWED_STATUSES`;
+      ``validation_role`` one of :data:`ALLOWED_VALIDATION_ROLES`
+      (enforced in ``__post_init__``, which raises otherwise).
+    * ``status != "computed"`` implies
+      ``direct_experiment_comparison_allowed is False``.
+"""
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+# Closed vocabulary for PropertyResult.status; __post_init__ rejects
+# anything else so new failure modes must be registered here first.
 ALLOWED_STATUSES = {
     "computed",
     "missing_required_md",
@@ -11,6 +30,7 @@ ALLOWED_STATUSES = {
     "not_implemented",
 }
 
+# Closed vocabulary for PropertyResult.validation_role ("" = unassigned).
 ALLOWED_VALIDATION_ROLES = {
     "",
     "composition_check_only",
@@ -24,27 +44,46 @@ ALLOWED_VALIDATION_ROLES = {
 
 @dataclass
 class PropertyResult:
-    """
-    모든 extractor의 표준 반환 구조.
+    """Standard return structure for every extractor.
 
-    status:
-        "computed"             — 정상 계산 완료
-        "missing_required_md"  — 필요한 MD output 파일이 없음
-        "invalid_input"        — 파일은 있지만 설정/컬럼/선택이 잘못됨
-        "analysis_failed"      — 예기치 못한 분석 실패
-        "insufficient_data"    — 데이터는 있으나 판단/통계에 부족함
-        "not_implemented"      — extractor 미구현
-
-    direct_experiment_comparison_allowed:
-        False 이면 _report_targets() 가 비교를 블록하고 이유를 출력한다.
-
-    validation_role:
-        "composition_check_only"  — 조성값, 실험 swelling ratio와 비교 불가
-        "proxy"                   — 방법론 mismatch 있음, screening 용도
-        "direct"                  — 실험 target과 직접 비교 가능
-        "trend_only"              — 절댓값 비교 불가, trend/rank-order 만 유효
-        "structural_audit"        — construction/topology 자체 검증
-        "finite_rate"             — 등록된 유한 속도 mechanics observable
+    Fields:
+        property: Canonical observable name (e.g.
+            ``paired_step_finite_rate_apparent_shear_response``).
+        value: Computed value (scalar, dict, list, ...); ``None`` when
+            the status is anything other than ``computed``.
+        status: Computability outcome.  One of:
+            ``"computed"`` — analysis finished normally;
+            ``"missing_required_md"`` — a required MD output file is
+            absent;
+            ``"invalid_input"`` — files exist but a setting, column, or
+            selection is wrong;
+            ``"analysis_failed"`` — unexpected failure during analysis;
+            ``"insufficient_data"`` — data exist but are too few for a
+            decision or statistic;
+            ``"not_implemented"`` — no extractor implements this
+            property.
+        direct_experiment_comparison_allowed: When ``False``,
+            report-time target comparison is blocked and the reason is
+            printed instead.  Forced ``False`` for any non-``computed``
+            status.
+        validation_role: How the value may be interpreted.  One of:
+            ``"composition_check_only"`` — composition value, not
+            comparable to experimental swelling ratios;
+            ``"proxy"`` — methodological mismatch, screening use only;
+            ``"direct"`` — directly comparable to experimental targets;
+            ``"trend_only"`` — absolute values not comparable, only
+            trends/rank order are valid;
+            ``"structural_audit"`` — audits construction/topology
+            itself;
+            ``"finite_rate"`` — registered finite-rate mechanics
+            observable, not an equilibrium modulus;
+            ``""`` — role unassigned (typical for failure results).
+        missing_required_inputs: File paths / input names that were
+            required but missing (populated for failure statuses).
+        metadata: Free-form provenance (parameters, reasons, errors,
+            window definitions, ...).  Failure constructors put the
+            explanation under ``metadata["reason"]`` or
+            ``metadata["error"]``.
     """
 
     property: str
@@ -56,6 +95,13 @@ class PropertyResult:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
+        """Validate vocabularies and enforce the claim-boundary rule.
+
+        Raises:
+            ValueError: If ``status`` or ``validation_role`` is not in
+                the registered vocabulary.
+            TypeError: If ``metadata`` is not a dict.
+        """
         if self.status not in ALLOWED_STATUSES:
             allowed = ", ".join(sorted(ALLOWED_STATUSES))
             raise ValueError(f"Invalid PropertyResult.status={self.status!r}; allowed: {allowed}")
@@ -76,6 +122,11 @@ class PropertyResult:
             self.direct_experiment_comparison_allowed = False
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize to a plain dict for JSON output.
+
+        ``calculability`` duplicates ``status`` for backward-compatible
+        consumers of the serialized form.
+        """
         return {
             "property": self.property,
             "value": self.value,
@@ -94,6 +145,7 @@ class PropertyResult:
         validation_role: str = "",
         metadata: dict[str, Any] | None = None,
     ) -> "PropertyResult":
+        """Build a ``missing_required_md`` result listing absent inputs."""
         return PropertyResult(
             property=property_name,
             value=None,
@@ -112,6 +164,7 @@ class PropertyResult:
         validation_role: str = "",
         metadata: dict[str, Any] | None = None,
     ) -> "PropertyResult":
+        """Build an ``invalid_input`` result; ``reason`` goes to metadata."""
         meta = dict(metadata or {})
         meta["reason"] = reason
         return PropertyResult(
@@ -132,6 +185,7 @@ class PropertyResult:
         validation_role: str = "",
         metadata: dict[str, Any] | None = None,
     ) -> "PropertyResult":
+        """Build an ``analysis_failed`` result; ``error`` goes to metadata."""
         meta = dict(metadata or {})
         meta["error"] = error
         return PropertyResult(
@@ -151,6 +205,7 @@ class PropertyResult:
         validation_role: str = "",
         metadata: dict[str, Any] | None = None,
     ) -> "PropertyResult":
+        """Build an ``insufficient_data`` result; ``reason`` to metadata."""
         meta = dict(metadata or {})
         meta["reason"] = reason
         return PropertyResult(
@@ -164,6 +219,7 @@ class PropertyResult:
 
     @staticmethod
     def not_implemented(property_name: str, reason: str = "") -> "PropertyResult":
+        """Build a ``not_implemented`` result for an unsupported property."""
         return PropertyResult(
             property=property_name,
             value=None,

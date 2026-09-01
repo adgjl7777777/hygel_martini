@@ -1,4 +1,19 @@
-"""Proto-level layout planning for the diamond network."""
+"""Proto-level layout planning for the historical diamond (f=4) network.
+
+This module turns a :class:`ProtoPlan` into a :class:`LayoutPlan`: one
+:class:`LayoutCell` per backbone strand (origin, direction, sequence
+metadata) and one :class:`LinkPlacement` per crosslinker. The geometry is
+the Series-01 diamond arrangement, hard-coded as four active medium-cell
+offsets (``MEDIUM_ACTIVE_INDICES``), four polymer positions per medium cell
+(``POLYMER_POSITIONS``) and their four <111> orientations
+(``ORIENTATION_MAP``) -- i.e. the two interpenetrating FCC sublattices of
+the diamond net expressed in offsets of half a big cell.
+
+The net-driven path (``net_layout.generate_net_layout_plan``) builds the
+same LayoutPlan from an explicit periodic net instead and supersedes this
+module for f != 4; this one stays as-is so historical diamond configs keep
+building unchanged. Both feed ``layout_executor.build_atom_blueprint``.
+"""
 
 from dataclasses import dataclass
 from typing import Dict, Any, List, Tuple, Optional, Sequence
@@ -47,6 +62,15 @@ LINKER_LOCAL_ANCHORS = [
 
 @dataclass
 class LayoutCell:
+    """Placement of one backbone strand.
+
+    ``origin`` is the strand center (nm), ``direction`` the unit vector of
+    its span. ``metadata`` carries what materialization needs per strand:
+    the monomer ``sequence``, ``length_scale``, bowed ``proto_positions``,
+    ``planned_chain_id``/planned endpoints (net path), or a
+    ``strand_template`` object (all-atom whole-strand path).
+    """
+
     origin: np.ndarray
     direction: np.ndarray
     backbone_definition: Dict[str, Any]
@@ -56,6 +80,15 @@ class LayoutCell:
 
 @dataclass
 class LinkPlacement:
+    """Placement of one crosslinker molecule.
+
+    ``anchor_position`` is where the template origin lands (nm) and
+    ``axis_direction`` the unit vector its local x axis (two-stub span, or
+    orientation seed for multi-arm junctions) is rotated onto.
+    ``connected_cells`` keeps the legacy (cell, cell) indices; the net path
+    records the junction id in ``metadata`` instead.
+    """
+
     anchor_position: np.ndarray
     axis_direction: np.ndarray
     linker_definition: Dict[str, Any]
@@ -65,17 +98,21 @@ class LinkPlacement:
 
 @dataclass
 class LayoutPlan:
+    """Everything ``instantiate_layout`` needs: strand cells plus linkers."""
+
     proto_plan: ProtoPlan
     cells: List[LayoutCell]
     links: List[LinkPlacement]
 
 
 def _linear_index(ix: int, iy: int, iz: int, repeats: Tuple[int, int, int]) -> int:
+    """Row-major linear index of big-cell ``(ix, iy, iz)``."""
     nx, ny, nz = repeats
     return ix * ny * nz + iy * nz + iz
 
 
 def _normalize(vec: np.ndarray) -> np.ndarray:
+    """Unit vector of ``vec``; a near-zero vector is returned unchanged."""
     norm = np.linalg.norm(vec)
     if norm < 1e-9:
         return vec
@@ -83,6 +120,12 @@ def _normalize(vec: np.ndarray) -> np.ndarray:
 
 
 def _get_anisotropy_axis() -> str:
+    """The configured ``anisotropy`` axis ('x'/'y'/'z'), defaulting to 'x'.
+
+    The diamond geometry below is written x-first; a different axis is
+    realized by rotating the finished placements (see
+    ``_axis_rotation_matrix``) rather than re-deriving them.
+    """
     axis = "x"
     if Config is not None:
         try:
@@ -95,6 +138,7 @@ def _get_anisotropy_axis() -> str:
 
 
 def _axis_rotation_matrix(axis: str) -> np.ndarray:
+    """Rotation carrying the x-first construction onto ``axis``."""
     if axis == "y":
         # rotate +90 deg around z: x->y, y->-x
         return np.array([[0.0, -1.0, 0.0],
@@ -109,10 +153,17 @@ def _axis_rotation_matrix(axis: str) -> np.ndarray:
 
 
 def _apply_rotation(vec: np.ndarray, rot: np.ndarray) -> np.ndarray:
+    """Apply rotation matrix ``rot`` to a row vector (or row array)."""
     return vec @ rot.T
 
 
 def _normalize_linker_axes(linker_axes: Optional[Sequence[str]]) -> List[str]:
+    """Sanitize the configured linker axes to exactly two of 'x'/'y'/'z'.
+
+    ``None``, a bare string, junk entries, or a single axis all resolve to a
+    two-entry list (defaulting to ``['x', 'x']``): the diamond layout places
+    two linkers per medium cell and indexes this list per linker.
+    """
     if linker_axes is None:
         axes = ["x", "x"]
     elif isinstance(linker_axes, str):
@@ -132,6 +183,11 @@ def _normalize_linker_axes(linker_axes: Optional[Sequence[str]]) -> List[str]:
 
 
 def _backbone_target_length(entry: Dict[str, Any], proto_plan: ProtoPlan) -> float:
+    """Target contour length (nm) of one strand of this backbone definition.
+
+    Uses the definition's own ``bond_c0`` when given, otherwise the proto
+    backbone's mean interval, times the number of bead intervals.
+    """
     definition = entry.get('definition', entry)
     bond_len = definition.get('bond_c0')
     if bond_len is None or bond_len <= 0:
@@ -143,6 +199,12 @@ def _backbone_target_length(entry: Dict[str, Any], proto_plan: ProtoPlan) -> flo
 
 
 def _linker_total_length(entry: Dict[str, Any], fallback: float, override: float | None = None) -> float:
+    """Linker span (nm): an explicit override, else the sum of its bond
+    lengths (internal + external), else ``fallback``.
+
+    The override is the loaded template's measured ``span_length``; the
+    bond-sum route serves configs without a template library.
+    """
     if override is not None and override > 0:
         return float(override)
     definition = entry.get('definition', entry)
@@ -164,6 +226,30 @@ def generate_layout_plan(proto_plan: ProtoPlan,
                          linker_strategy: Dict[str, Any] | None = None,
                          linker_library: LinkerTemplateLibrary | None = None,
                          linker_axes: Optional[Sequence[str]] = None) -> LayoutPlan:
+    """Lay out the diamond network: 4 strands + 2 linkers per medium cell.
+
+    Walks every big cell x its four active medium offsets; for each, places
+    four strands at the diamond polymer positions with their <111>
+    orientations (drawing monomer sequences from the proto plan's
+    ``sequence_factory``, with uniqueness enforced per medium cell when more
+    than one definition exists) and two linkers at the local anchors, each
+    scaled so its proto length matches the template/config span. The whole
+    construction is x-first and rotated afterwards when ``anisotropy`` picks
+    another axis.
+
+    Args:
+        proto_plan: Prototype geometry and sequence machinery.
+        backbone_defs / linker_defs: BACKBONES / LINKERS config entries
+            (ratios weight the random choices).
+        repeats: Big-cell counts (nx, ny, nz).
+        linker_library: Loaded templates; when present they override
+            ``linker_defs`` for spans and ids.
+        linker_axes: Up to two placement axes for the two linkers per
+            medium cell (see ``_normalize_linker_axes``).
+
+    Returns:
+        The LayoutPlan consumed by ``layout_executor.instantiate_layout``.
+    """
     nx, ny, nz = repeats
     cells: List[LayoutCell] = []
     links: List[LinkPlacement] = []

@@ -12,14 +12,18 @@ import os
 
 class Config:
     """Singleton-style access to configuration and runtime metadata."""
-    _data = None
-    _file_path = None
-    _runtime_state = {}
+    _data = None          # merged config tree (dict) after load_config
+    _file_path = None     # absolute path of the maker file backing _data
+    _runtime_state = {}   # ephemeral values (progress trackers, caches, ...)
     _debug_file = None
     _debug_enabled = False
+    # Keys whose LIST elements are each resolved as paths.
     _PATH_LIST_KEYS = {"additional_itps", "additional_itp_files", "additional_tabulated_tables"}
+    # Keys that may hold a bare command name (left on PATH) instead of a file path.
     _LITERAL_COMMAND_KEYS = {"gromacs_executable_path", "packmol_path"}
+    # Keys that look path-like by suffix but must never be resolved.
     _NON_PATH_KEYS = {"output_dir_suffix"}
+    # Any string key ending in one of these suffixes is treated as a path.
     _PATH_SUFFIXES = ("_path", "_file", "_dir", "_gro", "_itp", "_root")
 
     @classmethod
@@ -168,12 +172,22 @@ class Config:
 
     @classmethod
     def _build_path_context(cls, file_path):
+        """Return the ``${CONFIG_DIR}``/``${REPO_ROOT}`` substitution values.
+
+        CONFIG_DIR is the maker file's directory; REPO_ROOT is resolved three
+        levels above this module (the repository checkout root).
+        """
         config_dir = os.path.dirname(os.path.abspath(file_path))
         repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
         return {"CONFIG_DIR": config_dir, "REPO_ROOT": repo_root}
 
     @classmethod
     def _looks_like_path_key(cls, key):
+        """Decide whether a config key's string value should be path-resolved.
+
+        Matches the explicit allowlists plus any key ending in a path-like
+        suffix (``_path``, ``_file``, ...), except keys in ``_NON_PATH_KEYS``.
+        """
         if not isinstance(key, str) or key in cls._NON_PATH_KEYS:
             return False
         if key in cls._PATH_LIST_KEYS:
@@ -192,6 +206,11 @@ class Config:
 
     @classmethod
     def _resolve_path_value(cls, value, path_context):
+        """Expand env vars, ``~``, and ``${CONFIG_DIR}``/``${REPO_ROOT}`` tokens.
+
+        Relative paths are anchored at the maker file's directory so a config
+        can be launched from any working directory.
+        """
         expanded = os.path.expanduser(os.path.expandvars(value))
         for token, replacement in path_context.items():
             expanded = expanded.replace(f"${{{token}}}", replacement)
@@ -201,6 +220,12 @@ class Config:
 
     @classmethod
     def _should_resolve_scalar_path(cls, key, value):
+        """Return True when a path-like key's value should actually be resolved.
+
+        Executable keys (``gromacs_executable_path`` etc.) may hold a bare
+        command name meant to be found on PATH; those are only resolved when
+        the value already looks like a filesystem path or contains a token.
+        """
         if key in cls._LITERAL_COMMAND_KEYS:
             return (
                 value.startswith(".")
@@ -213,6 +238,18 @@ class Config:
 
     @classmethod
     def _normalize_path_tree(cls, node, path_context, parent_key=None):
+        """Recursively rebuild the config tree with path values resolved.
+
+        Args:
+            node: Current dict/list/scalar being visited.
+            path_context: Token map from ``_build_path_context``.
+            parent_key: Key under which ``node`` is stored; determines whether
+                string values (or list items, for ``_PATH_LIST_KEYS``) are
+                treated as paths.
+
+        Returns:
+            A new tree of the same shape with resolved absolute paths.
+        """
         if isinstance(node, dict):
             return {
                 key: cls._normalize_path_tree(value, path_context, key)

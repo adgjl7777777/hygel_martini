@@ -1,5 +1,25 @@
-"""
-Helpers to ingest monomer templates from GRO/ITP pairs.
+"""Monomer templates: one repeat unit per file, one backbone bead per unit.
+
+This is the Martini-path ingestion: a monomer is a GRO/ITP pair whose single
+BCK-marked bead is the backbone attachment point (head and tail coincide) and
+whose remaining beads are side-chain beads hanging off it. The polymerization
+engine strings monomers together by bonding consecutive BCK beads; everything
+here is expressed in coordinates *relative to the BCK bead*, which is removed
+from the template's own bead list (the chain generator places it).
+
+Consumed by the backbone sequence machinery (proto_builder /
+BackboneSequenceFactory) and, at materialization, by Polymer/Hydrogel.
+For the all-atom path a strand is a single whole molecule instead -- see
+``strand_loader`` -- because one-backbone-bead-per-repeat-unit is a
+coarse-grained assumption.
+
+Invariants enforced here rather than downstream:
+
+* GRO and ITP must agree on the atom count;
+* exactly one bead per monomer is BCK-marked (residue or atom name);
+* a bond from the BCK bead to a side bead becomes a ``backbone_bonds`` entry
+  (target backbone id attached), never an internal bond;
+* duplicate monomer ids are refused -- one definition would silently win.
 """
 
 from dataclasses import dataclass
@@ -20,6 +40,14 @@ from hygel_martini.hydrogel_builder.core_utils.common.collisions import (
 
 @dataclass
 class BeadTemplate:
+    """One template atom/bead, as parsed from the ITP with its GRO coordinate.
+
+    ``original_index`` is the 1-based ITP atom number; ``coord`` is in nm,
+    relative to the template's local origin (the BCK bead for monomers, the
+    attachment midpoint for whole strands). Shared by the monomer, linker,
+    and strand loaders.
+    """
+
     name: str
     atom_type: str
     residue_name: str
@@ -33,6 +61,17 @@ class BeadTemplate:
 
 @dataclass
 class MonomerTemplate:
+    """A parsed monomer: side beads plus every bonded term of the repeat unit.
+
+    The BCK bead itself is *not* in ``beads``/``coords`` -- the chain
+    generator creates it -- so all ``internal_*`` index fields are 0-based
+    positions into ``beads`` (BCK excluded), while ``dihedrals_full`` and
+    ``impropers_full`` keep the raw 1-based ITP rows for consumers that map
+    through original indices. ``backbone_bonds`` lists (side-bead position,
+    bond params + target backbone id) for bonds that touched the BCK bead.
+    ``total_mass`` excludes the BCK bead's mass.
+    """
+
     id: str
     backbone_id: str
     backbone_original_index: int
@@ -58,18 +97,33 @@ class MonomerTemplate:
 
 @dataclass
 class TemplateRecord:
+    """A template plus its mixing ratio from the MONOMERS entry."""
+
     template: MonomerTemplate
     ratio: float
 
 
 @dataclass
 class MonomerTemplateLibrary:
+    """All loaded monomers: in declaration order, by backbone id, and by id."""
+
     records: List[TemplateRecord]
     by_backbone: Dict[str, List[TemplateRecord]]
     lookup: Dict[str, MonomerTemplate]
 
 
 def _extract_single_definition(itp_path: str, molecule_name: str | None) -> Dict:
+    """Return exactly one [ moleculetype ] definition from ``itp_path``.
+
+    Args:
+        itp_path: ITP file to parse (shared parser, masses required).
+        molecule_name: Which definition to take when the file holds several;
+            ``None`` is only valid for a single-definition file.
+
+    Raises:
+        ValueError: No definition, an unknown ``molecule_name``, or several
+            definitions with no name given -- guessing would silently pick one.
+    """
     mass_map = Config.get_runtime('atom_type_masses', {})
     definitions = read_itp_definitions(
         itp_path,
@@ -91,6 +145,7 @@ def _extract_single_definition(itp_path: str, molecule_name: str | None) -> Dict
 
 
 def _find_backbone_bead_index(beads: List[Dict]) -> int | None:
+    """1-based index of the first bead whose residue or atom name is BCK*."""
     for bead in beads:
         residu = (bead.get("residue") or "").upper()
         atom = (bead.get("atom") or "").upper()
@@ -102,6 +157,23 @@ def _find_backbone_bead_index(beads: List[Dict]) -> int | None:
 def _match_backbone(beads: List[Dict],
                     backbone_defs: List[Dict],
                     override_id: str | None = None) -> Tuple[int, str]:
+    """Decide which bead is the backbone bead and which backbone id owns it.
+
+    Resolution order: an explicit ``backbone_id`` override on the monomer
+    entry wins (matched by that backbone's residue name, falling back to the
+    BCK marker); otherwise the first bead whose residue name equals some
+    backbone's ``residue_name``; otherwise the BCK marker with the first
+    backbone id as default.
+
+    Returns:
+        ``(bead_nr, backbone_id)`` -- the 1-based ITP index of the backbone
+        bead and the backbone definition it belongs to.
+
+    Raises:
+        ValueError: No candidate at all, or an override naming an unknown
+            backbone; two backbones claiming one residue name are refused by
+            ``require_unique`` (the loser would never be selected).
+    """
     id_to_residue = {
         bb["id"]: bb["definition"].get("residue_name") for bb in backbone_defs
     }
@@ -143,6 +215,12 @@ def _match_backbone(beads: List[Dict],
 
 
 def _convert_params(bond_def: Dict) -> Dict[str, float]:
+    """Normalize a parsed bond row to ``{funct, c0, c1}`` keyword params.
+
+    Accepts both the parser's ``params`` list and legacy ``length``/``fc``
+    keys; missing values stay ``None`` (a parameterless bond is complete
+    GROMACS -- grompp resolves it from [ bondtypes ]).
+    """
     params = bond_def.get("params", [])
     length = params[0] if params else bond_def.get("length")
     fc = params[1] if len(params) > 1 else bond_def.get("fc")
@@ -154,6 +232,20 @@ def _convert_params(bond_def: Dict) -> Dict[str, float]:
 
 
 def _load_single(entry: Dict, backbone_defs: List[Dict]) -> MonomerTemplate:
+    """Load one MONOMERS entry (``{id, gro, itp, [backbone_id], ...}``).
+
+    Reads the ITP definition and GRO coordinates, identifies the backbone
+    bead, re-centers every side bead on it (coordinates become nm offsets
+    from BCK), splits bonds into internal vs backbone-attached, and re-indexes
+    angles/dihedrals/impropers to 0-based side-bead positions, dropping any
+    term that references the BCK bead (the chain generator owns those).
+
+    Raises:
+        ValueError: Missing id/paths, empty ITP, or GRO/ITP atom-count
+            mismatch -- each would otherwise surface much later as a shifted
+            topology.
+        FileNotFoundError: A named file does not exist.
+    """
     monomer_id = entry.get("id")
     if not monomer_id:
         raise ValueError("각 Monomer 항목에는 고유한 'id'가 반드시 필요합니다.")
@@ -326,6 +418,18 @@ def _load_single(entry: Dict, backbone_defs: List[Dict]) -> MonomerTemplate:
 
 
 def load_monomer_templates(monomer_entries: List[Dict], backbone_defs: List[Dict]) -> MonomerTemplateLibrary:
+    """Load every MONOMERS entry into a library, refusing duplicate ids.
+
+    Args:
+        monomer_entries: The ``monomer_definitions.MONOMERS`` list from the
+            merged configuration.
+        backbone_defs: ``BACKBONES`` entries used to resolve each monomer's
+            owning backbone.
+
+    Raises:
+        DuplicateDeclaration: Two monomers share an id; lookup would keep
+            whichever loaded last, silently.
+    """
     records: List[TemplateRecord] = []
     by_backbone: Dict[str, List[TemplateRecord]] = {}
     lookup: Dict[str, MonomerTemplate] = {}

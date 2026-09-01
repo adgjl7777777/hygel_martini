@@ -1,3 +1,21 @@
+"""Manifest-driven analysis job loading and execution.
+
+Owns the ``analysis_jobs.yaml`` schema (:class:`AnalysisJob`) and the
+job runner :func:`run_analysis`, which dispatches each job to a plugin
+from ``extractors.EXTRACTOR_REGISTRY``.  Called by the CLI
+(``__main__``) and by :mod:`config`.
+
+Claim-boundary behavior of the runner (nothing is silently skipped and
+no exception escapes a single job):
+
+* extractor name not in the registry     -> ``not_implemented``
+* md_requirements gate not satisfied     -> ``missing_required_md``
+* extractor's own ``can_compute`` fails  -> ``missing_required_md``
+* extractor raises during ``compute``    -> ``analysis_failed``
+
+Every per-job :class:`PropertyResult` is also written to the job's
+``output.report`` JSON (if declared) via an atomic tmp-file rename.
+"""
 from __future__ import annotations
 
 import os
@@ -11,6 +29,26 @@ from .result import PropertyResult
 
 @dataclass
 class AnalysisJob:
+    """One entry of the ``analysis_jobs`` mapping in analysis_jobs.yaml.
+
+    Fields:
+        job_id: YAML key of the job (unique within one file).
+        property: Canonical observable name the job claims to produce.
+        extractor: Registry key of the extractor plugin
+            (e.g. ``"topology.reduced_network"``).
+        inputs: Mapping of input name -> file path (possibly relative to
+            the YAML's directory; ``None`` allowed for optional slots).
+        parameters: Extractor-specific keyword parameters, passed
+            through verbatim.
+        output: Output options; ``output["report"]`` names a JSON file
+            to write the result to.
+        validation: Free-form validation options carried from the YAML
+            (not interpreted here).
+        requires_md_job: Optional MD-job id this analysis depends on
+            (declarative; checked via md_requirements.yaml).
+        raw: The original YAML dict for the job, kept for provenance.
+    """
+
     job_id: str
     property: str
     extractor: str
@@ -22,6 +60,12 @@ class AnalysisJob:
     raw: dict[str, Any] = field(default_factory=dict)
 
     def resolved_inputs(self, base_dir: str) -> dict[str, str | None]:
+        """Resolve relative input paths against ``base_dir``.
+
+        Absolute paths and ``None`` values pass through unchanged;
+        relative paths become absolute paths rooted at ``base_dir``
+        (the directory of the analysis YAML).
+        """
         resolved: dict[str, str | None] = {}
         for key, value in self.inputs.items():
             if value is None:
@@ -37,8 +81,24 @@ class AnalysisJob:
 
 
 def load_analysis_jobs(path: str, allow_template: bool = False) -> tuple[list[AnalysisJob], str]:
-    """
-    analysis_jobs.yaml을 읽어 AnalysisJob 목록과 base_dir을 반환한다.
+    """Read analysis_jobs.yaml and return the job list plus its base dir.
+
+    Args:
+        path: Path to the analysis-jobs YAML file.
+        allow_template: When ``False`` (default), a file marked
+            ``template: true`` is rejected so a placeholder file cannot
+            be executed by accident.
+
+    Returns:
+        Tuple ``(jobs, base_dir)`` where ``base_dir`` is the YAML's
+        directory, used later to resolve relative input paths.
+
+    Raises:
+        FileNotFoundError: If ``path`` does not exist.
+        ValueError: If the YAML is not a mapping, is a template, lacks
+            the ``analysis_jobs`` key, or a job entry is malformed
+            (missing ``property``/``extractor``/``inputs``, or inputs
+            not a dict).
     """
     import yaml
 
@@ -98,13 +158,24 @@ def run_analysis(
     analysis_path: str,
     md_requirements_path: str | None = None,
 ) -> dict[str, PropertyResult]:
-    """
-    analysis_jobs.yaml을 읽어 각 job의 extractor를 실행하고 결과를 반환한다.
+    """Run every job in analysis_jobs.yaml through its extractor.
 
-    반환값: {job_id: PropertyResult}
-    - extractor가 registry에 없으면 not_implemented
-    - 필요 파일이 없으면 missing_required_md (예외 아님)
-    - 실행 중 오류는 analysis_failed
+    If ``md_requirements_path`` is omitted, ``md_requirements.yaml``
+    next to the analysis YAML is used when present; when a requirements
+    file is in play, each job is gated by
+    :func:`requirements.check_requirements` before its extractor runs.
+
+    Args:
+        analysis_path: Path to analysis_jobs.yaml.
+        md_requirements_path: Optional path to md_requirements.yaml.
+
+    Returns:
+        ``{job_id: PropertyResult}``.  Per-job failures are encoded as
+        result statuses, never raised:
+        extractor absent from the registry -> ``not_implemented``;
+        required files missing (per requirements gate or the
+        extractor's ``can_compute``) -> ``missing_required_md``;
+        an exception inside ``compute`` -> ``analysis_failed``.
     """
     from .extractors import EXTRACTOR_REGISTRY
     jobs, base_dir = load_analysis_jobs(analysis_path)
@@ -179,7 +250,13 @@ def _write_job_output(
     result: PropertyResult,
     base_dir: str,
 ) -> None:
-    """Write ``output.report`` atomically when the analysis job requests it."""
+    """Write ``output.report`` atomically when the analysis job requests it.
+
+    Relative report paths are resolved against ``base_dir``.  The JSON
+    is first written to ``<report>.tmp`` and then renamed, so a crash
+    never leaves a truncated report behind.  No-op if the job declares
+    no ``output.report``.
+    """
     report = job.output.get("report")
     if not report:
         return

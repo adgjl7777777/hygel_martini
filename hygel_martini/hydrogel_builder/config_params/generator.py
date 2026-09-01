@@ -12,7 +12,12 @@ from hygel_martini.hydrogel_builder.config_params.read_json import execute_mode
 from hygel_martini.hydrogel_builder.core_utils.common.utility import run_dos2unix_on_inputs
 
 def run_hydrogel_example(config_path):
-    """Run a full hydrogel-generation job from a maker file."""
+    """Run a full hydrogel-generation job from a maker file.
+
+    Args:
+        config_path: Path to the maker JSON/YAML file consumed by
+            ``Config.load_config`` (YAML ``includes`` are merged).
+    """
     print(f"\n--- 하이드로젤 생성 예시 실행 중 ({os.path.basename(config_path)}) ---")
 
     # Load the full maker configuration, including YAML includes.

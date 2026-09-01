@@ -1,4 +1,23 @@
-"""Proto layout instantiation helpers."""
+"""Materialize a LayoutPlan into concrete coordinates and atom blueprints.
+
+Second stage of the layout pipeline: a :class:`LayoutPlan` (from the diamond
+``proto_layout`` or the net-driven ``net_layout``) describes *where* each
+strand and linker goes; this module computes actual per-atom positions
+(:func:`instantiate_layout`) and flattens them, together with every per-atom
+identity (type, residue, charge, mass, template provenance), into the
+:class:`LayoutBlueprint` that ``proto_populator`` turns into World state.
+
+Placement rules by chain kind:
+
+* Martini backbone: centered proto bead chain, rotated from the default
+  <111> axis onto the cell direction and scaled by ``length_scale``;
+* whole-strand template (all-atom): the molecule placed rigidly -- attachment
+  axis onto the segment, optional roll about it, never scaled;
+* linker: template-local coordinates rotated via the alignment basis (f=2)
+  or anchored at the centroid with stubs on the arm vectors (f>2), plus the
+  stub atoms emitted as separate blueprint atoms carrying their planned
+  endpoint metadata.
+"""
 
 from dataclasses import dataclass
 from typing import Any, Dict, List
@@ -12,6 +31,12 @@ DEFAULT_BACKBONE_AXIS = np.array([1.0, 1.0, 1.0]) / np.sqrt(3.0)
 
 @dataclass
 class InstantiatedChain:
+    """One placed chain: absolute positions (nm) plus its definition/metadata.
+
+    ``template`` is set for template-backed chains (linkers always; backbones
+    only in whole-strand mode) so the blueprint can record provenance.
+    """
+
     positions: np.ndarray
     definition: Dict[str, Any]
     metadata: Dict[str, Any]
@@ -20,12 +45,23 @@ class InstantiatedChain:
 
 @dataclass
 class InstantiatedLayout:
+    """All placed chains, split by kind, in layout order."""
+
     backbone_segments: List[InstantiatedChain]
     linker_segments: List[InstantiatedChain]
 
 
 @dataclass
 class AtomBlueprint:
+    """Everything the populator needs to create one Atom.
+
+    ``bead_index`` orders atoms within their chain; ``extra`` carries
+    provenance and wiring: ``source_template``, ``original_index`` (1-based
+    ITP number, the key of the populator's rich-section map), stub metadata
+    (``stub_type``, ``stub_from_bead``, ``external_params``,
+    ``target_backbone``) and planned-endpoint data.
+    """
+
     chain_type: str
     chain_index: int
     bead_index: int
@@ -44,6 +80,9 @@ class AtomBlueprint:
 
 @dataclass
 class ChainBlueprint:
+    """Per-chain record: which blueprint atoms belong to it, plus metadata
+    (planned ids, sequence, strand template, attachment positions...)."""
+
     chain_type: str
     chain_index: int
     component_id: str
@@ -54,11 +93,14 @@ class ChainBlueprint:
 
 @dataclass
 class LayoutBlueprint:
+    """The flat handoff consumed by ``proto_populator``."""
+
     atoms: List[AtomBlueprint]
     chains: List[ChainBlueprint]
 
 
 def _center_positions(positions: np.ndarray) -> np.ndarray:
+    """Positions translated so their centroid sits at the origin."""
     centroid = np.mean(positions, axis=0)
     return positions - centroid
 
@@ -66,6 +108,12 @@ def _center_positions(positions: np.ndarray) -> np.ndarray:
 def _rotate_between_vectors(vectors: np.ndarray,
                             source: np.ndarray,
                             target: np.ndarray) -> np.ndarray:
+    """Rotate row vectors by the rotation carrying ``source`` onto ``target``.
+
+    Degenerate inputs (zero-length source/target, parallel already) return
+    the input unchanged; antiparallel returns the negation, which is exact
+    for the centered, sign-symmetric proto chains this is used on.
+    """
     source_norm = np.linalg.norm(source)
     target_norm = np.linalg.norm(target)
     if source_norm < 1e-9 or target_norm < 1e-9:
@@ -90,6 +138,11 @@ def _rotate_between_vectors(vectors: np.ndarray,
 
 
 def _rotate_from_xaxis(vectors: np.ndarray, target: np.ndarray) -> np.ndarray:
+    """Rotate row vectors from the +x axis onto ``target`` (Rodrigues).
+
+    The antiparallel case flips the x components only, preserving the
+    template's local y/z handedness for two-stub linkers.
+    """
     target_norm = np.linalg.norm(target)
     if target_norm < 1e-9:
         return vectors
@@ -113,6 +166,13 @@ def _rotate_from_xaxis(vectors: np.ndarray, target: np.ndarray) -> np.ndarray:
 
 
 def _alignment_basis(axis: np.ndarray) -> np.ndarray:
+    """Right-handed orthonormal basis (columns) whose x axis is ``axis``.
+
+    Mirrors the loader's ``_orthonormal_basis`` (template coordinates are
+    stored in such a frame) so instantiation is basis @ local. Degenerate
+    axes fall back to a safe frame instead of raising: by the time this
+    runs the loader has already validated real geometry.
+    """
     axis_norm = np.linalg.norm(axis)
     if axis_norm < 1e-9:
         axis = np.array([1.0, 0.0, 0.0])
@@ -148,7 +208,13 @@ def _axis_rotation(axis: np.ndarray, angle: float) -> np.ndarray:
 
 
 def _rotation_between(source: np.ndarray, target: np.ndarray) -> np.ndarray:
-    """Rotation matrix carrying unit vector ``source`` onto unit ``target``."""
+    """Rotation matrix carrying unit vector ``source`` onto unit ``target``.
+
+    Unlike ``_rotate_between_vectors`` this returns the matrix itself (the
+    whole-strand path composes it with a roll about ``target``), and the
+    antiparallel case is an exact half-turn about a perpendicular axis
+    rather than a coordinate negation, which would mirror the molecule.
+    """
     cross = np.cross(source, target)
     norm = float(np.linalg.norm(cross))
     dot = float(np.dot(source, target))
@@ -166,6 +232,16 @@ def _rotation_between(source: np.ndarray, target: np.ndarray) -> np.ndarray:
 
 
 def instantiate_backbone(cell: LayoutCell, proto_positions: np.ndarray) -> InstantiatedChain:
+    """Place one strand: rigid whole-strand template, or scaled bead chain.
+
+    Whole-strand branch: template coords (already centered on the attachment
+    midpoint) get the attachment axis rotated onto ``cell.direction``, an
+    optional golden-angle ``roll`` about it, and a translation to
+    ``cell.origin`` -- no scaling, all-atom bond lengths are not free.
+    Martini branch: the (possibly bowed, per-cell ``proto_positions``
+    metadata) prototype is centered, rotated from the default <111> axis
+    onto the cell direction, scaled by ``length_scale`` and translated.
+    """
     strand_template = cell.metadata.get('strand_template') if cell.metadata else None
     if strand_template is not None:
         # Whole-strand template: one rigid molecule. Its local coordinates are
@@ -216,6 +292,16 @@ def instantiate_backbone(cell: LayoutCell, proto_positions: np.ndarray) -> Insta
 def instantiate_linker(layout_plan: LayoutPlan,
                        link: LinkPlacement,
                        proto_positions: np.ndarray) -> InstantiatedChain:
+    """Place one junction molecule's *body* beads (stubs are emitted later).
+
+    With a loaded template whose bead count matches the definition: two-stub
+    templates rotate their local frame onto the link axis and scale to the
+    planned span; multi-arm (f > 2) templates anchor their centroid at the
+    link anchor without scaling. Without a usable template the proto linker
+    bead chain is rotated/scaled instead (a bead-count mismatch is reported,
+    then falls back the same way). The resolved template rides on the result
+    so the blueprint can attach provenance and arm vectors.
+    """
     metadata = link.metadata.copy() if link.metadata else {}
     definition = link.linker_definition or {}
     defn_body = definition.get('definition', definition)
@@ -284,6 +370,13 @@ def instantiate_linker(layout_plan: LayoutPlan,
 
 
 def instantiate_layout(layout_plan: LayoutPlan) -> InstantiatedLayout:
+    """Place every cell and link of the plan, in plan order.
+
+    Order is a contract: chain indices assigned downstream (blueprint,
+    populator, planned-endpoint translation) all assume backbone segments
+    appear in ``layout_plan.cells`` order and linkers in
+    ``layout_plan.links`` order.
+    """
     backbone_segments: List[InstantiatedChain] = []
     linker_segments: List[InstantiatedChain] = []
 
@@ -302,6 +395,13 @@ def instantiate_layout(layout_plan: LayoutPlan) -> InstantiatedLayout:
 
 
 def _backbone_atom_params(component_entry: Dict[str, Any], bead_index: int) -> Dict[str, Any]:
+    """Per-bead identity for a Martini backbone bead from its definition.
+
+    Defaults are the Series-01 conventions (type C1, mass 72, residue BCK);
+    a list-valued ``residue_name`` is resolved per chain by the caller.
+    Whole-strand chains never reach this -- their identities come verbatim
+    from the template.
+    """
     definition = component_entry.get('definition', component_entry)
     atom_name = definition.get('atom_name', f"BB{bead_index:02d}")
     atom_type = definition.get('atom_type', 'C1')
@@ -329,6 +429,11 @@ def _backbone_atom_params(component_entry: Dict[str, Any], bead_index: int) -> D
 
 
 def _linker_atom_params(component_entry: Dict[str, Any], bead_index: int) -> Dict[str, Any]:
+    """Per-bead identity for a linker body bead (stubs are emitted apart).
+
+    Bead-level values win over definition-level fallbacks; the defaults are
+    Martini-flavored (type P5, mass 72, residue LNK).
+    """
     definition = component_entry.get('definition', component_entry)
     raw_residue_name = definition.get('residue_name', 'LNK')
     
@@ -358,6 +463,20 @@ def _linker_atom_params(component_entry: Dict[str, Any], bead_index: int) -> Dic
 
 def build_atom_blueprint(layout_plan: LayoutPlan,
                          backbone_defs: List[Dict[str, Any]]) -> LayoutBlueprint:
+    """Flatten the instantiated layout into per-atom blueprints.
+
+    Backbones: whole-strand chains emit every template atom verbatim (with
+    ``source_template``/``original_index`` provenance and the attachment
+    positions in chain metadata); Martini chains emit per-bead identities
+    from their definitions/sequence. Linkers: body beads first, then the
+    stub atoms -- placed on the template arm vectors (f > 2) or at the span
+    ends (two-stub), each carrying its stub bond parameters, admissible
+    targets, and planned endpoint metadata for the crosslink router.
+
+    Returns:
+        The :class:`LayoutBlueprint` handed to
+        ``proto_populator.populate_hydrogel_from_blueprint``.
+    """
     inst = instantiate_layout(layout_plan)
     atoms: List[AtomBlueprint] = []
     chains: List[ChainBlueprint] = []

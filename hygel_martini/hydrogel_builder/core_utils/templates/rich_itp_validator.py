@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Tuple
 
 
 def _try_int(token: Any):
+    """Return ``int(token)`` or None when the token is not an integer."""
     try:
         return int(token)
     except Exception:
@@ -20,6 +21,7 @@ def _try_int(token: Any):
 
 
 def _in_range(idx: int, atom_count: int) -> bool:
+    """Check a 1-based atom index against the molecule's atom count."""
     return 1 <= idx <= atom_count
 
 
@@ -31,8 +33,28 @@ def validate_and_filter_other_sections(
     """
     Validate rich sections stored in World.OtherSections.
 
+    Enforces a minimal allowlist: only ``constraints``, ``exclusions``, and
+    ``dihedrals`` survive (``impropers`` rows are folded into ``dihedrals``).
+    Everything else — pairs, polarization, cmaptypes, restraints, virtual
+    sites, and unknown sections — is dropped with a warning, or raises in
+    strict mode. Index checks use 1-based GROMACS numbering against
+    ``atom_count``.
+
+    Args:
+        extras: Section name -> list of row dicts, as accumulated in
+            ``World.OtherSections``.
+        atom_count: Number of atoms in the emitted moleculetype; used for
+            index range validation.
+        strict: When True, any invalid or disallowed entry raises
+            ``ValueError`` instead of being skipped with a warning.
+
     Returns:
-        (filtered_extras, warnings)
+        (filtered_extras, warnings): the allowlisted sections that passed
+        validation, and human-readable messages for everything skipped.
+
+    Raises:
+        ValueError: In strict mode, for any entry that would otherwise be
+            skipped.
     """
     if not extras:
         return {}, []

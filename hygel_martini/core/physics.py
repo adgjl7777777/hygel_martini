@@ -1,3 +1,10 @@
+"""Water-related physical property helpers for solvation box setup.
+
+Used by the opls_to_martini case builder to estimate how many water
+molecules fill a simulation box at a target temperature. No state; the
+CoolProp dependency is optional and falls back to an analytic fit.
+"""
+
 from __future__ import annotations
 
 from typing import Sequence
@@ -7,6 +14,14 @@ def water_density_g_cm3(temp_c: float) -> float:
     """
     Return water density in g/cm^3 at the target temperature.
     Prefer CoolProp. Fallback to Kell equation approximation (0-100C).
+
+    Args:
+        temp_c: Temperature in degrees Celsius.
+
+    Returns:
+        Liquid water density in g/cm^3 at 1 atm. CoolProp (IAPWS) when
+        importable; otherwise the Kell-form polynomial, which is only an
+        approximation and intended for the 0-100 C range.
     """
     try:
         from CoolProp.CoolProp import PropsSI  # type: ignore
@@ -25,6 +40,18 @@ def water_density_g_cm3(temp_c: float) -> float:
 def estimate_water_molecules(
     box_ang: Sequence[float], density_g_cm3: float, molar_mass: float, avogadro: float
 ) -> int:
+    """Estimate how many water molecules fill a rectangular box.
+
+    Args:
+        box_ang: Box edge lengths in Angstrom (converted internally to cm^3).
+        density_g_cm3: Water density in g/cm^3 at the target temperature.
+        molar_mass: Water molar mass in g/mol.
+        avogadro: Avogadro constant in 1/mol.
+
+    Returns:
+        Non-negative rounded molecule count for a box filled entirely with
+        water (solute volume is not subtracted).
+    """
     volume_ang3 = box_ang[0] * box_ang[1] * box_ang[2]
     volume_cm3 = volume_ang3 * 1.0e-24
     water_mass_g = density_g_cm3 * volume_cm3

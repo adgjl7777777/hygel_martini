@@ -1,6 +1,12 @@
-"""
-config.py — 분석 실행에 필요한 세 YAML을 한 번에 로드하는 편의 모듈.
-각 로더의 실제 구현은 개별 모듈에 있다.
+"""One-shot loader for the three YAML files that drive an analysis run.
+
+Convenience module used by the CLI (``__main__``) and scripts: it wraps
+:func:`analysis_jobs.load_analysis_jobs` and
+:func:`validation_manifest.load_manifest`, and auto-discovers the two
+companion YAMLs (``validation_manifest.yaml`` and
+``md_requirements.yaml``) next to the analysis-jobs file when their
+paths are not given explicitly.  The actual parsing/validation logic
+lives in the individual modules; nothing here adds gates of its own.
 """
 from __future__ import annotations
 import os
@@ -14,11 +20,24 @@ def load_all(
     manifest_path: str | None = None,
     requirements_path: str | None = None,
 ) -> tuple[list[AnalysisJob], str, list[ManifestTarget] | None, str | None]:
-    """
-    analysis_jobs.yaml, validation_manifest.yaml, md_requirements.yaml을 한 번에 로드.
+    """Load analysis jobs plus optional manifest and requirements YAMLs.
 
-    반환값:
-        (jobs, base_dir, manifest_targets_or_None, requirements_path_or_None)
+    When ``manifest_path`` / ``requirements_path`` are omitted, the
+    default filenames ``validation_manifest.yaml`` and
+    ``md_requirements.yaml`` are looked up in the directory containing
+    ``analysis_path`` and used only if they exist.
+
+    Args:
+        analysis_path: Path to the analysis_jobs YAML file.
+        manifest_path: Optional explicit path to the validation
+            manifest YAML.
+        requirements_path: Optional explicit path to the MD
+            requirements YAML.  Returned as-is; not parsed here.
+
+    Returns:
+        Tuple ``(jobs, base_dir, manifest_targets_or_None,
+        requirements_path_or_None)`` where ``base_dir`` is the directory
+        of ``analysis_path`` (used to resolve relative input paths).
     """
     jobs, base_dir = load_analysis_jobs(analysis_path)
 

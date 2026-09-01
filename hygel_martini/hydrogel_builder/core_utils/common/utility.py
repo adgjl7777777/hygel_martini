@@ -1,4 +1,14 @@
-"""Numerical helpers, geometry utilities, and text-normalization helpers."""
+"""Numerical helpers, geometry utilities, and text-normalization helpers.
+
+Shared low-level toolbox for the hydrogel builder: numba-jitted cubic-PBC
+vector/distance kernels (used in inner overlap loops during structure
+generation), side-chain placement geometry, a cell-list minimum-distance
+report, and the ``dos2unix`` input normalizer run before parsing templates.
+
+Invariant: every PBC kernel here takes a single scalar box length ``L`` (nm)
+and therefore assumes a CUBIC box; general cells must go through
+``hygel_martini.core.pbc`` instead.
+"""
 
 from collections import defaultdict
 import heapq
@@ -271,6 +281,11 @@ def find_minimum_distances(positions, box_length, top_n=10, cell_size=None):
     heap = []
 
     def consider_pair(i, j):
+        """Push the (i, j) squared distance onto the bounded max-heap.
+
+        The heap keeps the ``top_n`` smallest distances seen so far by storing
+        negated squared distances.
+        """
         if i == j:
             return
         if i > j:

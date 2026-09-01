@@ -1,3 +1,23 @@
+"""Public API of :mod:`hygel_martini.property_extract`.
+
+This package is the analysis/audit half of hygel_martini: it extracts
+state, structure, transport, clearance and mechanics observables from
+built hydrogel systems, and records for every result whether it was
+computable and how it may be interpreted (the "claim boundary" design).
+Four gates are kept separate and a passing computation never implies the
+next gate:
+
+1. required input files / trajectories exist,
+2. the analyzer can compute the observable,
+3. the numbers are finite and pass registered numerical gates,
+4. the result may be interpreted as an experimental or equilibrium
+   property (promotion) — never granted automatically.
+
+Names below the "stable API" marker are validated exports; names below
+the "experimental API" marker are draft-quality and must be checked
+before use.  Functions listed in the trailing comment are intentionally
+NOT exported because they are unimplemented.
+"""
 # 안정 API (검증 중)
 from .analyzer import HydrogelAnalyzer
 from .swelling import SwellingAnalyzer

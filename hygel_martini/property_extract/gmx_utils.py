@@ -1,11 +1,41 @@
+"""Thin GROMACS process and XVG parsing helpers.
+
+Owns the subprocess wrapper :func:`run_gmx` (binary discovery via the
+``GMX_BIN`` env var, then ``gmx_mpi``/``gmx`` on PATH) and the legacy
+dict-style XVG parser :func:`parse_xvg` used by the requirement gate's
+column checks and older analyzers.  Newer code reading XVGs for
+statistics uses :func:`timeseries.read_xvg`, which returns the raw
+array instead of a column dict.
+
+Gotcha: :func:`parse_xvg` keys the first column as ``"time"``
+regardless of what the file actually plots on the x axis.
+"""
 import subprocess
 import os
 import re
 import numpy as np
 
 def run_gmx(cmd, input_text=None, cwd=None):
-    """
-    Run a GROMACS command and return stdout.
+    """Run a GROMACS command and return its stdout.
+
+    The executable is resolved in this order: ``GMX_BIN`` environment
+    variable, then ``gmx_mpi`` on PATH, then ``gmx`` on PATH.  A
+    leading ``gmx``/``gmx_mpi`` token in ``cmd`` is replaced by the
+    resolved binary; otherwise the binary is prepended.
+
+    Args:
+        cmd: Command tokens (list); the caller's list is not mutated.
+        input_text: Optional text piped to stdin (e.g. group selection
+            for ``gmx energy``).
+        cwd: Optional working directory for the subprocess.
+
+    Returns:
+        Captured stdout as text.
+
+    Raises:
+        RuntimeError: If no GROMACS binary can be found, the binary is
+            missing at exec time, or the command exits non-zero (the
+            message includes stdout and stderr).
     """
     # Order of preference for gmx binary:
     # 1. Environment variable GMX_BIN
@@ -37,8 +67,24 @@ def run_gmx(cmd, input_text=None, cwd=None):
     return proc.stdout
 
 def parse_xvg(xvg_file):
-    """
-    Parse an .xvg file and return a dictionary of data.
+    """Parse a GROMACS .xvg file into a column dictionary.
+
+    Legend labels are read from ``@ s<i> legend "..."`` lines and used
+    as keys for data columns after the first; unlabeled columns get
+    ``"col<i>"`` names.  The first column is always keyed ``"time"``
+    (whatever the file's x axis actually is).
+
+    Args:
+        xvg_file: Path to the .xvg file.
+
+    Returns:
+        Dict mapping ``"time"`` and each legend label to a 1-D float
+        numpy array.
+
+    Raises:
+        ValueError: If no numeric rows are found, or the legend count
+            exceeds the number of data columns (a sign the file and
+            legends are inconsistent).
     """
     data = []
     labels = []

@@ -1,5 +1,23 @@
-"""
-Linker template loader from GRO/ITP pairs.
+"""Linker (junction/crosslinker) templates: N-stub molecules from GRO/ITP.
+
+A linker is the molecule that sits at a network junction. Its *stub* atoms --
+the beads whose ITP residue name is exactly ``BCK`` -- are the attachment
+sites the crosslink router later bonds to backbone ends. Stubs are real,
+retained atoms (in Martini they are placeholder beads carrying the partner
+backbone's mass; in the all-atom path they are real atoms such as sulfurs
+that keep their own ITP mass -- see ``_stub_mass_for_targets``).
+
+Two spellings exist for per-stub bond parameters and are mutually exclusive:
+the historical two-stub ``backbone_1``/``backbone_2`` pair (the diamond
+linker) and the general ``stubs: [[...], ...]`` list (one entry per stub, any
+even functionality). The loader validates counts, resolves each stub's
+admissible backbone targets, derives the local geometry (orthonormal basis,
+arm vectors from the stub coordinates, span length), and splits the ITP's
+bonded terms into internal / stub-attached / stub-stub groups.
+
+Everything downstream -- proto planning, blueprint emission, the crosslink
+router, and the populator's rich-section mapping -- consumes the
+:class:`LinkerTemplate` produced here rather than re-reading the files.
 """
 
 from dataclasses import dataclass
@@ -21,6 +39,17 @@ from hygel_martini.hydrogel_builder.core_utils.common.collisions import (
 
 @dataclass
 class LinkerTemplate:
+    """A parsed junction molecule in its local frame.
+
+    ``beads``/``coords`` hold the *body* atoms only (stubs excluded); stub
+    atoms live in ``stub_definitions`` and are emitted separately by the
+    blueprint. ``internal_*`` terms are 0-based positions into ``beads``;
+    ``dihedrals_full``/``impropers_full``/``pairs``/``exclusions`` keep raw
+    1-based ITP indices (the populator maps stubs and body alike through
+    original indices). Coordinates are nm in an orthonormal local frame
+    whose x axis is the first-to-last stub span.
+    """
+
     id: str
     beads: List[BeadTemplate]
     coords: np.ndarray
@@ -69,17 +98,30 @@ class LinkerTemplate:
 
 @dataclass
 class LinkerTemplateRecord:
+    """A template plus its mixing ratio from the LINKERS entry."""
+
     template: LinkerTemplate
     ratio: float
 
 
 @dataclass
 class LinkerTemplateLibrary:
+    """All loaded linkers, in declaration order and by id."""
+
     records: List[LinkerTemplateRecord]
     lookup: Dict[str, LinkerTemplate]
 
 
 def linker_definitions_from_library(library: LinkerTemplateLibrary) -> List[Dict]:
+    """Render the library back into config-shaped LINKERS definition dicts.
+
+    The layout/blueprint stages historically consume plain dicts (bead defs,
+    bead-indexed internal ``bonds``, ``external_bonds`` flat list plus
+    ``external_bonds_by_stub``, stub definitions, arm vectors, span). This
+    adapter keeps them working off loaded templates without re-parsing files.
+    A bodiless two-stub linker contributes its stub-stub bond as the single
+    internal bond so the pair stays connected.
+    """
     definitions: List[Dict] = []
     for record in library.records:
         template = record.template
@@ -176,6 +218,16 @@ def linker_definitions_from_library(library: LinkerTemplateLibrary) -> List[Dict
 
 
 def _extract_definition(itp_path: str, molecule_name: str | None) -> Dict:
+    """Return exactly one [ moleculetype ] from the linker ITP.
+
+    Masses may come from the base force field's [ atomtypes ]
+    (``atom_type_masses`` runtime map) when the template omits them, with
+    explicit per-atom masses preferred.
+
+    Raises:
+        ValueError: No definition, an unknown ``molecule_name``, or several
+            definitions with none named -- guessing would silently pick one.
+    """
     mass_map = Config.get_runtime('atom_type_masses', {})
     definitions = read_itp_definitions(
         itp_path,
@@ -197,6 +249,11 @@ def _extract_definition(itp_path: str, molecule_name: str | None) -> Dict:
 
 
 def _map_backbone_ids(beads: List[Dict], backbone_defs: List[Dict]) -> Dict[int, str]:
+    """Map bead nr -> backbone id for beads whose residue names a backbone.
+
+    Only used by the legacy residue-name route; the stub route proper marks
+    stubs with residue ``BCK`` and resolves targets from the config instead.
+    """
     residue_to_backbone = {}
     for bb in backbone_defs:
         res_name = bb["definition"].get("residue_name")
@@ -217,6 +274,11 @@ def _map_backbone_ids(beads: List[Dict], backbone_defs: List[Dict]) -> Dict[int,
 
 
 def _convert_params(bond_def: Dict) -> Dict[str, float]:
+    """Normalize a parsed bond row to ``{funct, c0, c1}`` keyword params.
+
+    Accepts the parser's ``params`` list or legacy ``length``/``fc`` keys;
+    missing values stay ``None`` (parameterless is complete GROMACS).
+    """
     params = bond_def.get("params", [])
     length = params[0] if params else bond_def.get("length")
     fc = params[1] if len(params) > 1 else bond_def.get("fc")
@@ -228,6 +290,12 @@ def _convert_params(bond_def: Dict) -> Dict[str, float]:
 
 
 def _backbone_mass_lookup(backbone_defs: List[Dict]) -> Dict[str, float]:
+    """Mass per backbone id, for the Martini stub-mass-override rule.
+
+    A ``None`` value marks a whole-strand template backbone: its ends are
+    real atoms, so a stub facing it keeps its own ITP mass instead of being
+    overridden (see ``_stub_mass_for_targets``).
+    """
     masses: Dict[str, float] = {}
     for backbone in backbone_defs:
         backbone_id = backbone.get("id")
@@ -350,6 +418,16 @@ def _stub_mass_for_targets(
 
 
 def _orthonormal_basis(span_vec: np.ndarray, ref: np.ndarray = np.array([0.0, 0.0, 1.0])) -> np.ndarray:
+    """Right-handed orthonormal basis whose x axis is ``span_vec``.
+
+    ``ref`` seeds the y axis (swapped for +y when nearly parallel to x).
+    Returned as a 3x3 matrix of column vectors; template coordinates are
+    expressed in this frame so instantiation is a single rotation.
+
+    Raises:
+        ValueError: Zero-length span or degenerate geometry that admits no
+            orthogonal complement.
+    """
     span_norm = np.linalg.norm(span_vec)
     if span_norm < 1e-8:
         raise ValueError("링커 stub 간 벡터의 길이가 0입니다.")
@@ -374,6 +452,18 @@ def _orthonormal_basis(span_vec: np.ndarray, ref: np.ndarray = np.array([0.0, 0.
 
 
 def _load_single_linker(entry: Dict, backbone_defs: List[Dict]) -> LinkerTemplate:
+    """Load and validate one LINKERS entry into a :class:`LinkerTemplate`.
+
+    The long tail of this function is deliberate validation, in dependency
+    order: files exist and agree on atom count; the stub spelling matches the
+    stub count (two-stub keys only at functionality 2, ``stubs`` list
+    otherwise, never both); every stub resolves at least one backbone target;
+    stub masses are well defined (overridden to the target backbone's bead
+    mass, or kept when the target is a whole-strand template); geometry is
+    derivable (basis, arm vectors, span); and bonded terms split cleanly into
+    internal / per-stub / stub-stub groups. Failures raise ValueError with
+    the linker id named -- a mis-loaded junction is unrecoverable downstream.
+    """
     linker_id = entry.get("id")
     gro_path = entry.get("gro")
     itp_path = entry.get("itp")
@@ -674,6 +764,12 @@ def _load_single_linker(entry: Dict, backbone_defs: List[Dict]) -> LinkerTemplat
 
 
 def load_linker_templates(linker_entries: List[Dict], backbone_defs: List[Dict]) -> LinkerTemplateLibrary:
+    """Load every LINKERS entry, refusing duplicate ids.
+
+    Raises:
+        DuplicateDeclaration: Two linkers share an id; the lookup would keep
+            whichever loaded last, silently.
+    """
     records: List[LinkerTemplateRecord] = []
     lookup: Dict[str, LinkerTemplate] = {}
     for entry in linker_entries:

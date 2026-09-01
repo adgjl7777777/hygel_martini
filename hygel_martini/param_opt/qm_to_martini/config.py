@@ -1,3 +1,29 @@
+"""Configuration resolution and shared datatypes for the stage-03 pipeline.
+
+This module owns the shared vocabulary of the ``qm_to_martini`` (stage 03)
+workflow: frozen dataclasses describing monomer templates, parsed Bartender
+ITP lines, connection metadata, and merged force-field variants, plus the
+functions that normalize the ``bartender_pipeline`` section of the user YAML
+config into validated setting dictionaries.
+
+Position in the pipeline: ``pipeline.run_pipeline`` (and ``generator`` /
+``cli``) call the ``resolve_*`` helpers here to interpret the raw config
+before building per-sequence cases; ``workflow_logic.loader`` and
+``workflow_logic.merger`` consume the dataclasses defined here.
+
+Key conventions and gotchas:
+
+- Atom indices inside templates and dataclasses are 1-based (Bartender
+  convention); user-facing ``backbone_atoms`` YAML entries are 0-based and
+  converted on input (``_normalize_index_list``) and output
+  (``export_backbone_atom_config``).
+- Several resolvers accept both the current flat config layout and legacy
+  nested layouts (``relaxation``/``bartender`` mappings); the legacy branch
+  is kept for backward compatibility with Series-01 configs.
+- Distances passed to connection detection are in Angstrom; xTB MD settings
+  use ps/fs/K as named in their keys.
+"""
+
 from __future__ import annotations
 
 import os
@@ -14,16 +40,36 @@ from fractions import Fraction
 
 from hygel_martini.core.utils import parse_csv_list
 
+# Default head/tail connector detection radius in Angstrom (C-Br bond ~1.9 A).
 CONNECTION_CUTOFF = 2.2
+# Extracts the "rmsd: <float>" annotation Bartender writes into ITP comments.
 RMSD_RE = re.compile(r"rmsd:\s*([0-9]*\.?[0-9]+)", re.IGNORECASE)
 
 @dataclass(frozen=True)
 class ConnectionDetectionConfig:
+    """How monomer connection (capping) atoms are located in an XYZ file.
+
+    Fields:
+        indicator: element symbol that marks a connector atom (default "Br").
+        cutoff: maximum connector-to-backbone-atom distance in Angstrom.
+    """
     indicator: str
     cutoff: float
 
 @dataclass(frozen=True)
 class TermGenerationConfig:
+    """Resolved ``bartender_pipeline.term_generation`` settings.
+
+    Fields:
+        mode: normalized candidate-term generation mode; one of init_only,
+            all_unique, polymer_backbone, topology_n, topology_swap_n,
+            polymer_n, polymer_swap_n.
+        n: non-negative extension budget for the ``*_n`` modes (0 otherwise).
+        main_itp_dir: directory of reference main ITPs; required by the
+            polymer_n / polymer_swap_n modes, None otherwise.
+        candidates_tsv_dir: directory of candidate TSV tables; required by
+            the polymer_n / polymer_swap_n modes, None otherwise.
+    """
     mode: str
     n: int
     main_itp_dir: Optional[str] = None
@@ -31,29 +77,47 @@ class TermGenerationConfig:
 
 @dataclass(frozen=True)
 class WeightedAtomRef:
+    """One atom's (possibly fractional) membership in a CG bead.
+
+    Fields:
+        atom_index: 1-based atom index in the monomer/polymer XYZ file.
+        denominator: n-way split factor; an atom shared by n beads appears
+            in each with denominator n so the total weight sums to 1.
+    """
     atom_index: int
     denominator: int = 1
 
     @property
     def weight(self) -> Fraction:
+        """Exact fractional weight (1/denominator) of this reference."""
         return Fraction(1, self.denominator)
 
     def format(self) -> str:
+        """Render the Bartender BEADS token, e.g. "12" or "12/2"."""
         if self.denominator == 1:
             return str(self.atom_index)
         return f"{self.atom_index}/{self.denominator}"
 
 @dataclass
 class ValidationReport:
+    """Accumulated problems/warnings from validating one template or input.
+
+    Fields:
+        target: label of the validated object (usually a file path).
+        problems: fatal findings; any entry makes ``ok`` False.
+        warnings: non-fatal findings kept for the report only.
+    """
     target: str
     problems: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
+        """True when no fatal problem was recorded (warnings are allowed)."""
         return not self.problems
 
     def render(self) -> str:
+        """Format the report as a human-readable multi-line status block."""
         lines = [f"Target: {self.target}", f"Status: {'OK' if self.ok else 'FAILED'}"]
         if self.problems:
             lines.append("Problems:")
@@ -65,6 +129,19 @@ class ValidationReport:
 
 @dataclass
 class MonomerTemplate:
+    """Parsed Bartender ``.inp`` mapping/topology template for one monomer.
+
+    Produced by ``workflow_logic.loader.parse_bartender_inp``. All indices
+    are 1-based. Bonded-term entries are bead-index tuples.
+
+    Fields:
+        path: source ``.inp`` file.
+        preamble: verbatim lines that precede the first section header.
+        beads: bead id -> weighted atom references composing that bead.
+        bonds/constraints: 2-tuples of bead ids.
+        angles: 3-tuples of bead ids.
+        dihedrals/impropers: 4-tuples of bead ids.
+    """
     path: Path
     preamble: List[str]
     beads: Dict[int, List[WeightedAtomRef]]
@@ -76,16 +153,37 @@ class MonomerTemplate:
 
     @property
     def bead_count(self) -> int:
+        """Number of CG beads defined by the template."""
         return len(self.beads)
 
     @property
     def atom_count(self) -> int:
+        """Highest atom index referenced by any bead (0 if no beads).
+
+        Used as a proxy for the expected XYZ atom count during validation.
+        """
         if not self.beads:
             return 0
         return max(ref.atom_index for refs in self.beads.values() for ref in refs)
 
 @dataclass
 class PolymerInputBundle:
+    """Everything built for one polymer's Bartender input.
+
+    Produced by ``workflow_logic.builder.build_polymer_input`` from the
+    per-monomer templates.
+
+    Fields:
+        base: concatenated polymer template with only the terms taken
+            directly from the monomer templates plus connection terms.
+        augmented: base template extended with generated candidate terms
+            according to the term-generation mode.
+        base_text/augmented_text: rendered ``.inp`` file contents.
+        base_report/augmented_report: validation results for each template.
+        connection_bonds: inter-monomer bead-bead bonds (global bead ids).
+        connection_beads: global ids of beads that carry a connection.
+        backbone_beads: global ids of beads flagged as backbone.
+    """
     base: MonomerTemplate
     augmented: MonomerTemplate
     base_text: str
@@ -98,6 +196,20 @@ class PolymerInputBundle:
 
 @dataclass(frozen=True)
 class ParamLine:
+    """One parsed bonded-parameter line from a Bartender ``gmx_out.itp``.
+
+    Fields:
+        section: normalized section name (bonds/constraints/angles/
+            dihedrals/impropers).
+        indices: bead indices of the term (2-4 integers, 1-based).
+        tokens: remaining whitespace-separated tokens (funct + parameters),
+            kept as raw strings.
+        commented: True when the whole line was commented out (leading ";"),
+            i.e. a candidate that Bartender did not select.
+        inline_comment: text after the first inline ";" separator.
+        rmsd: fit RMSD parsed from the inline comment, if present.
+        raw: original line without the trailing newline.
+    """
     section: str
     indices: Tuple[int, ...]
     tokens: Tuple[str, ...]
@@ -108,6 +220,29 @@ class ParamLine:
 
 @dataclass(frozen=True)
 class TypedRecord:
+    """A ``ParamLine`` lifted to bead-type space for cross-case merging.
+
+    Produced by ``workflow_logic.merger.typed_records_for_result``; grouping
+    on (section, category, angle_dist, type_names) merges equivalent terms
+    coming from different sequences.
+
+    Fields:
+        section: GROMACS type-section name (bondtypes/constrainttypes/
+            angletypes/dihedraltypes/impropertypes).
+        category: "WITH_BACKBONE" when any bead is a backbone bead,
+            otherwise "WITHOUT_BACKBONE".
+        angle_dist: for angles only, "DIST_LE2"/"DIST_GE3" by bond-graph
+            distance between the outer beads; empty for other sections.
+        type_names: per-bead type names used as the merge key.
+        display_labels: per-bead human-readable labels.
+        indices: original bead indices in the source case.
+        tokens: funct + parameter tokens as raw strings.
+        commented: comment state of the source line.
+        inline_comment: inline comment text of the source line.
+        rmsd: fit RMSD from the source line, if present.
+        source_tag: "<sequence_stem>:<job dirname>" provenance tag.
+        source_path: absolute path of the source ITP.
+    """
     section: str
     category: str
     angle_dist: str
@@ -123,6 +258,19 @@ class TypedRecord:
 
 @dataclass(frozen=True)
 class ConnectionMetadata:
+    """Head/tail connection geometry inferred for one monomer.
+
+    Produced by ``workflow_logic.loader.infer_connection_metadata``. Atom
+    and bead indices are 1-based within the monomer.
+
+    Fields:
+        head_carbon/tail_carbon: first configured backbone atom on each end
+            (0 when that end has no configured atoms).
+        head_br/tail_br: connector ("Br"-indicator) atom nearest each end.
+        left_connection_bead/right_connection_bead: bead owning each
+            connector atom; these beads are bonded across monomer joints.
+        backbone_beads: beads containing any configured backbone atom.
+    """
     head_carbon: int
     tail_carbon: int
     head_br: Optional[int]
@@ -133,6 +281,25 @@ class ConnectionMetadata:
 
 @dataclass
 class MergedVariant:
+    """One distinct parameter variant within a merged type group.
+
+    Produced by ``workflow_logic.merger.merge_records``: records sharing the
+    same (tokens, commented, inline comment) signature collapse into one
+    variant; exactly one variant per group is marked ``primary``.
+
+    Fields:
+        section/category/angle_dist/type_names: the group key (see
+            ``TypedRecord``).
+        display_labels: distinct per-source label tuples observed.
+        tokens: funct + parameter tokens of the variant.
+        commented: written comment state; non-primary variants are forced
+            to True so only the primary line is active in the merged ITP.
+        sources: source tags contributing this variant.
+        indices_examples: example bead-index tuples from the sources.
+        inline_comments: distinct non-empty inline comments observed.
+        rmsd_values: RMSD values observed across sources.
+        primary: True for the selected representative of the group.
+    """
     section: str
     category: str
     angle_dist: str
@@ -147,19 +314,31 @@ class MergedVariant:
     primary: bool
 
 def write_text(path: Path, text: str) -> None:
+    """Write UTF-8 text, creating parent directories as needed."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
 
 def shell_assign(name: str, value: str) -> str:
+    """Render a shell-safe ``name=value`` assignment line."""
     return f'{name}={shlex.quote(value)}'
 
 def resolve_under_base(base_dir: Path, value: str | Path) -> Path:
+    """Resolve a possibly relative path against ``base_dir``.
+
+    Absolute paths are returned unchanged (not resolved); relative paths are
+    joined to ``base_dir`` and fully resolved.
+    """
     path = Path(value)
     if path.is_absolute():
         return path
     return (base_dir / path).resolve()
 
 def parse_bool(value: Any, default: bool = False) -> bool:
+    """Coerce a YAML/JSON scalar to bool.
+
+    None yields ``default``; numbers use truthiness; strings accept
+    "1"/"true"/"yes"/"on" (case-insensitive) as True, anything else False.
+    """
     if value is None:
         return default
     if isinstance(value, bool):
@@ -169,6 +348,16 @@ def parse_bool(value: Any, default: bool = False) -> bool:
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 def resolve_connection_detection_config(pipeline_cfg: Dict[str, Any]) -> ConnectionDetectionConfig:
+    """Read connector-atom detection settings from the pipeline config.
+
+    Args:
+        pipeline_cfg: the ``bartender_pipeline`` mapping; keys
+            ``connection_indicator`` (element symbol, default "Br") and
+            ``connection_cutoff`` (Angstrom, default 2.2) are honored.
+
+    Raises:
+        ValueError: when the cutoff is not positive.
+    """
     indicator = str(pipeline_cfg.get("connection_indicator", "Br")).strip() or "Br"
     cutoff = float(pipeline_cfg.get("connection_cutoff", CONNECTION_CUTOFF))
     if cutoff <= 0:
@@ -179,6 +368,18 @@ def resolve_connection_detection_config(pipeline_cfg: Dict[str, Any]) -> Connect
     )
 
 def resolve_term_generation_config(pipeline_cfg: Dict[str, Any]) -> TermGenerationConfig:
+    """Normalize ``bartender_pipeline.term_generation`` into a config object.
+
+    Accepts either a bare mode string or a mapping with ``mode``/``n`` and
+    the optional ``main_itp_dir``/``candidates_tsv_dir`` keys. Mode aliases
+    "exhaustive"/"all" -> "all_unique" and "original" -> "init_only" are
+    applied before validation.
+
+    Raises:
+        TypeError: when the raw value is neither a string nor a mapping.
+        ValueError: on an unsupported mode, a negative budget ``n``, or a
+            polymer_n/polymer_swap_n mode missing its required directories.
+    """
     raw_cfg = pipeline_cfg.get("term_generation", {})
     if raw_cfg is None:
         raw_cfg = {}
@@ -252,6 +453,19 @@ _WORKDIR_NAMES: Dict[Tuple[str, str], str] = {
 }
 
 def default_workdir_name(relaxation: str, md: str) -> str:
+    """Return the conventional relaxation workdir name for a mode pair.
+
+    Args:
+        relaxation: geometry-relaxation mode ("xtb", "orca", or "off").
+        md: MD/trajectory-source mode (see ``resolve_pipeline_modes``).
+
+    Returns:
+        A descriptive directory name from ``_WORKDIR_NAMES``; unknown
+        relaxation values fall back to the (md, "off") entry.
+
+    Raises:
+        ValueError: when ``md`` has no entry at all.
+    """
     key = (md, relaxation)
     name = _WORKDIR_NAMES.get(key)
     if name is not None:
@@ -263,6 +477,10 @@ def default_workdir_name(relaxation: str, md: str) -> str:
     raise ValueError(f"Unsupported md mode: {md}")
 
 def _normalize_pipeline_mode(value: Any, default: str, field_name: str) -> str:
+    """Lowercase a mode string; map None -> default and False -> "off".
+
+    Boolean True is rejected because it does not name a concrete mode.
+    """
     if value is None:
         return default
     if isinstance(value, bool):
@@ -272,6 +490,24 @@ def _normalize_pipeline_mode(value: Any, default: str, field_name: str) -> str:
     return str(value).strip().lower()
 
 def resolve_pipeline_modes(pipeline_cfg: Dict[str, Any]) -> Dict[str, str]:
+    """Resolve the workflow "flow" triple: relaxation mode, md mode, workdir.
+
+    Three config layouts are accepted, tried in order:
+
+    1. Flat keys ``relaxation``/``md``/``workdir_name`` at the top of
+       ``bartender_pipeline`` (current layout).
+    2. A nested ``mode`` mapping with the same three keys.
+    3. Legacy layout: ``relaxation`` as a mapping with a ``backend`` key
+       plus ``bartender.geometry_source`` deciding the md mode.
+
+    Returns:
+        Dict with keys ``relaxation`` ("xtb"/"orca"/"off"), ``md`` (one of
+        bartender, xtb, existing, existing_notrim, xtb_nobartender,
+        xtb_nobartender_notrim, trim, off), and ``workdir_name``.
+
+    Raises:
+        ValueError: when either mode is outside its allowed set.
+    """
     top_relaxation = pipeline_cfg.get("relaxation")
     top_md = pipeline_cfg.get("md")
     if (
@@ -356,6 +592,24 @@ def resolve_spin_state(
     *,
     label: str,
 ) -> Tuple[int, int]:
+    """Reconcile the (uhf, multiplicity) pair describing a spin state.
+
+    Either value may be None; the missing one is derived from the relation
+    multiplicity = uhf + 1 (uhf = number of unpaired electrons). Both None
+    means a closed-shell singlet (0, 1).
+
+    Args:
+        uhf_value: raw uhf entry from the config, or None.
+        multiplicity_value: raw multiplicity entry, or None.
+        label: config location used in error messages.
+
+    Returns:
+        (uhf, multiplicity) as validated non-negative integers.
+
+    Raises:
+        ValueError: on negative uhf, multiplicity < 1, or an inconsistent
+            pair (multiplicity != uhf + 1).
+    """
     uhf = None if uhf_value is None else int(uhf_value)
     multiplicity = None if multiplicity_value is None else int(multiplicity_value)
 
@@ -377,6 +631,14 @@ def resolve_spin_state(
     return uhf, multiplicity
 
 def _normalize_index_list(raw: Any, *, label: str) -> List[int]:
+    """Convert user 0-based atom indices to a deduplicated 1-based list.
+
+    Accepts a single int/str or a sequence; preserves first-seen order.
+
+    Raises:
+        TypeError: on an unsupported container type.
+        ValueError: on a negative (invalid 0-based) index.
+    """
     if raw is None:
         return []
     if isinstance(raw, (int, str)):
@@ -399,6 +661,21 @@ def _normalize_index_list(raw: Any, *, label: str) -> List[int]:
     return normalized
 
 def resolve_backbone_atom_config(raw: Any, *, label: str) -> Dict[str, List[int]]:
+    """Normalize a monomer's ``backbone_atoms`` mapping.
+
+    Args:
+        raw: user mapping with optional 0-based ``head``/``tail``/``body``
+            atom lists, or None for the legacy default (atoms 0 and 1, i.e.
+            1-based head=[1], tail=[2]).
+        label: config location used in error messages.
+
+    Returns:
+        Dict with 1-based ``head``/``tail``/``body`` index lists.
+
+    Raises:
+        TypeError: when ``raw`` is not a mapping.
+        ValueError: when neither head nor tail is defined.
+    """
     if raw is None:
         return {"head": [1], "tail": [2], "body": []}
     if not isinstance(raw, dict):
@@ -412,6 +689,7 @@ def resolve_backbone_atom_config(raw: Any, *, label: str) -> Dict[str, List[int]
     return {"head": head, "tail": tail, "body": body}
 
 def export_backbone_atom_config(cfg: Dict[str, List[int]]) -> Dict[str, List[int]]:
+    """Convert an internal 1-based backbone config back to 0-based indices."""
     return {
         key: [int(value) - 1 for value in cfg.get(key, [])]
         for key in ("head", "tail", "body")
@@ -421,6 +699,24 @@ def normalize_monomer_configs(
     raw_monomers: Dict[str, Any],
     legacy_init_templates: Dict[str, Any],
 ) -> Dict[str, Dict[str, Any]]:
+    """Normalize the top-level ``monomers`` config section.
+
+    Each entry may be a bare XYZ path string or a mapping with ``xyz``
+    (required), ``init_template``, ``charge``, ``uhf``/``multiplicity``, and
+    ``backbone_atoms``. Missing init templates fall back to the legacy
+    ``bartender_pipeline.init_templates`` mapping.
+
+    Args:
+        raw_monomers: token -> raw monomer entry.
+        legacy_init_templates: token -> init template path fallback.
+
+    Returns:
+        token -> normalized dict with keys xyz, init_template, charge, uhf,
+        multiplicity, backbone_atoms (1-based).
+
+    Raises:
+        TypeError/ValueError: on malformed entries or a missing xyz path.
+    """
     normalized: Dict[str, Dict[str, Any]] = {}
     for token, raw_entry in raw_monomers.items():
         if isinstance(raw_entry, str):
@@ -456,6 +752,21 @@ def resolve_case_electronic_state(
     monomer_cfg: Dict[str, Dict[str, Any]],
     pipeline_cfg: Dict[str, Any],
 ) -> Dict[str, int]:
+    """Determine the total charge and spin state of one polymer case.
+
+    Charge and uhf are inferred by summing the per-monomer values over the
+    sequence tokens; an explicit ``bartender_pipeline.electronic_state``
+    mapping (or, legacy, a ``relaxation`` mapping) overrides them.
+
+    Returns:
+        Dict with charge, uhf, multiplicity plus the purely inferred
+        ``inferred_charge``/``inferred_uhf`` for provenance.
+
+    Raises:
+        TypeError: when the electronic_state config is not a mapping.
+        ValueError: propagated from ``resolve_spin_state`` on inconsistent
+            explicit uhf/multiplicity.
+    """
     inferred_charge = sum(int(monomer_cfg[token]["charge"]) for token in tokens)
     inferred_uhf = sum(int(monomer_cfg[token]["uhf"]) for token in tokens)
     state_cfg = pipeline_cfg.get("electronic_state")
@@ -488,12 +799,30 @@ def resolve_case_electronic_state(
     }
 
 def resolve_optional_path(base_dir: Path, raw_value: Any) -> Optional[Path]:
+    """Resolve an optional config path; empty/None becomes None."""
     value = str(raw_value or "").strip()
     if not value:
         return None
     return resolve_under_base(base_dir, value)
 
 def resolve_xtb_settings(pipeline_cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """Flatten ``bartender_pipeline.xtb`` (plus legacy fallbacks) to a dict.
+
+    Falls back to the legacy ``relaxation`` mapping for env_script, binary,
+    parallel count, solvent, MD temperature, and MD length when the modern
+    ``xtb`` mapping omits them.
+
+    Returns:
+        Dict of xTB settings. Units follow the key names: ``etemp`` and
+        ``md_temp_k`` in K, ``md_time_ps`` in ps, ``md_dump_fs`` and
+        ``md_step_fs`` in fs. The ``trim_*`` keys parameterize the
+        equilibration-trimming step applied to the xTB MD trajectory before
+        Bartender refitting (method "pymbar" or "energy_threshold").
+
+    Raises:
+        TypeError: when the xtb or xtb.md config is not a mapping.
+        ValueError: on an unsupported solvent_model (off/alpb/gbsa).
+    """
     legacy_relax_cfg = pipeline_cfg.get("relaxation", {})
     if not isinstance(legacy_relax_cfg, dict):
         legacy_relax_cfg = {}
@@ -546,6 +875,16 @@ def resolve_xtb_settings(pipeline_cfg: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 def resolve_orca_settings(pipeline_cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """Flatten ``bartender_pipeline.orca`` (plus legacy fallbacks) to a dict.
+
+    Returns:
+        Dict with binary, nprocs, method_line (default builds
+        "<orca_method> CPCM(<solvent>) Opt TightSCF" from legacy keys),
+        max_iter, and input_template_path.
+
+    Raises:
+        TypeError: when the orca config is not a mapping.
+    """
     legacy_relax_cfg = pipeline_cfg.get("relaxation", {})
     if not isinstance(legacy_relax_cfg, dict):
         legacy_relax_cfg = {}
@@ -569,6 +908,15 @@ def resolve_orca_settings(pipeline_cfg: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 def _inspect_configured_executable(base_dir: Path, raw_value: Any) -> Dict[str, Any]:
+    """Report how a configured executable resolves (path vs PATH lookup).
+
+    Returns:
+        Dict with ``configured`` (raw string), ``resolved`` (final path or
+        None), ``exists`` (bool), and ``lookup`` describing the strategy:
+        "PATH" for bare names, "path" for explicit paths, "path->PATH" when
+        a missing explicit path fell back to a PATH lookup of its basename,
+        "missing" for an empty entry.
+    """
     configured = str(raw_value or "").strip()
     if not configured:
         return {
@@ -597,6 +945,11 @@ def _inspect_configured_executable(base_dir: Path, raw_value: Any) -> Dict[str, 
     }
 
 def resolve_executable_command(base_dir: Path, raw_value: Any) -> str:
+    """Return the resolved executable path, or the raw string if unresolved.
+
+    Falling back to the configured string keeps generated scripts honest:
+    they fail loudly at run time instead of silently dropping the tool.
+    """
     payload = _inspect_configured_executable(base_dir, raw_value)
     resolved = str(payload.get("resolved") or "").strip()
     if resolved:
@@ -604,6 +957,7 @@ def resolve_executable_command(base_dir: Path, raw_value: Any) -> str:
     return str(payload.get("configured") or "").strip()
 
 def _inspect_optional_file(base_dir: Path, raw_value: Any) -> Dict[str, Any]:
+    """Report existence of an optional file entry; empty counts as OK."""
     configured = str(raw_value or "").strip()
     if not configured:
         return {
@@ -621,6 +975,24 @@ def _inspect_optional_file(base_dir: Path, raw_value: Any) -> Dict[str, Any]:
     }
 
 def check_configured_tools(cfg: Dict[str, Any], requested: Optional[Sequence[str]] = None) -> Dict[str, Any]:
+    """Verify that the configured external tool binaries can be found.
+
+    Backs the ``--check-tools`` CLI option: inspects the xtb, orca, and
+    bartender entries (or the subset in ``requested``) without running them.
+
+    Args:
+        cfg: full resolved config (needs ``paths.base_dir`` and
+            ``bartender_pipeline``).
+        requested: tool names to check; defaults to all three.
+
+    Returns:
+        Dict with overall ``ok`` (True only if every requested binary
+        exists), ``base_dir``, and a per-tool ``tools`` list of inspection
+        payloads (binary plus optional env_script/root entries).
+
+    Raises:
+        TypeError: when pipeline/bartender config sections are not mappings.
+    """
     requested_tools = [str(value).strip().lower() for value in (requested or ("xtb", "orca", "bartender"))]
     base_dir = Path(str(cfg["paths"]["base_dir"])).resolve()
     pipeline_cfg = cfg.get("bartender_pipeline", {})
@@ -669,6 +1041,16 @@ def check_configured_tools(cfg: Dict[str, Any], requested: Optional[Sequence[str
     }
 
 def resolve_execution_settings(pipeline_cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """Flatten ``bartender_pipeline.execution`` into a settings dict.
+
+    Returns:
+        Dict with run_relaxation, run_bartender (legacy fallback:
+        ``bartender.execute``), shell, slurm, use_srun. ``use_srun=true``
+        implies ``slurm=true``.
+
+    Raises:
+        TypeError: when the execution config is not a mapping.
+    """
     exec_cfg = pipeline_cfg.get("execution", {})
     if exec_cfg is None:
         exec_cfg = {}
@@ -693,6 +1075,7 @@ def resolve_execution_settings(pipeline_cfg: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 def _get_slurm_cpu_count() -> int:
+    """Return SLURM_CPUS_PER_TASK as an int >= 1, or 0 when unset/invalid."""
     val = str(os.environ.get("SLURM_CPUS_PER_TASK", "")).strip()
     if val:
         try:
@@ -702,6 +1085,14 @@ def _get_slurm_cpu_count() -> int:
     return 0
 
 def resolve_log_settings(pipeline_cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """Flatten ``bartender_pipeline.logs`` into a settings dict.
+
+    Returns:
+        Dict with enabled, dirname, write_validation, capture_runtime.
+
+    Raises:
+        TypeError: when the logs config is not a mapping.
+    """
     log_cfg = pipeline_cfg.get("logs", {})
     if log_cfg is None:
         log_cfg = {}
@@ -716,6 +1107,7 @@ def resolve_log_settings(pipeline_cfg: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 def ensure_case_logs_dir(case_dir: Path, log_cfg: Dict[str, Any]) -> Optional[Path]:
+    """Create and return the case logs directory, or None when disabled."""
     if not log_cfg.get("enabled", True):
         return None
     logs_dir = case_dir / str(log_cfg["dirname"])
@@ -729,6 +1121,30 @@ def execute_case_script(
     exec_cfg: Dict[str, Any],
     logs_dir: Optional[Path],
 ) -> Dict[str, Any]:
+    """Run one generated case script and optionally tee its output to logs.
+
+    When capture is enabled, stdout/stderr are streamed line-by-line to the
+    live terminal *and* to ``<label>.stdout``/``<label>.stderr`` inside
+    ``logs_dir`` using drain threads (so neither pipe can block). When
+    ``exec_cfg`` enables slurm+use_srun, the command is wrapped in
+    ``srun --export=ALL --ntasks=1``.
+
+    Args:
+        label: log-file stem, e.g. "relaxation" or "bartender".
+        script_path: script to execute (its basename is run via the shell).
+        cwd: working directory for the subprocess.
+        exec_cfg: resolved execution settings (shell/slurm/use_srun/...).
+        logs_dir: log directory, or None to disable capture.
+
+    Returns:
+        A manifest dict (script, cwd, shell, slurm flags, full command,
+        returncode, stdout/stderr log names).
+
+    Raises:
+        RuntimeError: on a non-zero exit (message carries the last 20
+            captured stderr lines when available) or when srun is requested
+            but not on PATH.
+    """
     capture_runtime = bool(logs_dir) and bool(exec_cfg.get("capture_runtime", True))
     command = [str(exec_cfg.get("shell", "bash")), script_path.name]
     slurm_enabled = parse_bool(exec_cfg.get("slurm", False), False)

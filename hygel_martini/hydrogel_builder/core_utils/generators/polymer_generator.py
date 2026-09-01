@@ -1,3 +1,19 @@
+"""Standalone single-polymer GRO/ITP generation.
+
+Owns the "polymer only" build path: reset the process-global ``World``
+singleton, build one polymer chain (optionally with side chains and angle
+terms), and write the matching ``.gro``/``.itp`` file pair through
+``core_utils.io.writer``. Called by
+``config_params.make_polymer_only.generate_polymer_only_from_config``.
+
+Inputs: chain length, bead spacing, and an optional polymer template config
+(``Polymer.configure`` payload). Outputs: ``<output_filename>.gro`` and a
+sibling ``.itp`` with the same stem.
+
+Gotcha: ``World`` is process-global mutable state, so each call discards any
+system built earlier in the same process.
+"""
+
 import os
 
 from hygel_martini.hydrogel_builder.main_components.Universe import World, initialize_world
@@ -52,6 +68,8 @@ def generate_single_polymer_gro(
 
     # 단일 고분자 시스템을 .gro 파일로 저장
     class MockDNAsys: # writer.write_to_gro가 요구하는 DNA 객체 흉내
+        """Empty DNA-system stand-in; defined here but not passed anywhere."""
+
         def __init__(self):
             self.dna_atoms_list = []
     

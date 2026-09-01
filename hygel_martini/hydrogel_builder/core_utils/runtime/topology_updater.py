@@ -1,8 +1,28 @@
+"""GROMACS ``.top`` file creation and in-place [ molecules ] maintenance.
+
+Owns the system topology file used by the packing/EM/genion stages: it writes
+the initial ``.top`` (ordered ``#include`` list plus empty ``[ molecules ]``
+section) and later rewrites the ``[ molecules ]`` counts as waters, ions, or
+extra molecules are added. Callers are the build orchestration in
+``config_params.read_json`` and the add_series stages.
+
+Invariant: the ``base_itp_file`` include always comes first, and duplicate
+includes are suppressed by absolute-path comparison.
+"""
+
 import re
 import os
 from hygel_martini.hydrogel_builder.config_params.config import Config
 
 def create_system_topology(output_dir, top_path, itp_files):
+    """Write a fresh system ``.top`` with ordered includes and an empty molecules list.
+
+    Args:
+        output_dir: Unused here; kept for the caller's signature symmetry.
+        top_path: Destination path of the ``.top`` file (overwritten).
+        itp_files: Molecule ``.itp`` paths appended after the base ITP and any
+            configured ``additional_itp_files``.
+    """
     # Get the base ITP file which should always be first.
     base_itp = Config.get_param('simulation_parameters', 'base_itp_file')
     

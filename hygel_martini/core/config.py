@@ -1,3 +1,24 @@
+"""Shared maker-config loading for hygel_martini command-line workflows.
+
+Owns the YAML/JSON config machinery used by the param_opt stage CLIs
+(qm_to_opls, opls_to_martini, qm_to_martini) and other tools that call
+``load_config``:
+
+- deep-merge of a user config over a workflow ``DEFAULT_CONFIG`` dict,
+- recursive ``includes:`` lists (entries resolved relative to the
+  including file; later includes override earlier ones, and the
+  including file overrides all of its includes),
+- ``${CONFIG_DIR}`` / ``${REPO_ROOT}`` substitution plus env-var and
+  ``~`` expansion for string values under the top-level ``paths``
+  section whose keys end with a path-like suffix,
+- ``--set key.path=value`` overrides with scalar type coercion,
+- argparse helpers registering the shared CLI options per workflow.
+
+Consumers receive a plain nested dict; workflow-specific keys are not
+validated here. Relative paths in ``paths`` resolve against the config
+file's directory, not the current working directory.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -11,12 +32,19 @@ from typing import Any, Dict, List
 from .utils import parse_csv_list, parse_int_csv, parse_semicolon_list
 
 
+# Two levels above hygel_martini/core/: the installable package root that
+# contains the hygel_martini package. Used for ${REPO_ROOT} substitution.
 REPO_ROOT = Path(__file__).resolve().parents[2]
 _INT_RE = re.compile(r"^[+-]?\d+$")
 _FLOAT_RE = re.compile(r"^[+-]?(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?$")
 
 
 def deep_update(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+    """Return a deep copy of ``base`` with ``override`` merged recursively.
+
+    Nested dicts are merged key by key; any non-dict value (including
+    lists) replaces the base value wholesale. Neither input is mutated.
+    """
     result = copy.deepcopy(base)
     for key, value in override.items():
         if isinstance(value, dict) and isinstance(result.get(key), dict):
@@ -27,6 +55,12 @@ def deep_update(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any
 
 
 def _load_yaml(path: Path) -> Dict[str, Any]:
+    """Load one YAML file whose root must be a mapping (empty file -> {}).
+
+    Raises:
+        RuntimeError: If PyYAML is not installed.
+        ValueError: If the document root is not a mapping.
+    """
     try:
         import yaml  # type: ignore
     except Exception as exc:
@@ -43,6 +77,11 @@ def _load_yaml(path: Path) -> Dict[str, Any]:
 
 
 def _load_single_config(path: Path) -> Dict[str, Any]:
+    """Load one .yaml/.yml/.json config file without include processing.
+
+    Raises:
+        ValueError: For unsupported extensions or a non-mapping root.
+    """
     suffix = path.suffix.lower()
     if suffix in {".yaml", ".yml"}:
         return _load_yaml(path)
@@ -55,6 +94,20 @@ def _load_single_config(path: Path) -> Dict[str, Any]:
 
 
 def _load_with_includes(path: Path, seen: List[Path] | None = None) -> Dict[str, Any]:
+    """Load a config file, recursively merging its ``includes`` chain.
+
+    Include paths are resolved relative to the including file. Includes
+    are merged in list order (later wins), and the including file's own
+    keys are merged last so they override everything they include.
+
+    Args:
+        path: Config file to load.
+        seen: Resolved paths already on the include stack, for cycle
+            detection.
+
+    Raises:
+        ValueError: On circular includes or a malformed ``includes`` list.
+    """
     if seen is None:
         seen = []
 
@@ -83,6 +136,12 @@ def _load_with_includes(path: Path, seen: List[Path] | None = None) -> Dict[str,
 
 
 def _resolve_path_value(value: str, config_dir: Path) -> str:
+    """Expand one path string to an absolute, resolved filesystem path.
+
+    Applies, in order: environment variables, ``~`` expansion,
+    ``${CONFIG_DIR}`` (directory of the config file) and ``${REPO_ROOT}``
+    substitution; a still-relative result is anchored at ``config_dir``.
+    """
     resolved = os.path.expanduser(os.path.expandvars(value))
     resolved = resolved.replace("${CONFIG_DIR}", str(config_dir))
     resolved = resolved.replace("${REPO_ROOT}", str(REPO_ROOT))
@@ -93,6 +152,13 @@ def _resolve_path_value(value: str, config_dir: Path) -> str:
 
 
 def _normalize_paths(cfg: Dict[str, Any], config_path: Path | None) -> Dict[str, Any]:
+    """Resolve path-like values under the top-level ``paths`` section.
+
+    Only string values whose key ends with ``_dir``/``_root``/``_path``/
+    ``_glob`` (or string items of lists whose key ends with the plural
+    forms) are rewritten; everything else is left untouched. Returns the
+    config unchanged when no config file exists (defaults-only run).
+    """
     if not config_path or not config_path.exists():
         return cfg
 
@@ -114,6 +180,12 @@ def _normalize_paths(cfg: Dict[str, Any], config_path: Path | None) -> Dict[str,
 
 
 def _parse_override_value(raw: str) -> Any:
+    """Coerce a ``--set`` value string to a Python scalar or container.
+
+    Recognized, in order: booleans, null/none, int, float, then YAML/JSON
+    literals for values starting with ``[``, ``{`` or a quote. Anything
+    unrecognized is returned as the raw (stripped) string.
+    """
     value = raw.strip()
     if value == "":
         return ""
@@ -151,6 +223,14 @@ def _parse_override_value(raw: str) -> Any:
 
 
 def _apply_set_override(cfg: Dict[str, Any], expr: str) -> None:
+    """Apply one ``key.path=value`` override to ``cfg`` in place.
+
+    Missing intermediate mappings are created on the fly.
+
+    Raises:
+        ValueError: If the expression has no ``=`` or an empty key path.
+        TypeError: If an intermediate key exists but is not a mapping.
+    """
     if "=" not in expr:
         raise ValueError(f"Invalid --set override: {expr!r}. Expected key.path=value")
 
@@ -175,6 +255,17 @@ def _apply_set_override(cfg: Dict[str, Any], expr: str) -> None:
 
 
 def load_config(config_path: Path | None, default_config: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    """Load a maker config merged over workflow defaults.
+
+    Args:
+        config_path: User config file; a missing/None path silently yields
+            the defaults only.
+        default_config: Workflow ``DEFAULT_CONFIG`` dict (deep-copied).
+
+    Returns:
+        The merged config with ``paths`` values normalized to absolute
+        paths (see ``_normalize_paths``).
+    """
     cfg = copy.deepcopy(default_config or {})
     if config_path and config_path.exists():
         user_cfg = _load_with_includes(config_path)
@@ -183,6 +274,13 @@ def load_config(config_path: Path | None, default_config: Dict[str, Any] | None 
 
 
 def apply_cli_overrides(cfg: Dict[str, Any], args: argparse.Namespace) -> Dict[str, Any]:
+    """Overlay recognized argparse options onto a copy of the config.
+
+    Each known CLI attribute, when not None, is written into its fixed
+    config location (e.g. ``--temp-c`` -> ``system.temperature_c``,
+    ``--out`` -> ``paths.out_root``). Generic ``--set`` expressions are
+    applied last, so they win over the dedicated flags.
+    """
     result = copy.deepcopy(cfg)
 
     if getattr(args, "symbols", None) is not None:
@@ -241,6 +339,7 @@ def apply_cli_overrides(cfg: Dict[str, Any], args: argparse.Namespace) -> Dict[s
 
 
 def add_config_args(parser: argparse.ArgumentParser) -> None:
+    """Register the ``--config`` / ``--dump-default-config`` options."""
     parser.add_argument(
         "--config",
         default="maker.yaml",
@@ -254,6 +353,7 @@ def add_config_args(parser: argparse.ArgumentParser) -> None:
 
 
 def add_sequence_override_args(parser: argparse.ArgumentParser) -> None:
+    """Register the sequence-selection override options shared by stages."""
     parser.add_argument("--symbols", default=None, help="Override: comma-separated symbols")
     parser.add_argument(
         "--sequences",
@@ -265,6 +365,7 @@ def add_sequence_override_args(parser: argparse.ArgumentParser) -> None:
 
 
 def add_opls_to_martini_cli_args(parser: argparse.ArgumentParser) -> None:
+    """Register the full option set of the 02 opls_to_martini CLI."""
     add_config_args(parser)
     add_sequence_override_args(parser)
 
@@ -294,6 +395,7 @@ def add_opls_to_martini_cli_args(parser: argparse.ArgumentParser) -> None:
 
 
 def add_qm_to_martini_cli_args(parser: argparse.ArgumentParser) -> None:
+    """Register the option set of the 03 qm_to_martini CLI."""
     add_config_args(parser)
     add_sequence_override_args(parser)
     parser.add_argument("--out", default=None)

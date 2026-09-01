@@ -41,6 +41,18 @@ __all__ = ["StrandTemplate", "load_strand_template"]
 
 @dataclass
 class StrandTemplate:
+    """One whole strand molecule, ready for rigid placement.
+
+    The local frame is chosen so placement is two rigid operations: coords
+    are centered on the midpoint between the two attachment atoms, and
+    ``attachment_axis`` (unit vector, head BCK1 -> tail BCK2) is what the
+    layout rotates onto the junction-gap segment. Index conventions match
+    what each consumer expects: ``internal_angles`` are 0-based bead
+    positions (construct_angles matches them against ``source_index``),
+    while ``internal_bonds``/``dihedrals_full``/``pairs``/... keep raw
+    1-based ITP indices (the populator maps them through original_index).
+    """
+
     id: str
     #: Every atom of the molecule, in ITP order. Nothing is skipped.
     beads: List[BeadTemplate]
@@ -74,6 +86,24 @@ class StrandTemplate:
 
 
 def load_strand_template(entry: Dict) -> StrandTemplate:
+    """Load a whole-strand template from ``{id, gro, itp[, molecule_name]}``.
+
+    Args:
+        entry: One BACKBONES ``template:`` mapping, with the backbone id
+            injected as ``id``.
+
+    Returns:
+        The parsed template; see :class:`StrandTemplate` for frame and
+        indexing conventions.
+
+    Raises:
+        ValueError: Missing paths, empty ITP, GRO/ITP atom-count mismatch,
+            anything other than exactly one BCK1 and one BCK2 atom name,
+            coincident attachment atoms (no axis), a massless atom, or an
+            angle row referencing a nonexistent atom -- every one of these
+            would otherwise become a silently shifted topology later.
+        FileNotFoundError: A named file does not exist.
+    """
     strand_id = entry.get("id")
     if not strand_id:
         raise ValueError("strand template 항목에는 'id'가 필요합니다.")

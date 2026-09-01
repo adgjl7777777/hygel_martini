@@ -1,4 +1,21 @@
-"""Periodic geometry primitives shared by PEG and Pluronic analyses."""
+"""Periodic geometry primitives shared by PEG and Pluronic analyses.
+
+Owns the orthorhombic-box contract for the analysis half of the
+package: box normalization, minimum image, wrapping, ordered-chain
+unwrapping, and single-conformation shape metrics (Rg, end-to-end,
+orientation tensor).  All functions take plain NumPy arrays; callers
+own the selection, PBC definition, and units (positions and boxes must
+share one length unit, typically nm) and must record them alongside
+results.
+
+Invariants/gotchas:
+    * Only orthorhombic (rectangular) boxes are accepted; a triclinic
+      3x3 box with off-diagonal terms raises.  The minimum-image math
+      itself lives in :mod:`hygel_martini.core.pbc` (single
+      implementation, which also serves the triclinic builder).
+    * ``unwrap_ordered_chain`` assumes consecutive rows are bonded
+      neighbors; it is wrong for an unordered selection.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +25,19 @@ from hygel_martini.core.pbc import minimum_image as core_minimum_image
 
 
 def orthorhombic_box_lengths(box: np.ndarray) -> np.ndarray:
-    """Normalize a 3-vector or diagonal 3x3 box to positive lengths."""
+    """Normalize a 3-vector or diagonal 3x3 box to positive lengths.
+
+    Args:
+        box: Either three box lengths, or a 3x3 matrix that must be
+            diagonal (off-diagonal magnitude <= 1e-12).
+
+    Returns:
+        Copy of the three positive box lengths as float.
+
+    Raises:
+        ValueError: For a triclinic (non-diagonal) matrix, a wrong
+            shape, or non-positive lengths.
+    """
     arr = np.asarray(box, dtype=float)
     if arr.shape == (3,):
         lengths = arr
@@ -31,13 +60,33 @@ def minimum_image_displacement(delta: np.ndarray, box: np.ndarray) -> np.ndarray
     assumes rectangular boxes and validates that. The convention itself lives
     in :mod:`hygel_martini.core.pbc` so there is one implementation to be
     right, and that one also handles triclinic cells for the builder.
+
+    Args:
+        delta: Displacement vector(s), shape ``(3,)`` or ``(n, 3)``.
+        box: Box lengths as accepted by
+            :func:`orthorhombic_box_lengths`.
+
+    Returns:
+        Minimum-image displacement(s) with the input shape.
     """
     lengths = orthorhombic_box_lengths(box)
     return core_minimum_image(delta, lengths)
 
 
 def wrap_positions(positions: np.ndarray, box: np.ndarray) -> np.ndarray:
-    """Wrap Cartesian positions into ``[0, L)`` for an orthorhombic box."""
+    """Wrap Cartesian positions into ``[0, L)`` for an orthorhombic box.
+
+    Args:
+        positions: Coordinates with shape ``(n, 3)``.
+        box: Box lengths as accepted by
+            :func:`orthorhombic_box_lengths`.
+
+    Returns:
+        Wrapped copy of the positions.
+
+    Raises:
+        ValueError: If positions are not ``(n, 3)``.
+    """
     lengths = orthorhombic_box_lengths(box)
     pos = np.asarray(positions, dtype=float)
     if pos.ndim != 2 or pos.shape[1] != 3:
@@ -46,7 +95,24 @@ def wrap_positions(positions: np.ndarray, box: np.ndarray) -> np.ndarray:
 
 
 def unwrap_ordered_chain(positions: np.ndarray, box: np.ndarray) -> np.ndarray:
-    """Unwrap a bonded/ordered chain using consecutive minimum images."""
+    """Unwrap a bonded/ordered chain using consecutive minimum images.
+
+    Row ``i`` must be the bonded neighbor of row ``i-1``: the chain is
+    rebuilt by adding each consecutive minimum-image displacement to
+    the previous unwrapped position, keeping the first position fixed.
+    Applying this to an unordered selection produces garbage.
+
+    Args:
+        positions: Wrapped chain coordinates, shape ``(n, 3)``, n >= 1.
+        box: Box lengths as accepted by
+            :func:`orthorhombic_box_lengths`.
+
+    Returns:
+        Unwrapped coordinates with the same shape.
+
+    Raises:
+        ValueError: If positions are empty or not ``(n, 3)``.
+    """
     pos = np.asarray(positions, dtype=float)
     if pos.ndim != 2 or pos.shape[1] != 3 or len(pos) == 0:
         raise ValueError("positions must be a non-empty array with shape (n,3)")
@@ -58,7 +124,23 @@ def unwrap_ordered_chain(positions: np.ndarray, box: np.ndarray) -> np.ndarray:
 
 
 def gyration_metrics(positions: np.ndarray) -> dict[str, object]:
-    """Return Rg, end-to-end distance, eigenvalues, and relative anisotropy."""
+    """Return Rg, end-to-end distance, eigenvalues, and relative anisotropy.
+
+    Positions must already be unwrapped (a wrapped chain gives a
+    meaningless tensor).  Lengths are in the caller's coordinate unit.
+
+    Args:
+        positions: Unwrapped coordinates, shape ``(n, 3)``, n >= 2.
+
+    Returns:
+        Dict with ``radius_of_gyration``, ``end_to_end`` (first to last
+        row), ``gyration_eigenvalues`` (ascending) and
+        ``relative_shape_anisotropy`` (kappa^2 in [0, 1]; 0 for a
+        degenerate zero tensor).
+
+    Raises:
+        ValueError: If positions are not ``(n, 3)`` with n >= 2.
+    """
     pos = np.asarray(positions, dtype=float)
     if pos.ndim != 2 or pos.shape[1] != 3 or len(pos) < 2:
         raise ValueError("positions must have shape (n,3) with n >= 2")
@@ -87,6 +169,19 @@ def bond_orientation_metrics(vectors: np.ndarray) -> dict[str, object]:
     ``Q = 3/2 <u u> - I/2`` for normalized vectors ``u``.  Its largest
     eigenvalue is the conventional uniaxial nematic order parameter only when
     that interpretation is appropriate for the selected bond population.
+
+    Args:
+        vectors: Bond vectors, shape ``(n, 3)``, finite and nonzero.
+
+    Returns:
+        Dict with ``n_vectors``, ``second_moment``,
+        ``orientation_tensor`` (Q), ``eigenvalues`` (ascending),
+        ``largest_eigenvalue`` and ``principal_axis`` (eigenvector of
+        the largest eigenvalue).
+
+    Raises:
+        ValueError: For an empty array, wrong shape, or non-finite /
+            zero-length vectors.
     """
     vec = np.asarray(vectors, dtype=float)
     if vec.ndim != 2 or vec.shape[1] != 3 or len(vec) == 0:

@@ -1,3 +1,24 @@
+"""MD requirement gate driven by ``md_requirements.yaml``.
+
+Decides, per property, whether the declared MD prerequisites (static
+inputs, MD output files, required XVG columns) are actually present on
+disk before an analysis is allowed to run.  Called by the job runner
+(:func:`analysis_jobs.run_analysis`) and the CLI ``requirements``
+subcommand.
+
+Gate semantics (an unsatisfied gate never raises for the caller; it is
+reported through :class:`RequirementStatus`):
+
+* a property absent from ``property_requirements`` is UNSATISFIED with
+  an explanatory note — an unregistered property cannot pass the gate;
+* ``required_inputs`` / ``required_outputs`` may be matched by the
+  caller-supplied ``available_files`` mapping (by key or basename) or
+  by globbing relative to ``base_dir``;
+* ``required_columns`` are verified inside every found ``.xvg``
+  artifact; parse failures and missing columns are ``invalid_inputs``;
+* ``required_md_jobs`` is declarative only — jobs are reported missing
+  when required outputs are absent, not probed directly.
+"""
 from __future__ import annotations
 import os
 from dataclasses import dataclass, field
@@ -6,6 +27,26 @@ from typing import Any
 
 @dataclass
 class RequirementStatus:
+    """Outcome of the requirement gate for one property.
+
+    Fields:
+        property_name: Property that was checked.
+        md_required: Whether the YAML declares MD output as required.
+        satisfied: True only if no inputs are missing and none are
+            invalid; the runner refuses to analyze otherwise.
+        validation_role: Interpretation role declared in the YAML
+            (propagated into the eventual PropertyResult).
+        required_md_jobs: MD job ids declared as prerequisites.
+        missing_required_inputs: Declared inputs/outputs not found on
+            disk (paths or glob patterns as written in the YAML).
+        missing_md_jobs: ``required_md_jobs`` echoed when MD is
+            required and outputs are missing; empty when satisfied.
+        invalid_inputs: Artifacts that exist but fail column checks or
+            cannot be parsed ("path: reason" strings).
+        notes: Free-text note from the YAML entry, or the reason the
+            property is unregistered.
+    """
+
     property_name: str
     md_required: bool
     satisfied: bool
@@ -17,6 +58,7 @@ class RequirementStatus:
     notes: str = ""
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize to a plain dict for JSON reports."""
         return {
             "property": self.property_name,
             "md_required": self.md_required,
@@ -31,9 +73,14 @@ class RequirementStatus:
 
 
 def _resolve_glob(pattern: str, base_dir: str) -> list[str]:
-    """
-    glob 패턴을 base_dir 기준으로 확장해 존재하는 파일 목록 반환.
-    패턴에 와일드카드가 없으면 단순 경로 존재 여부 확인.
+    """Expand a glob pattern relative to ``base_dir``.
+
+    Absolute patterns are used as-is.  A pattern without wildcards
+    degenerates to a plain existence check (glob returns the path only
+    if it exists).
+
+    Returns:
+        List of existing matching paths (possibly empty).
     """
     import glob as _glob
     full_pattern = pattern if os.path.isabs(pattern) else os.path.join(base_dir, pattern)
@@ -45,6 +92,11 @@ def _existing_input_by_basename(
     filename: str,
     available_files: dict[str, str],
 ) -> str | None:
+    """Return the first available-file value whose basename matches.
+
+    Only values that actually exist on disk qualify; returns ``None``
+    when nothing matches.
+    """
     for value in available_files.values():
         if not value:
             continue
@@ -57,6 +109,7 @@ def _existing_input_by_key(
     key: str,
     available_files: dict[str, str],
 ) -> str | None:
+    """Return ``available_files[key]`` if it points to an existing file."""
     value = available_files.get(key)
     if value and os.path.exists(str(value)):
         return str(value)
@@ -68,6 +121,15 @@ def _candidate_output_matches(
     base_dir: str,
     available_files: dict[str, str],
 ) -> list[str]:
+    """Find on-disk artifacts satisfying one ``required_outputs`` entry.
+
+    Tries a glob relative to ``base_dir`` first; if that finds nothing,
+    falls back to matching the pattern's basename against the values of
+    ``available_files`` (see inline comment for why).
+
+    Returns:
+        Existing paths accepted for this pattern (empty if none).
+    """
     matches = _resolve_glob(pattern, base_dir)
     if matches:
         return matches
@@ -81,6 +143,19 @@ def _candidate_output_matches(
 
 
 def _validate_required_columns(paths: list[str], columns: list[str]) -> list[str]:
+    """Check that every found .xvg artifact carries the required columns.
+
+    Non-XVG paths are ignored; when no .xvg is present the check is
+    vacuous (missing files are reported elsewhere as missing inputs).
+
+    Args:
+        paths: Artifacts already found on disk.
+        columns: Legend names required in each XVG (e.g. "Pres-XY").
+
+    Returns:
+        "path: reason" strings for XVGs that fail to parse or lack a
+        required column; empty when everything passes.
+    """
     if not columns:
         return []
 
@@ -109,12 +184,31 @@ def check_requirements(
     md_requirements_path: str,
     base_dir: str | None = None,
 ) -> RequirementStatus:
-    """
-    md_requirements.yaml에서 property_name의 요구조건을 읽고
-    available_files 및 파일 시스템 상태로 충족 여부를 확인한다.
+    """Evaluate one property's MD requirement gate against the filesystem.
 
-    available_files : {"top": "/path/system.top", "itp": "/path/hydrogel.itp", ...}
-    base_dir        : required_outputs의 glob 패턴 기준 디렉터리. None이면 현재 디렉터리.
+    Reads the ``property_requirements[property_name]`` entry of
+    md_requirements.yaml and checks its ``required_inputs``,
+    ``required_outputs`` (glob patterns allowed) and
+    ``required_columns`` against ``available_files`` and disk state.
+    Each declared input is matched in order by (1) ``available_files``
+    key, (2) basename of an ``available_files`` value, (3) glob under
+    ``base_dir``.
+
+    Args:
+        property_name: Canonical property name to look up.
+        available_files: Input mapping such as
+            ``{"top": "/path/system.top", "itp": "/path/hydrogel.itp"}``.
+        md_requirements_path: Path to md_requirements.yaml.
+        base_dir: Root for relative/glob patterns in the YAML; defaults
+            to the current working directory.
+
+    Returns:
+        A :class:`RequirementStatus`.  An unregistered property yields
+        ``satisfied=False`` with an explanatory note rather than an
+        exception.
+
+    Raises:
+        FileNotFoundError: If md_requirements.yaml itself is absent.
     """
     import yaml
 
@@ -222,7 +316,11 @@ def check_all_requirements(
     md_requirements_path: str,
     base_dir: str | None = None,
 ) -> dict[str, RequirementStatus]:
-    """여러 property에 대해 check_requirements를 일괄 실행."""
+    """Run :func:`check_requirements` for every property in ``properties``.
+
+    Returns:
+        ``{property_name: RequirementStatus}`` in input order.
+    """
     return {
         prop: check_requirements(prop, available_files, md_requirements_path, base_dir)
         for prop in properties

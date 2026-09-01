@@ -1,3 +1,18 @@
+"""Rule-based post-hoc patching of backbone bonded terms in ``World``.
+
+Applies the ``bonds``/``angles``/``dihedrals`` rules from a backbone patch
+YAML (``backbone.yaml``) onto the already-built global ``World`` topology:
+existing terms matching a rule get their funct/c0/c1 (or ``params``)
+overwritten, and missing angle/dihedral terms are created along bonded paths.
+Called by the hydrogel build orchestration after bonds exist; a bonds-only
+early pass is supported via ``sections=('bonds',)``.
+
+Rule matching tokens per position: a concrete residue name, ``*`` (any
+NON-backbone residue), or ``-`` (position excluded from the emitted term but
+still part of the matched path). Rules with more wildcards are applied first,
+so more specific rules win by overwriting later.
+"""
+
 import yaml
 import os
 from hygel_martini.hydrogel_builder.main_components.Universe import World
@@ -6,8 +21,18 @@ from hygel_martini.hydrogel_builder.main_components.Attributes import Angle, Dih
 def patch_backbone_topology(config_path, sections=('bonds', 'angles', 'dihedrals')):
     """
     Patches the World's Bonds, Angles and Dihedrals based on backbone.yaml rules.
-    sections: which sections to process. Default is all three.
-              Pass sections=('bonds',) for an early bonds-only pass before finalize_hydrogel.
+
+    Walks the bonded adjacency graph of ``World`` and, for every rule whose
+    residue-name/bead-type token lists match a bonded path, overwrites the
+    matched term's parameters (or creates the term when it does not exist,
+    for angles/dihedrals). A missing config file is a silent no-op.
+
+    Args:
+        config_path: Path to the backbone patch YAML with optional top-level
+            ``bonds``, ``angles``, and ``dihedrals`` rule lists.
+        sections: Which sections to process. Default is all three.
+            Pass sections=('bonds',) for an early bonds-only pass before
+            finalize_hydrogel.
     """
     if not os.path.exists(config_path):
         print(f"[INFO] Backbone patch config not found at {config_path}. Skipping.")
@@ -77,6 +102,13 @@ def patch_backbone_topology(config_path, sections=('bonds', 'angles', 'dihedrals
         adj.setdefault(j, []).append(i)
 
     def matches(atom, res_name_rule, bead_type_rule):
+        """Test one atom against a single rule position.
+
+        ``-`` matches anything (placeholder position); ``*`` matches any atom
+        whose residue is NOT a known backbone residue (subject to the bead
+        type); otherwise residue name and bead type must both match (each may
+        itself be ``*``).
+        """
         if res_name_rule == "-" or bead_type_rule == "-":
             return True
         if res_name_rule == "*":
@@ -92,6 +124,11 @@ def patch_backbone_topology(config_path, sections=('bonds', 'angles', 'dihedrals
         return True
 
     def find_paths(current_path, res_rules, type_rules):
+        """Yield simple bonded paths extending ``current_path`` to rule length.
+
+        Depth-first walk over the adjacency map; each appended neighbor must
+        match the rule tokens at its position and may not revisit an atom.
+        """
         if len(current_path) == len(res_rules):
             yield current_path
             return
@@ -108,6 +145,7 @@ def patch_backbone_topology(config_path, sections=('bonds', 'angles', 'dihedrals
         return rule.get('residue_name', []).count('*') + rule.get('bead_type', []).count('*')
 
     def normalize_param(value):
+        """Coerce a rule/term parameter to float (or None/str) for comparison."""
         if value in (None, ' ', ''):
             return None
         try:
@@ -116,6 +154,7 @@ def patch_backbone_topology(config_path, sections=('bonds', 'angles', 'dihedrals
             return str(value)
 
     def dihedral_signature_from_rule(rule):
+        """Build a comparable (funct, params...) signature from a YAML rule."""
         funct = normalize_param(rule['funct'])
         if 'params' in rule:
             return (funct, tuple(normalize_param(param) for param in rule['params']))
@@ -127,6 +166,7 @@ def patch_backbone_topology(config_path, sections=('bonds', 'angles', 'dihedrals
         )
 
     def dihedral_signature(dihedral):
+        """Build a comparable (funct, params...) signature from a World dihedral."""
         funct = normalize_param(dihedral.dihedral_funct)
         d_params = getattr(dihedral, "dihedral_params", None)
         if d_params is not None:

@@ -1,3 +1,20 @@
+"""Packmol wrappers and GRO/PDB/XYZ round-trip conversion helpers.
+
+Owns coordinate packing for the build pipeline: converting structures between
+GRO and PDB (via ``gmx editconf`` with pure-Python fallbacks), generating
+Packmol input decks, running Packmol, and post-processing the packed output
+back to GRO. Two entry points exist: ``pack_system_with_molecules`` (single
+Packmol run that adds molecules around a fixed base structure) and
+``pack_polymer_then_water_two_stage`` (polymers first, water second, no
+GROMACS involved).
+
+Units: internal coordinates and box lengths are nm; PDB/Packmol coordinates
+are Angstrom (conversion factor 10 applied at the file boundaries).
+
+Gotcha: the editconf PDB round trip loses the original GRO atom names, so
+``pack_system_with_molecules`` restores them by source order afterwards.
+"""
+
 import subprocess
 import os
 import sys
@@ -11,6 +28,9 @@ from hygel_martini.hydrogel_builder.config_params.config import Config
 def _normalize_box_lengths(box_lengths_nm, fallback=None):
     """
     Returns a [lx, ly, lz] list in nm. Accepts scalar or iterable input.
+
+    A single value is broadcast to all three axes; two values duplicate the
+    second for z. Returns None when neither input nor fallback is usable.
     """
     if box_lengths_nm is None:
         if fallback is None:
@@ -41,6 +61,12 @@ def _normalize_box_lengths(box_lengths_nm, fallback=None):
 
 
 def _gro_to_pdb_manual(gro_path, pdb_path):
+    """Convert GRO to PDB by fixed-column parsing (no GROMACS needed).
+
+    Fallback used when ``gmx editconf`` is unavailable or fails. Coordinates
+    are converted nm -> Angstrom; atom ids are renumbered sequentially and the
+    element column is guessed from the first atom-name character.
+    """
     try:
         with open(gro_path, 'r', encoding='utf-8') as f:
             lines = f.readlines()
@@ -99,6 +125,12 @@ def convert_pdb_to_gro(pdb_path, gro_path, gmx_path, box_lengths_nm=None):
 
 
 def _pdb_to_gro_manual(pdb_path, gro_path, box_lengths_nm=None):
+    """Convert PDB to GRO by fixed-column parsing (no GROMACS needed).
+
+    Fallback for ``convert_pdb_to_gro``. Coordinates are converted
+    Angstrom -> nm and the box line defaults to 10 nm per axis when no box is
+    given. Residue/atom ids are written modulo 100000 (GRO field width).
+    """
     lengths_nm = _normalize_box_lengths(box_lengths_nm, 10.0)
     lx, ly, lz = lengths_nm if lengths_nm else (10.0, 10.0, 10.0)
     atoms = []
@@ -191,6 +223,7 @@ def convert_xyz_to_gro(xyz_path, gro_path, gmx_path, molecule_name="MOL"):
         print(e, file=sys.stderr)
 
 def _read_gro_atom_names(gro_path):
+    """Read the atom-name column of a GRO file; empty list on any failure."""
     try:
         from hygel_martini.core.gro import read_gro_atom_names
         return read_gro_atom_names(gro_path)
@@ -200,6 +233,17 @@ def _read_gro_atom_names(gro_path):
         return []
 
 def _restore_atom_names_from_sources(output_gro, base_gro, molecules_to_add):
+    """Rewrite atom names in a packed GRO from the original source files.
+
+    The PDB round trip through editconf/Packmol can mangle GRO atom names.
+    Packmol preserves input order (base structure first, then each added
+    molecule repeated ``number`` times), so the expected name sequence is
+    reconstructed from the sources and written back column-wise.
+
+    Returns:
+        bool: True when names were restored; False when any source could not
+        be read or the atom counts disagree (output left untouched).
+    """
     expected_names = []
     base_names = _read_gro_atom_names(base_gro)
     if not base_names:
@@ -246,6 +290,22 @@ def _restore_atom_names_from_sources(output_gro, base_gro, molecules_to_add):
 def run_packmol(packmol_path, inp_filename, output_dir, sim_params=None):
     """
     Generates a Packmol input file and runs Packmol.
+
+    Runs the packmol binary with ``inp_filename`` on stdin from within
+    ``output_dir``. Packmol can exit 0 while failing, so stdout is also
+    scanned for error markers.
+
+    Args:
+        packmol_path: Packmol executable path or command name.
+        inp_filename: Prepared ``.inp`` deck (already written by the caller).
+        output_dir: Working directory for the run.
+        sim_params: Optional; when ``test_mode`` is truthy a missing packmol
+            binary returns None instead of raising.
+
+    Raises:
+        FileNotFoundError: Packmol binary missing (outside test mode).
+        subprocess.CalledProcessError: Non-zero exit or failure text in
+            stdout.
     """
     print("\n--- Running Packmol... ---")
     print(f"Input file generated at: {inp_filename}")
@@ -287,6 +347,11 @@ def run_packmol(packmol_path, inp_filename, output_dir, sim_params=None):
 
 
 def _packmol_log_succeeded(log_path):
+    """Return True when a Packmol log reports clean success.
+
+    Requires the "Success!" marker and the absence of the imperfect-packing
+    and STOP markers.
+    """
     if not os.path.exists(log_path):
         return False
     with open(log_path, "r", encoding="utf-8", errors="replace") as handle:
@@ -299,6 +364,12 @@ def _packmol_log_succeeded(log_path):
 
 
 def _run_packmol_to_log(packmol_path, inp_filename, output_dir, log_filename, stage_name):
+    """Run one Packmol stage, teeing stdout+stderr into a log file.
+
+    Raises:
+        RuntimeError: Non-zero exit code or a log that does not pass
+            ``_packmol_log_succeeded``.
+    """
     print(f"[PACKMOL_{stage_name}_START] input={inp_filename} log={log_filename}", flush=True)
     with open(inp_filename, "r", encoding="utf-8") as stdin, open(log_filename, "w", encoding="utf-8") as stdout:
         result = subprocess.run(
@@ -315,6 +386,7 @@ def _run_packmol_to_log(packmol_path, inp_filename, output_dir, log_filename, st
 
 
 def _read_pdb_atoms_nm(pdb_path):
+    """Parse ATOM/HETATM records into dicts with coordinates in nm."""
     atoms = []
     with open(pdb_path, "r", encoding="utf-8") as handle:
         for raw in handle:
@@ -338,6 +410,16 @@ def _read_pdb_atoms_nm(pdb_path):
 
 
 def _normalize_pdb_atoms_to_box(atoms, box_lengths_nm):
+    """Shift atoms to non-negative coordinates and grow the box to fit them.
+
+    Packmol can place atoms slightly outside the requested region; this keeps
+    every coordinate >= ~0.01 nm and expands each box length to cover the
+    maximum extent plus a 0.01 nm margin.
+
+    Returns:
+        (atoms, lengths): the (possibly shifted, mutated in place) atom list
+        and the adjusted [lx, ly, lz] in nm.
+    """
     lengths = _normalize_box_lengths(box_lengths_nm, None)
     if not atoms:
         return atoms, lengths
@@ -369,6 +451,7 @@ def _normalize_pdb_atoms_to_box(atoms, box_lengths_nm):
 
 
 def _write_gro_from_pdb_atoms(gro_path, atoms, box_lengths_nm, title):
+    """Write atom dicts from ``_read_pdb_atoms_nm`` as a GRO file (nm units)."""
     lx, ly, lz = _normalize_box_lengths(box_lengths_nm, 10.0)
     with open(gro_path, "w", encoding="utf-8") as handle:
         handle.write(f"{title}\n")
@@ -385,6 +468,13 @@ def _write_gro_from_pdb_atoms(gro_path, atoms, box_lengths_nm, title):
 
 
 def _min_inter_polymer_molecule_distance(atoms, polymer_atom_count):
+    """Minimum distance (nm) between atoms of different polymer molecules.
+
+    Non-SOL atoms are grouped into consecutive blocks of
+    ``polymer_atom_count`` atoms (one block per polymer copy) and all
+    inter-block pair distances are checked exhaustively (O(N^2), no PBC).
+    Returns None when there are fewer than two polymer molecules.
+    """
     if not polymer_atom_count or polymer_atom_count <= 0:
         return None
     polymer_atoms = [atom for atom in atoms if atom["residue"] != "SOL"]
@@ -437,6 +527,28 @@ def pack_polymer_then_water_two_stage(
     single Packmol input containing both polymer and water is too sensitive to
     seed/geometry. It intentionally runs only Packmol and writes coordinates;
     it does not run GROMACS.
+
+    Stage 1 packs ``polymer_count`` copies of ``polymer_pdb`` in the box;
+    stage 2 holds that result fixed and packs ``water_count`` copies of
+    ``water_pdb`` around it. The packed PDB is normalized to the box and
+    written as ``final_output_gro``.
+
+    Args:
+        box_lengths_nm: Scalar or [lx, ly, lz] box lengths in nm (Packmol
+            decks are written in Angstrom).
+        tolerance: Packmol minimum-distance tolerance in Angstrom.
+        polymer_atom_count: Atoms per polymer molecule; enables the
+            inter-chain minimum-distance audit metric when given.
+        audit_json: Optional path; when set the audit dict is also written
+            there as JSON.
+
+    Returns:
+        dict: Audit payload (atom/residue counts, box, stage inputs/logs, and
+        ``min_interchain_polymer_distance_nm``).
+
+    Raises:
+        ValueError: Unusable ``box_lengths_nm``.
+        RuntimeError: Either Packmol stage failed.
     """
     os.makedirs(output_dir, exist_ok=True)
     lengths_nm = _normalize_box_lengths(box_lengths_nm, None)
@@ -544,6 +656,11 @@ def pack_system_with_molecules(step_name, base_structure_gro, molecules_to_add, 
         final_output_gro (str): Path for the final, packed .gro file.
         box_lengths_nm (Sequence[float]): The box lengths (nm) along x/y/z.
         sim_params (dict): Dictionary of simulation parameters from the config.
+
+    Returns:
+        tuple[str, bool]: (path of the resulting .gro, True when packing ran).
+        In test mode with packmol missing, the base structure is copied
+        unchanged and the flag is False.
     """
     print(f"\n--- pack_system_with_molecules: Packing into {final_output_gro} ---")
     output_dir = sim_params['output_dir']

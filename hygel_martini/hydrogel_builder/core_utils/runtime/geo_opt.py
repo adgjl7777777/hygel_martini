@@ -1,5 +1,15 @@
 """
 Geometry optimization helpers (grompp/mdrun) with consistent stdout/stderr logging.
+
+Owns the energy-minimization (EM) step of the build pipeline: it writes a
+``minim.mdp`` from defaults plus config overrides, runs ``gmx grompp`` and
+``gmx mdrun`` (optionally under mpirun and/or on a GPU), and returns the path
+of the minimized structure. ``_run_with_logs`` is also imported by other
+runtime modules (e.g. add_small_ion) as the shared subprocess wrapper.
+
+Gotcha: ``run_geo_opt`` reports failure by returning None rather than
+raising, and may still return a usable ``.gro`` even when mdrun exited
+non-zero.
 """
 import os
 import subprocess
@@ -98,6 +108,20 @@ def _create_mdp_file(
 ):
     """
     Creates a gromacs .mdp file for energy minimization in the specified directory.
+
+    Args:
+        directory: Output directory; the file is always named ``minim.mdp``.
+        cell_opt: Accepted but has no effect on the written file (see the
+            note below on steepest-descent EM).
+        em_tol: ``emtol`` — maximum force convergence target (kJ/mol/nm).
+        nsteps: ``nsteps`` — maximum number of minimization steps.
+        mdp_overrides: Optional mapping of mdp keys to values. ``define`` is
+            emitted as its own line; keys outside the six templated names are
+            written through generically (underscores become dashes, booleans
+            become yes/no). ``None`` values are ignored.
+
+    Returns:
+        str: Path of the written ``minim.mdp``.
     """
     # Regarding cell_opt, for energy minimization with 'steep' integrator, the box is not changed.
     # An NPT run would be needed for cell equilibration. The user's request for
@@ -195,7 +219,17 @@ def run_geo_opt(
         em_tol (float): The energy minimization tolerance (emtol in .mdp).
         nsteps (int): Maximum number of steps for minimization (nsteps in .mdp).
         maxwarn (int): Number of warnings to ignore with gmx grompp.
+        mdp_overrides (dict | None): Extra/overriding .mdp keys, passed to
+            _create_mdp_file. A "define" containing POSRES also makes grompp
+            receive "-r <structure>" for position-restraint references.
+        deffnm_prefix (str): Basename for tpr/gro/log outputs (default "em").
         mdrun_extra_args (list[str] | None): Extra args appended to mdrun.
+        gpu_id (int | None): GPU selector forwarded to build_mdrun_cmd; None
+            forces CPU-only flags in the non-MPI case.
+        ntomp (int | None): OpenMP threads per rank. When None, SLURM env
+            vars are consulted; if still unset GROMACS auto-detects.
+        mpi_np (int | None): When set, run mdrun under "mpirun -np N".
+        mpi_args (list[str] | None): Extra args placed after mpirun -np N.
 
     Returns:
         str: The absolute path to the optimized structure file (.gro), or None if it failed.
