@@ -232,6 +232,19 @@ def _plan_explicit_graph_crosslinks(
                     f"{len(stubs)} stubs; a junction cannot bond more ends than arms"
                 )
             unpaired_planned[linker_index] = planned
+            # With cap machinery the layout has already decided WHICH arms
+            # reacted (their cap atoms were never emitted); only those stubs
+            # may take an endpoint. Without caps every stub is a candidate,
+            # exactly as before.
+            candidate_stubs = [
+                stub for stub in stubs if getattr(stub, "cap_reacted", True)
+            ]
+            if len(planned) > len(candidate_stubs):
+                raise ValueError(
+                    f"Linker {linker_index}: {len(planned)} planned endpoints "
+                    f"but only {len(candidate_stubs)} reacted (cap-removed) "
+                    "stubs; the layout's arm selection and the plan disagree"
+                )
             resolved = []
             for endpoint_id in planned:
                 if endpoint_id not in endpoint_lookup:
@@ -247,10 +260,10 @@ def _plan_explicit_graph_crosslinks(
 
             best_order = None
             best_cost = None
-            for order in permutations(range(len(stubs)), len(resolved)):
+            for order in permutations(range(len(candidate_stubs)), len(resolved)):
                 cost = sum(
                     pbc_distance(
-                        stubs[stub_position].position, atom.position, box_size
+                        candidate_stubs[stub_position].position, atom.position, box_size
                     )
                     for stub_position, (_, atom) in zip(order, resolved)
                 )
@@ -259,7 +272,7 @@ def _plan_explicit_graph_crosslinks(
                     best_order = order
             chosen = []
             for stub_position, (endpoint_id, atom) in zip(best_order or (), resolved):
-                stub = stubs[stub_position]
+                stub = candidate_stubs[stub_position]
                 chosen.append(
                     StubAssignment(
                         linker_index=linker_index,

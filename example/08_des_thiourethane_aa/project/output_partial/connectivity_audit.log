@@ -1,21 +1,21 @@
 itp: /nas_1/transcendence/2026_2/omni_hygel_package/package/example/08_des_thiourethane_aa/project/output_partial/initial_hydrogel.itp
 gro: /nas_1/transcendence/2026_2/omni_hygel_package/package/example/08_des_thiourethane_aa/project/output_partial/initial_hydrogel.gro
-atoms: 7612
-bonds: 7632
+atoms: 7940
+bonds: 7960
 components: 36
-largest_component_atoms: 1847
-largest_component_fraction: 0.242643
-component_sizes: 1847 1527 247 247 247 247 247 247 247 247 87 87
+largest_component_atoms: 1897
+largest_component_fraction: 0.238917
+component_sizes: 1897 1569 257 257 257 257 257 257 257 257 93 93
 component_composition:
-  1: size=1847 residues=(HEX:972, STR:875) atoms=(C06:23, C07:23, O0B:23, C0C:23, C0D:23, C0H:23, C0K:23, C0N:23)
-  2: size=1527 residues=(HEX:810, STR:717) atoms=(C06:19, C07:19, O0B:19, C0C:19, C0D:19, C0H:19, C0K:19, C0N:19)
-  3: size=247 residues=(HEX:162, STR:85) atoms=(C06:3, C07:3, O0B:3, C0C:3, C0D:3, C0H:3, C0K:3, C0N:3)
-  4: size=247 residues=(HEX:162, STR:85) atoms=(C06:3, C07:3, O0B:3, C0C:3, C0D:3, C0H:3, C0K:3, C0N:3)
-  5: size=247 residues=(HEX:162, STR:85) atoms=(C06:3, C07:3, O0B:3, C0C:3, C0D:3, C0H:3, C0K:3, C0N:3)
-  6: size=247 residues=(HEX:162, STR:85) atoms=(C06:3, C07:3, O0B:3, C0C:3, C0D:3, C0H:3, C0K:3, C0N:3)
-  7: size=247 residues=(HEX:162, STR:85) atoms=(C06:3, C07:3, O0B:3, C0C:3, C0D:3, C0H:3, C0K:3, C0N:3)
-  8: size=247 residues=(HEX:162, STR:85) atoms=(C06:3, C07:3, O0B:3, C0C:3, C0D:3, C0H:3, C0K:3, C0N:3)
-  9: size=247 residues=(HEX:162, STR:85) atoms=(C06:3, C07:3, O0B:3, C0C:3, C0D:3, C0H:3, C0K:3, C0N:3)
-  10: size=247 residues=(HEX:162, STR:85) atoms=(C06:3, C07:3, O0B:3, C0C:3, C0D:3, C0H:3, C0K:3, C0N:3)
-  11: size=87 residues=(HEX:81, STR:6) atoms=(C01:1, C02:1, C03:1, O04:1, O05:1, C06:1, C07:1, C08:1)
-  12: size=87 residues=(HEX:81, STR:6) atoms=(C01:1, C02:1, C03:1, O04:1, O05:1, C06:1, C07:1, C08:1)
+  1: size=1897 residues=(HEX:1022, STR:875) atoms=(C06:23, C07:23, O0B:23, C0C:23, C0D:23, C0H:23, C0K:23, C0N:23)
+  2: size=1569 residues=(HEX:852, STR:717) atoms=(C06:19, C07:19, O0B:19, C0C:19, C0D:19, C0H:19, C0K:19, C0N:19)
+  3: size=257 residues=(HEX:172, STR:85) atoms=(C06:3, C07:3, O0B:3, C0C:3, C0D:3, C0H:3, C0K:3, C0N:3)
+  4: size=257 residues=(HEX:172, STR:85) atoms=(C06:3, C07:3, O0B:3, C0C:3, C0D:3, C0H:3, C0K:3, C0N:3)
+  5: size=257 residues=(HEX:172, STR:85) atoms=(C06:3, C07:3, O0B:3, C0C:3, C0D:3, C0H:3, C0K:3, C0N:3)
+  6: size=257 residues=(HEX:172, STR:85) atoms=(C06:3, C07:3, O0B:3, C0C:3, C0D:3, C0H:3, C0K:3, C0N:3)
+  7: size=257 residues=(HEX:172, STR:85) atoms=(C06:3, C07:3, O0B:3, C0C:3, C0D:3, C0H:3, C0K:3, C0N:3)
+  8: size=257 residues=(HEX:172, STR:85) atoms=(C06:3, C07:3, O0B:3, C0C:3, C0D:3, C0H:3, C0K:3, C0N:3)
+  9: size=257 residues=(HEX:172, STR:85) atoms=(C06:3, C07:3, O0B:3, C0C:3, C0D:3, C0H:3, C0K:3, C0N:3)
+  10: size=257 residues=(HEX:172, STR:85) atoms=(C06:3, C07:3, O0B:3, C0C:3, C0D:3, C0H:3, C0K:3, C0N:3)
+  11: size=93 residues=(HEX:87, STR:6) atoms=(C01:1, C02:1, C03:1, O04:1, O05:1, C06:1, C07:1, C08:1)
+  12: size=93 residues=(HEX:87, STR:6) atoms=(C01:1, C02:1, C03:1, O04:1, O05:1, C06:1, C07:1, C08:1)

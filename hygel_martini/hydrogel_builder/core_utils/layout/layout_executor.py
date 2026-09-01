@@ -570,12 +570,46 @@ def build_atom_blueprint(layout_plan: LayoutPlan,
         component_entry = chain.definition or {}
         component_id = component_entry.get('id', f"LINKER_{chain_idx}")
         atom_indices: List[int] = []
+
+        # Per-stub caps (computed before the body loop, which must withhold
+        # them): a cap atom (an unreacted arm's thiol hydrogen, say) is a real
+        # template body atom that exists only while its stub is unreacted.
+        # Reacted stub positions come from the layout metadata (chosen with
+        # the conversion RNG for partial builds; every position otherwise). A
+        # reacted arm's cap atoms are simply never emitted, so every bonded
+        # term referencing them drops out of the original-index map naturally.
+        _definition_early = component_entry.get('definition', component_entry)
+        stub_caps_def = _definition_early.get('stub_caps') or []
+        caps_configured = any(spec for spec in stub_caps_def)
+        _stub_count = len(_definition_early.get('stub_definitions', []) or [])
+        reacted_positions = set(
+            chain.metadata.get('reacted_stub_positions', range(_stub_count))
+            if chain.metadata else range(_stub_count)
+        )
+        withheld_body_positions = set()
+        body_overrides = {}
+        if caps_configured:
+            for position in reacted_positions:
+                if position < len(stub_caps_def) and stub_caps_def[position]:
+                    spec = stub_caps_def[position]
+                    withheld_body_positions.update(spec.get('cap_body_positions', ()))
+                    # Overrides may also retouch body atoms of the reacted arm
+                    # (keyed by original 1-based ITP index).
+                    body_overrides.update(spec.get('overrides') or {})
+
         for bead_idx, position in enumerate(chain.positions):
+            if bead_idx in withheld_body_positions:
+                continue
             params = _linker_atom_params(component_entry, bead_idx)
             template = chain.template
             original_index = None
             if template and bead_idx < len(getattr(template, "beads", [])):
                 original_index = getattr(template.beads[bead_idx], "original_index", bead_idx + 1)
+            override = body_overrides.get(original_index)
+            if override:
+                for key, param_key in (('charge', 'charge'), ('type', 'atom_type'), ('mass', 'mass')):
+                    if key in override:
+                        params[param_key] = override[key]
             atoms.append(AtomBlueprint(
                 chain_type='linker',
                 chain_index=chain_idx,
@@ -677,82 +711,107 @@ def build_atom_blueprint(layout_plan: LayoutPlan,
         orientation = chain.metadata.get('orientation') if chain.metadata else None
         multi_arm = len(stub_loops) != 2
 
+
         for external_bonds, stub_type, stub_def_idx in stub_loops:
             stub_definitions = definition.get('stub_definitions', [])
             if not external_bonds or not stub_definitions or stub_def_idx >= len(stub_definitions):
                 continue
-            
+
             original_stub_def = stub_definitions[stub_def_idx]
 
-            for stub_idx, ext in enumerate(external_bonds):
-                bead_idx = int(ext.get('from_bead', 0))
-                if bead_idx < 0 or bead_idx >= len(chain.positions):
-                    continue
-                
-                target_bb = ext.get('to_backbone')
-                if target_bb == 'dummy_id':
-                    target_bb = None
-                
-                # Use original stub properties for naming, but backbone_residue_name for residue
-                raw_backbone_name = definition.get('backbone_name') or definition.get('backbone_residue_name') or 'STUBRES'
-                if isinstance(raw_backbone_name, list) and len(raw_backbone_name) > 0:
-                    res_name = raw_backbone_name[stub_def_idx % len(raw_backbone_name)]
-                else:
-                    res_name = raw_backbone_name
+            # One blueprint atom PER STUB. The loop used to emit one atom per
+            # body-attachment row, which duplicated the stub atom whenever a
+            # stub had two body bonds (an unreacted thiol sulfur: CH2 and H).
+            # All attachment rows now ride along in 'stub_body_bonds' and the
+            # populator creates each bond; the first row keeps the legacy
+            # single-bond keys so older consumers see what they always saw.
+            first_ext = external_bonds[0]
+            bead_idx = int(first_ext.get('from_bead', 0))
+            if bead_idx < 0 or bead_idx >= len(chain.positions):
+                continue
 
-                params = {
-                    'atom_name': original_stub_def.get('atom', 'STUB'),
-                    'atom_type': original_stub_def.get('type', 'P5'),
-                    'residue_name': res_name,
-                    'residue_number': original_stub_def.get('resnr', 1),
-                    'charge_group_number': original_stub_def.get('cgnr', 1),
-                    'mass': original_stub_def.get('mass', 72.0),
-                    'charge': original_stub_def.get('charge', 0.0)
-                }
+            target_bb = first_ext.get('to_backbone')
+            if target_bb == 'dummy_id':
+                target_bb = None
 
-                if multi_arm and arm_vectors is not None and stub_def_idx < len(arm_vectors):
-                    # A multi-arm junction is anchored on its stub centroid,
-                    # so each stub sits at its template arm position; the
-                    # two-stub axis projection below has no meaning for it.
-                    arm = np.asarray(arm_vectors[stub_def_idx], dtype=np.float64)
-                    if orientation is not None:
-                        arm = np.asarray(orientation, dtype=np.float64).reshape(3, 3) @ arm
-                    stub_pos = anchor + arm
-                else:
-                    bead_pos = np.array(chain.positions[bead_idx], dtype=np.float64)
-                    proj = float(np.dot(bead_pos - anchor, axis_dir))
-                    sign = 1.0 if proj >= 0 else -1.0
-                    _proto_linker = getattr(layout_plan.proto_plan, 'proto_linker', None)
-                    ext_length = float(ext.get('length', _proto_linker.length if _proto_linker is not None else 0.0))
-                    stub_pos = bead_pos + axis_dir * ext_length * sign
-                
-                extra = {
-                    'stub_from_bead': bead_idx,
-                    'target_backbone': target_bb,
-                    'external_params': {k: v for k, v in ext.items() if k not in ('from_bead', 'to_backbone')},
-                    'is_terminal_backbone': True,
-                    'stub_type': stub_type,
-                    'source_template': chain.template,
-                    'original_index': original_stub_def.get('nr')
-                }
-                
-                atoms.append(AtomBlueprint(
-                    chain_type='linker',
-                    chain_index=chain_idx,
-                    bead_index=-(stub_idx + 10 * (stub_def_idx + 1)), # Ensure unique negative index
-                    position=stub_pos,
-                    component_id=target_bb or component_id,
-                    atom_name=params['atom_name'],
-                    atom_type=params['atom_type'],
-                    residue_name=params['residue_name'],
-                    residue_number=params['residue_number'],
-                    charge_group_number=params['charge_group_number'],
-                    mass=params['mass'],
-                    charge=params['charge'],
-                    backbone_type=target_bb,
-                    extra=extra
-                ))
-                atom_indices.append(len(atoms) - 1)
+            # Use original stub properties for naming, but backbone_residue_name for residue
+            raw_backbone_name = definition.get('backbone_name') or definition.get('backbone_residue_name') or 'STUBRES'
+            if isinstance(raw_backbone_name, list) and len(raw_backbone_name) > 0:
+                res_name = raw_backbone_name[stub_def_idx % len(raw_backbone_name)]
+            else:
+                res_name = raw_backbone_name
+
+            params = {
+                'atom_name': original_stub_def.get('atom', 'STUB'),
+                'atom_type': original_stub_def.get('type', 'P5'),
+                'residue_name': res_name,
+                'residue_number': original_stub_def.get('resnr', 1),
+                'charge_group_number': original_stub_def.get('cgnr', 1),
+                'mass': original_stub_def.get('mass', 72.0),
+                'charge': original_stub_def.get('charge', 0.0)
+            }
+            # Per-stub cap: a reacted arm applies its declared overrides
+            # (typically the sulfur's charge/type in reacted form).
+            stub_caps = definition.get('stub_caps') or []
+            cap_spec = stub_caps[stub_def_idx] if stub_def_idx < len(stub_caps) else None
+            cap_reacted = stub_def_idx in reacted_positions if caps_configured else True
+            if cap_spec and cap_reacted:
+                override = (cap_spec.get('overrides') or {}).get(
+                    original_stub_def.get('nr'), {}
+                )
+                for key, param_key in (('charge', 'charge'), ('type', 'atom_type'), ('mass', 'mass')):
+                    if key in override:
+                        params[param_key] = override[key]
+
+            if multi_arm and arm_vectors is not None and stub_def_idx < len(arm_vectors):
+                # A multi-arm junction is anchored on its stub centroid,
+                # so each stub sits at its template arm position; the
+                # two-stub axis projection below has no meaning for it.
+                arm = np.asarray(arm_vectors[stub_def_idx], dtype=np.float64)
+                if orientation is not None:
+                    arm = np.asarray(orientation, dtype=np.float64).reshape(3, 3) @ arm
+                stub_pos = anchor + arm
+            else:
+                bead_pos = np.array(chain.positions[bead_idx], dtype=np.float64)
+                proj = float(np.dot(bead_pos - anchor, axis_dir))
+                sign = 1.0 if proj >= 0 else -1.0
+                _proto_linker = getattr(layout_plan.proto_plan, 'proto_linker', None)
+                ext_length = float(first_ext.get('length', _proto_linker.length if _proto_linker is not None else 0.0))
+                stub_pos = bead_pos + axis_dir * ext_length * sign
+
+            extra = {
+                'stub_from_bead': bead_idx,
+                'target_backbone': target_bb,
+                'external_params': {k: v for k, v in first_ext.items() if k not in ('from_bead', 'to_backbone')},
+                'stub_body_bonds': [
+                    (int(ext.get('from_bead', 0)),
+                     {k: v for k, v in ext.items() if k not in ('from_bead', 'to_backbone')})
+                    for ext in external_bonds
+                ],
+                'is_terminal_backbone': True,
+                'stub_type': stub_type,
+                'cap_reacted': cap_reacted,
+                'source_template': chain.template,
+                'original_index': original_stub_def.get('nr')
+            }
+
+            atoms.append(AtomBlueprint(
+                chain_type='linker',
+                chain_index=chain_idx,
+                bead_index=-(10 * (stub_def_idx + 1)), # unique negative index per stub
+                position=stub_pos,
+                component_id=target_bb or component_id,
+                atom_name=params['atom_name'],
+                atom_type=params['atom_type'],
+                residue_name=params['residue_name'],
+                residue_number=params['residue_number'],
+                charge_group_number=params['charge_group_number'],
+                mass=params['mass'],
+                charge=params['charge'],
+                backbone_type=target_bb,
+                extra=extra
+            ))
+            atom_indices.append(len(atoms) - 1)
 
         chains.append(ChainBlueprint(
             chain_type='linker',

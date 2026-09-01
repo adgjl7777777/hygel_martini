@@ -347,10 +347,26 @@ pairs. The project supplies those entries; example 08's
 ``build_templates.py`` shows one way to generate them mechanically from a
 small model compound of the formed linkage.
 
-Known limits of the all-atom path, in one place: partial conversion leaves
-unreacted stubs in their reacted form (no per-stub cap atoms yet -- for a
-thiol junction that means a missing S-H hydrogen per unreacted arm);
-impropers spanning a builder-created bond are not generated (the carbonyl
+**Per-stub cap atoms** make partial conversion chemically faithful. A linker
+entry may declare, per stub::
+
+    stub_caps:
+      - {cap_atoms: [H1C], reacted: {S00: {charge: -0.2749, type: lkS}}}
+      ...
+
+The template is then the *unreacted* molecule: a cap atom (the thiol
+hydrogen) is a real body atom bonded to its stub that exists only while the
+arm is unreacted; when the layout marks an arm reacted (chosen per junction
+from a stream derived from the conversion seed), its caps are never emitted
+-- every bonded term referencing them drops out of the index maps naturally
+-- and the ``reacted`` overrides (charge/type/mass) are applied, so a
+charge-folding override keeps each junction exactly neutral at any
+conversion. The crosslink router bonds only reacted arms. Force-field note:
+angles touching a stub atom are parameterless in both arm states, so the
+project's ``[ angletypes ]`` must carry each entry under both sulfur types
+(example 08's ``build_templates.py`` emits them mechanically).
+
+Known limits of the all-atom path, in one place: impropers spanning a builder-created bond are not generated (the carbonyl
 planarity improper at a thiourethane linkage is lost); and the net layout
 supports exactly one whole-strand backbone entry per build (refused
 otherwise), so strand-length polydispersity is future work.

@@ -595,6 +595,26 @@ angle term costs nothing. Corrected in place; the commit message of
 
 *Fixed in `21d469f`.*
 
+### 28. Linker body bonds were indexed positionally, not by bead map
+
+Found by the first per-stub-cap build: withholding a reacted arm's thiol
+hydrogen leaves a hole in the emitted atom list, and
+``_create_linker_bonds``/``_mark_linker_terminals`` indexed the template's
+bead-position bond rows *positionally* into the compacted list -- silently
+shifting every bond after the hole. Measured as junctions fragmenting into
+321 covalent components on a full-conversion build that should have one.
+Harmless before caps existed (nothing was ever withheld), armed the moment
+anything was.
+
+**Fixes.** Both now index through the bead map (template position -> atom
+id) and skip rows referencing withheld atoms. The same sweep replaced the
+one-blueprint-atom-per-attachment-row stub emission -- which would have
+duplicated any stub with two body bonds, exactly what an unreacted thiol
+sulfur (CH2 and H) is -- with one atom per stub carrying all its attachment
+rows. Regression tests pin both; Martini example 07 rebuilds bit-for-bit.
+
+*Fixed in the commit adding this section.*
+
 ## Still open
 
 - The f=6 path now builds end to end under GROMACS (example 07): all EM

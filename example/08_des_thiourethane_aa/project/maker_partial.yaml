@@ -5,11 +5,12 @@
 # here (the real material's integrity comes from the DES hydrogen-bond
 # network on top). The connectivity audit therefore reports, not gates.
 #
-# All-atom caveat, documented in the example README: the junction template is
-# the fully reacted form, so the five-of-six unreacted arms carry a
-# reacted-form sulfur (no thiol hydrogen; H charge folded into S). Topology
-# and mechanics benchmark only -- chemically faithful partial conversion
-# needs per-stub cap atoms, which the builder does not have yet.
+# Chemically faithful partial conversion: the junction template is the
+# UNREACTED form and each arm's thiol hydrogen is a per-stub cap atom
+# (stub_caps in config/hydrogel.yaml). An unreacted arm keeps real S-H with
+# thiol charges/types; a reacted arm loses its hydrogen and takes the
+# thiourethane sulfur override -- which is exactly what the collaboration's
+# Q1 comparison (Cl- at S-H vs N-H sites) requires of the model.
 # Deep-merged in order; later files override earlier ones, this file overrides
 # all. ${CONFIG_DIR} in every included file resolves against THIS directory.
 includes:

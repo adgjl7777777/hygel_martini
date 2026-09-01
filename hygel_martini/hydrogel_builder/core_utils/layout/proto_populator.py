@@ -86,23 +86,25 @@ def _mark_backbone_terminals(hydrogel, atom_ids: List[int], metadata: Dict | Non
             hydrogel.terminals[1].append(atom)
 
 
-def _mark_linker_terminals(hydrogel, chain: ChainBlueprint, bead_atom_ids: List[int]):
+def _mark_linker_terminals(hydrogel, chain: ChainBlueprint, bead_map: Dict[int, int]):
     """Mark linker beads that carry external bonds as stubs (``end_tag = 2``).
 
     Each gets its admissible ``target_bb`` and the external bond length the
     router uses as the search radius. Legacy path: the N-stub route emits
     stub atoms separately with richer metadata; this covers definitions whose
-    external bonds hang off body beads.
+    external bonds hang off body beads. Indexed through the bead map (template
+    position -> atom id), never positionally: withheld cap atoms leave holes
+    a positional list would silently shift across.
     """
     ext_bonds = chain.definition.get('external_bonds', []) or []
-    if not ext_bonds or not bead_atom_ids:
+    if not ext_bonds or not bead_map:
         return
 
     for ext in ext_bonds:
         bead_idx = ext.get('from_bead')
-        if bead_idx is None or bead_idx < 0 or bead_idx >= len(bead_atom_ids):
+        if bead_idx is None or bead_idx not in bead_map:
             continue
-        atom = World.Atoms[bead_atom_ids[bead_idx]][0]
+        atom = World.Atoms[bead_map[bead_idx]][0]
         target_bb = ext.get('to_backbone')
         if target_bb == 'dummy_id':
             target_bb = None
@@ -143,24 +145,30 @@ def _create_backbone_bonds(chain: ChainBlueprint, atom_ids: List[int]):
         Attributes.Bond(first, second, funct=int(funct), c0=float(c0), c1=float(c1))
 
 
-def _create_linker_bonds(chain: ChainBlueprint, atom_ids: List[int]):
+def _create_linker_bonds(chain: ChainBlueprint, bead_map: Dict[int, int]):
     """Create the linker body's internal bonds from its bead-indexed list.
 
-    Rows whose indices fall outside this chain's bead range are skipped:
-    stub bonds are created separately from stub metadata.
+    Indexed through the bead map (template body position -> atom id), never
+    positionally: a withheld cap atom (a reacted arm's thiol hydrogen) leaves
+    a hole that positional indexing would silently shift every later bond
+    across -- measured directly as junctions fragmenting into pieces. Rows
+    referencing a withheld atom are skipped; stub bonds are created
+    separately from stub metadata.
     """
     bonds = chain.definition.get('bonds', []) or []
-    if not bonds or len(atom_ids) < 2:
+    if not bonds or len(bead_map) < 2:
         return
     for bond_def in bonds:
         idx1 = bond_def.get('from')
         idx2 = bond_def.get('to')
         if idx1 is None or idx2 is None:
             continue
-        if min(idx1, idx2) < 0 or max(idx1, idx2) >= len(atom_ids):
+        first = bead_map.get(idx1)
+        second = bead_map.get(idx2)
+        if first is None or second is None:
             continue
         params = {k: v for k, v in bond_def.items() if k not in {'from', 'to'}}
-        Attributes.Bond(atom_ids[idx1], atom_ids[idx2], **params)
+        Attributes.Bond(first, second, **params)
 
 
 def _finalize_counts(hydrogel):
@@ -239,6 +247,9 @@ def populate_hydrogel_from_blueprint(hydrogel, blueprint: LayoutBlueprint):
                 params = atom_bp.extra.get('external_params', {})
                 atom.stub_from_bead = atom_bp.extra.get('stub_from_bead')
                 atom.stub_bond_params = params
+                # Whether this stub's arm chemically reacted (cap machinery);
+                # the crosslink router bonds only reacted stubs.
+                atom.cap_reacted = atom_bp.extra.get('cap_reacted', True)
             orig_idx = atom_bp.extra.get('original_index')
             if isinstance(orig_idx, int):
                 chain_key = (atom_bp.chain_type, atom_bp.chain_index)
@@ -252,11 +263,21 @@ def populate_hydrogel_from_blueprint(hydrogel, blueprint: LayoutBlueprint):
         chain_key = (atom_bp.chain_type, atom_bp.chain_index)
         chain_atom_map.setdefault(chain_key, []).append((atom_bp.bead_index, atom.atom_id))
         if atom_bp.extra and 'stub_from_bead' in atom_bp.extra:
-            stub_meta_by_chain[chain_key].append({
-                'atom_id': atom.atom_id,
-                'from_bead': atom_bp.extra.get('stub_from_bead'),
-                'bond_params': atom_bp.extra.get('external_params', {})
-            })
+            # A stub may attach to several body atoms (an unreacted thiol
+            # sulfur bonds its CH2 and its H); 'stub_body_bonds' lists them
+            # all, with the legacy single-bond keys as the fallback.
+            body_bonds = atom_bp.extra.get('stub_body_bonds')
+            if not body_bonds:
+                body_bonds = [(
+                    atom_bp.extra.get('stub_from_bead'),
+                    atom_bp.extra.get('external_params', {}),
+                )]
+            for from_bead, bond_params in body_bonds:
+                stub_meta_by_chain[chain_key].append({
+                    'atom_id': atom.atom_id,
+                    'from_bead': from_bead,
+                    'bond_params': bond_params,
+                })
 
     for chain in blueprint.chains:
         chain_key = (chain.chain_type, chain.chain_index)
@@ -272,10 +293,9 @@ def populate_hydrogel_from_blueprint(hydrogel, blueprint: LayoutBlueprint):
             else:
                 _create_backbone_bonds(chain, atom_ids)
         elif chain.chain_type == 'linker':
-            bead_atom_ids = [atom_id for bead_idx, atom_id in entries if bead_idx >= 0]
-            _mark_linker_terminals(hydrogel, chain, bead_atom_ids)
-            _create_linker_bonds(chain, bead_atom_ids)
             bead_map = {bead_idx: atom_id for bead_idx, atom_id in entries if bead_idx >= 0}
+            _mark_linker_terminals(hydrogel, chain, bead_map)
+            _create_linker_bonds(chain, bead_map)
             for stub_meta in stub_meta_by_chain.get(chain_key, []):
                 from_idx = stub_meta.get('from_bead')
                 source_id = bead_map.get(from_idx)

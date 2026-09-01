@@ -78,6 +78,11 @@ class LinkerTemplate:
     functionality: int
     #: Per-stub configuration entries, indexed by stub.
     stub_config_bonds: List[List[Dict]]
+    #: Per-stub cap description ({} when a stub has none): body atoms that
+    #: exist only while the stub is unreacted (``cap_body_positions``,
+    #: ``cap_original_indices``) plus per-atom ``overrides`` (original index
+    #: -> {charge/type/mass}) applied when the stub reacts.
+    stub_caps: List[Dict]
 
     # --- two-stub view, populated only when functionality == 2 -----------
     # Kept so the diamond layout, which is written around a left/right pair,
@@ -194,6 +199,7 @@ def linker_definitions_from_library(library: LinkerTemplateLibrary) -> List[Dict
             "external_bonds_1": external_bonds_1,
             "external_bonds_2": external_bonds_2,
             "stub_definitions": template.stub_definitions,
+            "stub_caps": template.stub_caps,
             "backbone_1_bonds": template.backbone_1_bonds,
             "backbone_2_bonds": template.backbone_2_bonds,
             "stub_stub_bonds": template.stub_stub_bonds,
@@ -416,6 +422,109 @@ def _stub_mass_for_targets(
             f"stub을 분리하거나 backbone 질량을 맞추십시오."
         )
     return next(iter(distinct))
+
+
+def _resolve_stub_caps(entry: Dict,
+                       linker_id: str,
+                       functionality: int,
+                       beads: List[Dict],
+                       index_map: Dict[int, int],
+                       stub_indices: List[int],
+                       stub_bonds: List[List[Tuple[int, Dict]]]) -> List[Dict]:
+    """Parse and validate the optional per-stub ``stub_caps`` list.
+
+    Each entry (aligned with ``stubs``) is ``null``/``{}`` or::
+
+        {cap_atoms: [<atom name>, ...],      # deleted when the stub reacts
+         reacted: {<atom name>: {charge: .., type: .., mass: ..}, ...}}
+
+    Cap atoms model the chemistry of the unreacted state -- a thiol hydrogen,
+    say -- so each must be a *body* atom bonded to its own stub; naming a stub
+    atom, an atom of another arm, or an unknown name is refused, since every
+    one of those would silently corrupt a different arm's topology. Reacted
+    overrides may retouch the stub atom itself or body atoms (charge/type/
+    mass only). Names are resolved once, here, to original 1-based indices
+    and 0-based body positions.
+    """
+    raw = entry.get("stub_caps")
+    if raw is None:
+        return [{} for _ in range(functionality)]
+    if not isinstance(raw, list) or len(raw) != functionality:
+        raise ValueError(
+            f"링커 '{linker_id}'의 'stub_caps'는 stub 수({functionality})와 같은 "
+            f"길이의 리스트여야 합니다 (현재 {type(raw).__name__}, "
+            f"길이 {len(raw) if isinstance(raw, list) else 'N/A'})."
+        )
+    name_to_bead = {}
+    for bead in beads:
+        name = bead.get("atom")
+        if name in name_to_bead:
+            # Ambiguous names cannot address cap atoms.
+            name_to_bead[name] = None
+        else:
+            name_to_bead[name] = bead
+    resolved: List[Dict] = []
+    for position, spec in enumerate(raw):
+        if not spec:
+            resolved.append({})
+            continue
+        if not isinstance(spec, dict):
+            raise ValueError(
+                f"링커 '{linker_id}'의 stub_caps[{position}]는 mapping이어야 합니다."
+            )
+        unknown = sorted(set(spec) - {"cap_atoms", "reacted"})
+        if unknown:
+            raise ValueError(
+                f"링커 '{linker_id}'의 stub_caps[{position}]에 알 수 없는 키 "
+                f"{unknown}가 있습니다 (허용: cap_atoms, reacted)."
+            )
+        stub_nr = stub_indices[position]
+        bonded_body_positions = {other for other, _ in stub_bonds[position]}
+        cap_positions: List[int] = []
+        cap_originals: List[int] = []
+        for name in spec.get("cap_atoms", []) or []:
+            bead = name_to_bead.get(name)
+            if bead is None:
+                raise ValueError(
+                    f"링커 '{linker_id}'의 stub_caps[{position}] cap atom "
+                    f"'{name}'이 없거나 이름이 중복입니다."
+                )
+            nr = bead["nr"]
+            if nr in index_map:
+                body_pos = index_map[nr]
+            else:
+                raise ValueError(
+                    f"링커 '{linker_id}'의 cap atom '{name}'은 stub 원자입니다. "
+                    "cap은 stub에 결합한 body 원자여야 합니다."
+                )
+            if body_pos not in bonded_body_positions:
+                raise ValueError(
+                    f"링커 '{linker_id}'의 cap atom '{name}'이 stub {position}"
+                    f"(원자 {stub_nr})에 결합해 있지 않습니다. 다른 arm의 원자를 "
+                    "지우면 그 arm의 토폴로지가 조용히 망가집니다."
+                )
+            cap_positions.append(body_pos)
+            cap_originals.append(nr)
+        overrides: Dict[int, Dict] = {}
+        for name, patch in (spec.get("reacted") or {}).items():
+            bead = name_to_bead.get(name)
+            if bead is None:
+                raise ValueError(
+                    f"링커 '{linker_id}'의 stub_caps[{position}] reacted 대상 "
+                    f"'{name}'이 없거나 이름이 중복입니다."
+                )
+            if not isinstance(patch, dict) or set(patch) - {"charge", "type", "mass"}:
+                raise ValueError(
+                    f"링커 '{linker_id}'의 reacted['{name}']는 charge/type/mass만 "
+                    "가질 수 있습니다."
+                )
+            overrides[bead["nr"]] = dict(patch)
+        resolved.append({
+            "cap_body_positions": cap_positions,
+            "cap_original_indices": cap_originals,
+            "overrides": overrides,
+        })
+    return resolved
 
 
 def _orthonormal_basis(span_vec: np.ndarray, ref: np.ndarray = np.array([0.0, 0.0, 1.0])) -> np.ndarray:
@@ -724,6 +833,11 @@ def _load_single_linker(entry: Dict, backbone_defs: List[Dict]) -> LinkerTemplat
             continue
         internal_impropers.append(new_imp)
 
+    stub_caps = _resolve_stub_caps(
+        entry, linker_id, functionality, beads, index_map, stub_indices,
+        stub_bonds,
+    )
+
     backbone_ids = tuple(targets[0] for targets in stub_targets)
     stub_bonds_left = stub_bonds[0] if is_pair else []
     stub_bonds_right = stub_bonds[1] if is_pair else []
@@ -750,6 +864,7 @@ def _load_single_linker(entry: Dict, backbone_defs: List[Dict]) -> LinkerTemplat
         arm_vectors=arm_vectors,
         functionality=functionality,
         stub_config_bonds=stub_config,
+        stub_caps=stub_caps,
         stub_bonds_left=stub_bonds_left,
         stub_bonds_right=stub_bonds_right,
         backbone_ids=backbone_ids,

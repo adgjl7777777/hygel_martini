@@ -12,10 +12,16 @@ Inputs (``raw/``), all straight from the LigParGen server (OPLS-AA,
 
 Outputs (``../project/structure/``):
 
-* ``HEXR.itp``/``HEXR.gro``  reacted junction: the six thiol hydrogens removed,
-  each sulfur re-typed to the thiourethane sulfur (``lkS``) and marked as a
-  stub (residue ``BCK``). The removed hydrogen's charge is folded into its
-  sulfur, so the junction stays exactly neutral.
+* ``HEXU.itp``/``HEXU.gro``  the junction in its UNREACTED form: all 93 atoms
+  including the six thiol hydrogens, sulfurs marked as stubs (residue
+  ``BCK``) but keeping their thiol types and charges. The builder's per-stub
+  cap machinery deletes each arm's hydrogen and applies the reacted-form
+  sulfur override (type ``lkS``, charge = qS + qH so the molecule stays
+  exactly neutral) only on arms that chemically react -- so a partially
+  converted junction keeps real S-H on its unreacted arms.
+* ``hydrogel_stubs_snippet.yaml``  the exact ``stubs:``/``stub_caps:`` block
+  to paste into ``config/hydrogel.yaml`` (atom names differ per arm, so the
+  block is generated, not hand-written).
 * ``STR.itp``/``STR.gro``  network strand: both CH3-S caps removed, the two
   thiourethane carbonyl carbons renamed ``BCK1``/``BCK2`` (the attachment
   atoms), each absorbing its deleted cap's total charge.
@@ -206,8 +212,14 @@ class Molecule:
 
 
 def build_junction():
+    """Write the UNREACTED junction plus the stubs/stub_caps config snippet.
+
+    Nothing is deleted here any more: the template keeps every thiol
+    hydrogen, and the builder's cap machinery removes an arm's hydrogen (and
+    applies its reacted-form sulfur override) only when that arm reacts.
+    """
     hex_mol = Molecule("HEX", "hx")
-    arms = []  # per arm: dict of roles CH2/Ca/H's
+    arms = []  # per arm: dict of roles S/CH2/Ca/H(=thiol H)/Hc(CH2 hydrogens)
     for sulfur in hex_mol.sulfurs():
         thiol_h = [h for h in hex_mol.hydrogens_of(sulfur)]
         assert len(thiol_h) == 1, f"S{sulfur}: expected one thiol H"
@@ -225,18 +237,39 @@ def build_junction():
             "CH2": ch2,
             "Ca": c_alpha[0],
             "H": [n for n in hex_mol.adj[ch2] if hex_mol.atoms[n]["m"] < 2.0],
+            "thiol_H": thiol_h[0],
         }
         arms.append(arm)
-        # React the arm: drop the thiol H, fold its charge into S, re-type S.
-        h_idx = thiol_h[0]
-        hex_mol.deleted.add(h_idx)
-        hex_mol.atoms[sulfur]["q"] += hex_mol.atoms[h_idx]["q"]
-        hex_mol.atoms[sulfur]["force_type"] = "lkS"
         hex_mol.atoms[sulfur]["residue"] = "BCK"
     for idx, atom in hex_mol.atoms.items():
         if atom["residue"] != "BCK":
             atom["residue"] = "HEX"
-    hex_mol.write("HEXR", "HEXR")
+    hex_mol.write("HEXU", "HEXU")
+
+    # The stubs/stub_caps block for config/hydrogel.yaml. Reacted charge =
+    # qS + qH: folding the deleted hydrogen's charge into its sulfur keeps
+    # every junction exactly neutral at any conversion.
+    lines = ["        stubs:"]
+    for arm in arms:
+        lines.append(
+            "          - [{between: STR1, bond_funct: 1, "
+            "bond_c0: 0.1715, bond_c1: 187443.2}]"
+        )
+    lines.append("        stub_caps:")
+    for arm in arms:
+        s_atom = hex_mol.atoms[arm["S"]]
+        h_atom = hex_mol.atoms[arm["thiol_H"]]
+        reacted_q = s_atom["q"] + h_atom["q"]
+        lines.append(
+            f"          - {{cap_atoms: [{h_atom['name']}], "
+            f"reacted: {{{s_atom['name']}: "
+            f"{{charge: {reacted_q:.4f}, type: lkS}}}}}}"
+        )
+    snippet = "\n".join(lines) + "\n"
+    with open(os.path.join(OUT, "hydrogel_stubs_snippet.yaml"), "w") as f:
+        f.write("# Paste into config/hydrogel.yaml under the linker entry.\n")
+        f.write(snippet)
+    print("wrote hydrogel_stubs_snippet.yaml")
     return hex_mol, arms
 
 
@@ -320,19 +353,32 @@ def write_forcefield(hex_mol, arms, str_mol, ends):
                 theta, k = LNK_ANGLES[pattern]
                 emit_angle("lkS", str_mol.btype(end["Cco"]), str_mol.btype(end[third]), theta, k)
         sulfur_set = {arm["S"] for arm in arms}
+        # Every template angle touching a stub sulfur is emitted parameterless
+        # by the builder (the linker loader keeps stub atoms out of template
+        # angle lists), for BOTH arm states: reacted (CH2-S-Cco etc., lkS
+        # keys, above) and unreacted (C-C-S, H-C-S, and the thiol C-S-H /
+        # H-S-... angles, thiol-type keys, here).
         for row in hex_mol.angles:
             ids, params = row[:3], row[3:]
             if not any(i in sulfur_set for i in ids):
                 continue
-            if any(i in hex_mol.deleted for i in ids):
-                continue
-            emit_angle(
-                hex_mol.btype(ids[0]),
-                hex_mol.btype(ids[1]),
-                hex_mol.btype(ids[2]),
-                float(params[1]),
-                float(params[2]),
-            )
+            # The sulfur's nonbonded type depends on its arm's state (thiol
+            # type unreacted, lkS reacted), and these angles are emitted
+            # parameterless in BOTH states, so each entry is keyed twice --
+            # once per sulfur type. Angles through the thiol hydrogen exist
+            # only unreacted, but the duplicate lkS key is inert (nothing
+            # reacted ever emits them).
+            base = [hex_mol.btype(i) for i in ids]
+            variants = [base]
+            if any(i in sulfur_set for i in ids):
+                swapped = [
+                    ("lkS" if i in sulfur_set else hex_mol.btype(i))
+                    for i in ids
+                ]
+                if swapped != base:
+                    variants.append(swapped)
+            for b1, b2, b3 in variants:
+                emit_angle(b1, b2, b3, float(params[1]), float(params[2]))
 
         # ------ dihedraltypes ---------------------------------------------
         f.write("\n[ dihedraltypes ]\n")

@@ -445,9 +445,22 @@ def generate_net_layout_plan(
         else:
             # Unpaired: which chain ends this junction bonds, with no claim
             # about traversal pairing. Arms beyond these stay unreacted.
-            metadata["planned_endpoints"] = tuple(
+            planned = tuple(
                 endpoint_name[endpoint]
                 for endpoint in endpoints_by_vertex.get(vertex.vertex_id, ())
+            )
+            metadata["planned_endpoints"] = planned
+            # Which template arms carry those reactions. Chosen here, with a
+            # deterministic per-junction stream derived from the conversion
+            # seed (never the strand-selection stream, whose draws are part
+            # of existing builds' reproducibility), because cap atoms must be
+            # decided before atoms are emitted -- an unreacted arm keeps its
+            # cap (thiol hydrogen), a reacted one loses it.
+            functionality = int(vertex.functionality)
+            stub_rng = Random(f"{conversion_seed}-stub-selection-{index}")
+            metadata["reacted_stub_positions"] = tuple(
+                sorted(stub_rng.sample(range(functionality),
+                                       min(len(planned), functionality)))
             )
         metadata.update({
             "net": definition.name,
