@@ -1,0 +1,45 @@
+# network.yaml
+# 한글: 정육면체(pcu) net 위의 f=6 hexafunctional 네트워크 설정.
+# English: f=6 hexafunctional network on the primitive-cubic (pcu) net.
+#
+# 이 블록이 있으면 다이아몬드 layout 대신 net 기반 layout을 사용한다.
+# 블록을 지우면 기존 다이아몬드 경로로 돌아간다.
+# Presence of this block selects the net-driven layout over the diamond one;
+# remove it and the historical path runs unchanged.
+
+simulation_parameters:
+  network_layout:
+    # RCSR 기호. pcu = primitive cubic (6-connected, fundamental cycle 4),
+    # dia = diamond (4-connected, fundamental cycle 6).
+    net: pcu
+
+    # 축별 반복 수. net마다 조건이 다르므로 layout이 직접 검사한다.
+    # pcu는 홀수 반복이면 주기경계에서 bipartite가 깨져 가짜 홀수 루프가
+    # 생기고, 셀이 너무 작으면 girth가 net이 아니라 박스에서 나온다.
+    # Repeat counts per axis; the layout validates them per net.
+    repeats: [4, 4, 4]
+
+    # 이웃 junction 사이 거리 (nm). strand의 contour length에 맞춘다.
+    # Distance between neighbouring junction sites (nm).
+    cell_parameter: 3.0
+
+    # ---------------------------------------------------------------------
+    # rewiring: 규칙적인 net에서 현실적인 위상으로 옮기는 단계.
+    # 이 블록을 지우면 완전 격자 그대로 사용한다 -- loop order 분포가
+    # 격자의 fundamental cycle 하나에 몰리고, pcu/dia는 bipartite라
+    # 홀수 order 루프가 아예 생기지 않는다. 이상화된 benchmark에는
+    # 타당한 선택이지만 현실적인 네트워크로는 부적절하다.
+    # ---------------------------------------------------------------------
+    rewiring:
+      # strand가 물리적으로 닿을 수 있는 최대 거리 (nm).
+      # contour length가 상한이며, 이 값 하나가 topological proximity를
+      # 조절한다. 작을수록 짧은 루프가 많아진다.
+      max_span: 6.0
+
+      seed: 0
+      max_sweeps: 60
+
+      # 좌표 배치는 strand를 두 junction 사이 직선으로 놓으므로
+      # primary loop(자기 junction으로 돌아오는 strand)를 표현할 수 없다.
+      # 좌표 빌드에서는 기본으로 금지된다.
+      allow_primary_loops: false

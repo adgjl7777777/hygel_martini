@@ -1,0 +1,25 @@
+; Six-arm crosslinker. The six BCK beads are stub/anchor sites, not
+; ordinary linker beads: each stands in for the backbone end it will
+; bond to, and takes that backbone's mass.
+[ moleculetype ]
+; name  nrexcl
+  HEX     1
+
+[ atoms ]
+;  nr  type  resnr  residu  atom  cgnr  charge   mass
+   1   C1    1      LNK     C0    1     0.0     72.0
+   2   C1    1      BCK     S1    2     0.0     72.0
+   3   C1    1      BCK     S2    3     0.0     72.0
+   4   C1    1      BCK     S3    4     0.0     72.0
+   5   C1    1      BCK     S4    5     0.0     72.0
+   6   C1    1      BCK     S5    6     0.0     72.0
+   7   C1    1      BCK     S6    7     0.0     72.0
+
+[ bonds ]
+; i   j   funct   length   force_k
+   1   2   1       0.350    1250
+   1   3   1       0.350    1250
+   1   4   1       0.350    1250
+   1   5   1       0.350    1250
+   1   6   1       0.350    1250
+   1   7   1       0.350    1250
