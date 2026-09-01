@@ -832,16 +832,25 @@ def _perform_dynamic_crosslinking(output_dir):
             debug_f.write(f"{note}\n")
 
         targets_per_stub = max(int(targets_per_stub), 1)
-        expected_per_linker = 2 * targets_per_stub
         assignment_issues = []
         used_end_ids = {}
         for linker_index, stubs in sorted(linkers.items()):
             chosen = list(assignments.get(linker_index, ()))
-            if len(stubs) != 2:
-                assignment_issues.append(f"Linker {linker_index}: expected 2 BCK stubs, found {len(stubs)}")
+            # How many backbone ends a junction should consume follows from its
+            # own stub count, not from an assumed pair: a two-stub linker taking
+            # two ends each and a six-arm crosslinker taking one each both bond
+            # six ends only if the count is derived rather than hard-coded.
+            if len(stubs) < 2:
+                assignment_issues.append(
+                    f"Linker {linker_index}: found {len(stubs)} BCK stub(s); a "
+                    "crosslinker needs at least two"
+                )
+            expected_per_linker = len(stubs) * targets_per_stub
             if len(chosen) != expected_per_linker:
                 assignment_issues.append(
-                    f"Linker {linker_index}: expected {expected_per_linker} backbone-end assignments, found {len(chosen)}"
+                    f"Linker {linker_index}: expected {expected_per_linker} backbone-end "
+                    f"assignments ({len(stubs)} stubs x {targets_per_stub} targets), "
+                    f"found {len(chosen)}"
                 )
             chain_ids = [assignment.chain_index for assignment in chosen]
             if len(set(chain_ids)) != len(chain_ids):

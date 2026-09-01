@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
-from itertools import combinations
+from itertools import combinations, permutations, product
 import json
 from typing import Dict, Iterable, List, Tuple
 
@@ -194,32 +194,56 @@ def _plan_explicit_graph_crosslinks(
 
     assignments = {}
     notes = [
-        "Using explicit layout-planner endpoint edges; nearest search may only choose the two-stub edge permutation."
+        "Using explicit layout-planner endpoint edges; geometry may only choose "
+        "which stub takes which planned slot, never which endpoint is used."
     ]
     used_endpoint_ids = set()
     planned_edges_by_linker = {}
 
+    edge_regime_linkers = set()
+
     for linker_index, stubs in sorted(linker_stubs.items()):
-        if len(stubs) != 2:
-            raise ValueError(
-                f"Linker {linker_index}: expected 2 stubs for planned graph materialization, found {len(stubs)}"
-            )
         planned_values = [getattr(stub, "planned_endpoint_edges", None) for stub in stubs]
         if not all(planned_values):
             raise ValueError(
                 f"Linker {linker_index}: incomplete planned endpoint metadata on linker stubs"
             )
-        if planned_values[0] != planned_values[1]:
+        if any(value != planned_values[0] for value in planned_values[1:]):
             raise ValueError(
                 f"Linker {linker_index}: linker stubs carry inconsistent planned endpoint edges"
             )
 
         planned_edges = planned_values[0]
-        if len(planned_edges) != 2 or any(len(edge) != 2 for edge in planned_edges):
+        if any(len(edge) != 2 for edge in planned_edges):
             raise ValueError(
-                f"Linker {linker_index}: expected two planned two-endpoint edges, got {planned_edges!r}"
+                f"Linker {linker_index}: planned edges must pair two endpoints each, "
+                f"got {planned_edges!r}"
             )
         planned_edges_by_linker[linker_index] = tuple(tuple(edge) for edge in planned_edges)
+
+        # A junction template attaches ``len(stubs) * targets_per_stub``
+        # backbone ends, and the planner supplies ``2 * len(planned_edges)``
+        # endpoints. The two must agree, and how they agree decides what
+        # geometry is still allowed to choose:
+        #
+        #   one edge per stub  -- a stub is itself a two-way junction, as in
+        #       the diamond linker, so each stub realizes a whole planned edge
+        #       and geometry only picks which stub takes which edge;
+        #   one endpoint per stub -- a stub is a single attachment, as on a
+        #       six-arm crosslinker, so the planned pairing is a traversal
+        #       through the junction rather than a stub grouping, and geometry
+        #       picks which stub takes which endpoint.
+        stub_count = len(stubs)
+        endpoint_count = 2 * len(planned_edges)
+        if stub_count == len(planned_edges):
+            edge_regime_linkers.add(linker_index)
+        elif stub_count != endpoint_count:
+            raise ValueError(
+                f"Linker {linker_index}: {stub_count} stubs cannot take "
+                f"{endpoint_count} planned endpoints. A junction template must "
+                "have either one stub per planned edge (each stub joining two "
+                "backbone ends) or one stub per endpoint (each stub taking one)."
+            )
 
         resolved_edges = []
         for edge in planned_edges:
@@ -236,17 +260,26 @@ def _plan_explicit_graph_crosslinks(
                 resolved.append((endpoint_id, endpoint_lookup[endpoint_id]))
             resolved_edges.append(resolved)
 
-        def permutation_cost(edge_order) -> float:
+        if linker_index in edge_regime_linkers:
+            groups = resolved_edges
+        else:
+            groups = [[item] for edge in resolved_edges for item in edge]
+
+        def permutation_cost(order) -> float:
             return sum(
                 pbc_distance(stub.position, endpoint_atom.position, box_size)
-                for stub, edge_index in zip(stubs, edge_order)
-                for _, endpoint_atom in resolved_edges[edge_index]
+                for stub, group_index in zip(stubs, order)
+                for _, endpoint_atom in groups[group_index]
             )
 
-        edge_order = min(((0, 1), (1, 0)), key=permutation_cost)
+        # Exhaustive over the assignment of planned slots to physical stubs.
+        # This is at most 2 permutations for the diamond linker and 720 for a
+        # six-arm junction, so an exact minimum is affordable and no heuristic
+        # is needed to choose it.
+        order = min(permutations(range(len(groups))), key=permutation_cost)
         chosen = []
-        for stub, edge_index in zip(stubs, edge_order):
-            for endpoint_id, endpoint_atom in resolved_edges[edge_index]:
+        for stub, group_index in zip(stubs, order):
+            for endpoint_id, endpoint_atom in groups[group_index]:
                 chosen.append(
                     StubAssignment(
                         linker_index=linker_index,
@@ -270,8 +303,22 @@ def _plan_explicit_graph_crosslinks(
             f"used={len(used_endpoint_ids)} expected={planned_endpoint_count}"
         )
 
+    # Verification differs by regime, because the two regimes promise
+    # different things. Where a stub realizes a whole planned edge the exact
+    # edge set must come back, so planned and materialized edge sets are
+    # hashed and compared. Where a stub takes a single endpoint the planned
+    # pairing is a traversal through the junction and is not reconstructible
+    # from stub groupings; what must hold there is that exactly the planned
+    # endpoints were consumed, which is checked as a set.
+    edge_planned = {
+        index: edges
+        for index, edges in planned_edges_by_linker.items()
+        if index in edge_regime_linkers
+    }
     materialized_edges_by_linker = {}
     for linker_index, chosen in assignments.items():
+        if linker_index not in edge_regime_linkers:
+            continue
         by_stub = {}
         for assignment in chosen:
             stub_id = getattr(assignment.stub_atom, "atom_id", None)
@@ -281,14 +328,37 @@ def _plan_explicit_graph_crosslinks(
             tuple(by_stub[stub_id]) for stub_id in sorted(by_stub, key=str)
         )
 
-    planned_hash = _edge_plan_sha256(planned_edges_by_linker)
+    planned_hash = _edge_plan_sha256(edge_planned)
     materialized_hash = _edge_plan_sha256(materialized_edges_by_linker)
     if planned_hash != materialized_hash:
         raise ValueError(
             "Planned/materialized endpoint-edge hash mismatch: "
             f"planned={planned_hash} materialized={materialized_hash}"
         )
+
+    endpoint_regime = set(planned_edges_by_linker) - edge_regime_linkers
+    for linker_index in sorted(endpoint_regime, key=str):
+        expected = {
+            endpoint
+            for edge in planned_edges_by_linker[linker_index]
+            for endpoint in edge
+        }
+        realized = {
+            getattr(assignment.backbone_atom, "planned_endpoint_id", None)
+            for assignment in assignments.get(linker_index, ())
+        }
+        if realized != expected:
+            raise ValueError(
+                f"Linker {linker_index}: materialized endpoints {sorted(map(str, realized))} "
+                f"do not match the planned set {sorted(map(str, expected))}"
+            )
+
     notes.append(f"Materialized {len(used_endpoint_ids)} unique planned backbone endpoints.")
+    notes.append(
+        "edge_regime_linkers={} endpoint_regime_linkers={}".format(
+            len(edge_regime_linkers), len(endpoint_regime)
+        )
+    )
     notes.append(
         "planned_edge_sha256={} materialized_edge_sha256={} exact_match=true".format(
             planned_hash,
@@ -346,9 +416,10 @@ def plan_dynamic_crosslinks(
         )
 
         for linker_index, stubs in sorted(linker_stubs.items()):
-            if len(stubs) != 2:
+            if len(stubs) < 2:
                 notes.append(
-                    f"Linker {linker_index}: Has {len(stubs)} stubs. Skipping (need 2)."
+                    f"Linker {linker_index}: has {len(stubs)} stub(s); a crosslinker "
+                    "needs at least two."
                 )
                 continue
 
@@ -414,32 +485,39 @@ def plan_dynamic_crosslinks(
                     break
                 per_stub_candidates.append(stub_candidates)
 
-            if len(per_stub_candidates) != 2:
+            if len(per_stub_candidates) != len(stubs):
                 linker_state_candidates[linker_index] = []
                 continue
 
+            # One candidate set per stub; a state picks one from each and is
+            # kept only when the stubs consume distinct ends and distinct
+            # chains, so a junction cannot bond twice to the same strand.
+            expected = len(stubs) * targets_per_stub
             states = []
-            for left in per_stub_candidates[0]:
-                for right in per_stub_candidates[1]:
-                    end_ids = set(left[2]) | set(right[2])
-                    chain_ids = set(left[3]) | set(right[3])
-                    if len(end_ids) != 2 * targets_per_stub:
-                        continue
-                    if len(chain_ids) != 2 * targets_per_stub:
-                        continue
-                    states.append(
-                        (
-                            left[0] + right[0],
-                            left[1] + right[1],
-                            frozenset(end_ids),
-                        )
+            for combination in product(*per_stub_candidates):
+                end_ids = set()
+                chain_ids = set()
+                for item in combination:
+                    end_ids |= set(item[2])
+                    chain_ids |= set(item[3])
+                if len(end_ids) != expected or len(chain_ids) != expected:
+                    continue
+                states.append(
+                    (
+                        sum(item[0] for item in combination),
+                        tuple(a for item in combination for a in item[1]),
+                        frozenset(end_ids),
                     )
+                )
             states.sort(key=lambda item: (item[0], tuple(a.chain_index for a in item[1])))
             if candidate_limit > 0:
-                states = states[: candidate_limit * candidate_limit]
+                states = states[: candidate_limit ** 2]
             linker_state_candidates[linker_index] = states
             if not states:
-                notes.append(f"Linker {linker_index}: No valid two-junction candidate state.")
+                notes.append(
+                    f"Linker {linker_index}: no candidate state consumed "
+                    f"{expected} distinct backbone ends on distinct chains."
+                )
 
         selected_states = {}
         state_count = sum(len(states) for states in linker_state_candidates.values())
@@ -490,10 +568,15 @@ def plan_dynamic_crosslinks(
 
     for linker_index, stubs in sorted(linker_stubs.items()):
         if len(stubs) != 2:
-            notes.append(
-                f"Linker {linker_index}: Has {len(stubs)} stubs. Skipping (need 2)."
+            # This branch pairs two stubs directly and has no meaning for a
+            # multi-arm junction. Such a template needs either planner
+            # metadata or targets_per_stub > 1, which the branches above
+            # handle; skipping here would quietly leave its arms unbonded.
+            raise ValueError(
+                f"Linker {linker_index}: geometric pairwise crosslinking needs "
+                f"exactly two stubs, found {len(stubs)}. A junction with a "
+                "different functionality needs a connectivity-aware layout plan."
             )
-            continue
 
         first_options = _candidate_end_options(stubs[0], backbone_ends, box_size, candidate_limit)
         second_options = _candidate_end_options(stubs[1], backbone_ends, box_size, candidate_limit)
