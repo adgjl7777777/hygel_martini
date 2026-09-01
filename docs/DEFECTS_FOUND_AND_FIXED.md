@@ -567,7 +567,7 @@ templates carry. Parameter lists longer than three are now stored whole via
 
 *All four found (or made findable) by building example 08 -- the first
 system to exercise the all-atom path end to end, which is precisely what the
-example exists for. Fixed in the commit adding this section.*
+example exists for. Fixed in `3dc09e5`.*
 
 ## Still open
 
