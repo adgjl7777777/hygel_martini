@@ -453,7 +453,7 @@ mechanism live: a primary loop appears after contraction (girth 1) although
 the coordinate layout placed none, because contracting degree-2 continuations
 changes what a loop looks like.
 
-*Fixed in the commit adding this section.*
+*Fixed in `6d0aa34`.*
 
 ## Still open
 
