@@ -138,7 +138,10 @@ def populate_hydrogel_from_blueprint(hydrogel, blueprint: LayoutBlueprint):
         if atom_bp.extra:
             atom.stub_type = atom_bp.extra.get('stub_type')
             planned_edges = chain_meta.get('planned_endpoint_edges')
-            if atom.stub_type in ('backbone_1', 'backbone_2') and planned_edges:
+            if planned_edges and atom.stub_type and (
+                atom.stub_type in ('backbone_1', 'backbone_2')
+                or str(atom.stub_type).startswith('stub_')
+            ):
                 atom.planned_endpoint_edges = tuple(tuple(edge) for edge in planned_edges)
             atom.target_backbone = atom_bp.extra.get('target_backbone')
             if atom.target_backbone == 'dummy_id':

@@ -52,8 +52,9 @@ SNIP
 ```
 
 설정(`network_layout` 블록), net별 repeat 조건, rewiring 파라미터는
-`docs/GENERAL_FUNCTIONALITY_NETWORKS.md`에 있습니다. f=6 경로는 layout/plan
-수준까지 검증되었고 GROMACS end-to-end 빌드는 아직 수행되지 않았습니다.
+`docs/GENERAL_FUNCTIONALITY_NETWORKS.md`에 있습니다. f=6 경로는 GROMACS
+end-to-end 빌드·EM 수렴·감사까지 통과했습니다. GROMACS/Packmol이 있으면
+`hygel-builder maker.yaml`로 전체 빌드가 실행됩니다.
 
 ## 3. build 뒤 추가 완화가 필요할 때
 

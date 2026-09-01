@@ -88,14 +88,20 @@ def test_the_planner_runs_after_rewiring_not_before() -> None:
     )
 
     assert result.rewiring is not None and result.rewiring.accepted > 0
-    used = {endpoint for cell in result.layout_plan.cells for endpoint in cell.metadata["endpoints"]}
+    # Planned edges are translated into the populator's (chain_id, end)
+    # convention, so together they must name both ends of every strand.
+    expected = {
+        (cell.metadata["planned_chain_id"], end)
+        for cell in result.layout_plan.cells
+        for end in (0, 1)
+    }
     planned = {
         endpoint
         for link in result.layout_plan.links
         for edge in link.metadata["planned_endpoint_edges"]
         for endpoint in edge
     }
-    assert planned == used
+    assert planned == expected
 
 
 def test_an_unrewired_seed_keeps_the_net_loop_spectrum() -> None:

@@ -88,7 +88,10 @@ def group_linker_stubs(atoms: Iterable[object]) -> Dict[int, List[object]]:
     """Group linker terminal stubs by linker chain index."""
     grouped: Dict[int, List[object]] = {}
     for atom in atoms:
-        if getattr(atom, "stub_type", None) not in ("backbone_1", "backbone_2"):
+        stub_type = getattr(atom, "stub_type", None)
+        if stub_type not in ("backbone_1", "backbone_2") and not (
+            isinstance(stub_type, str) and stub_type.startswith("stub_")
+        ):
             continue
         linker_index = getattr(atom, "linker_chain_index", None)
         if linker_index is None:

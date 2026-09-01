@@ -214,9 +214,11 @@ seed net — that is what rewiring is for. The two act on different graphs.
 
 ## Limits
 
-**No f = 6 system has been built end to end.** The layout, planner, template
-loader, crosslink router, audit and configuration are all functionality-general
-and tested, but no such structure has been minimized or run under GROMACS.
+**One f = 6 system has been built end to end** (example 07): every EM stage
+converges and every audit passes, including exact planned-versus-materialized
+endpoint matching and a non-bipartite loop spectrum at peak order 5. Not yet
+exercised: NPT/production MD, solvation, and the stage-05 relaxation
+workflows on an f = 6 system.
 
 **A primary loop cannot be placed.** The layout puts each strand on a straight
 segment between two junction sites, which is well defined for every loop order

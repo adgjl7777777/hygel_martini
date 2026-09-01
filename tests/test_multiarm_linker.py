@@ -197,11 +197,15 @@ def test_definitions_expose_every_arm(tmp_path) -> None:
     definition = linker_definitions_from_library(library)[0]["definition"]
 
     assert definition["functionality"] == 6
+    assert len(definition["external_bonds_by_stub"]) == 6
+    assert all(len(group) == 1 for group in definition["external_bonds_by_stub"])
+    assert [
+        group[0]["stub_index"] for group in definition["external_bonds_by_stub"]
+    ] == list(range(6))
+    # the flat legacy key keeps its old shape: a plain list of bond dicts, one
+    # per external bond, because three length-summing consumers read it so
     assert len(definition["external_bonds"]) == 6
-    assert all(len(group) == 1 for group in definition["external_bonds"])
-    assert [group[0]["stub_index"] for group in definition["external_bonds"]] == list(
-        range(6)
-    )
+    assert all(isinstance(bond, dict) for bond in definition["external_bonds"])
     # the pair spelling is empty rather than a truncated view
     assert definition["external_bonds_1"] == []
     assert definition["external_bonds_2"] == []

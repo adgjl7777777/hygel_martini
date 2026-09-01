@@ -93,7 +93,7 @@ PY
 | `04_1_example_system` | 작은 예시 시스템 | 바로 실행 가능 |
 | `05_hydrogel_relaxation` | staged minimization / settling MD / guarded shrink | 바로 실행 가능 |
 | `06_physical_property` | manifest 기반 물성 추출 | 바로 실행 가능 |
-| `07_hexafunctional` | **f=6 crosslinker + `pcu` net + rewiring** | layout/plan 검증 완료, GROMACS end-to-end 미실행 |
+| `07_hexafunctional` | **f=6 crosslinker + `pcu` net + rewiring** | GROMACS end-to-end 빌드·EM 수렴·감사 통과 |
 
 자세한 구성은 [`example/README_ko.md`](example/README_ko.md).
 
@@ -152,9 +152,9 @@ construction claim을 지지할 뿐, force-field 정확도·equilibrium swelling
 유일한 pore/mesh 길이·experimental rheology를 자동으로 증명하지 않습니다.
 물성 claim은 `property_extract`의 requirement/observable/numerical/promotion
 gate를 별도로 통과해야 합니다. loop-order 분포를 맞춘 것 역시 topology
-statement이며 역학적 물성의 재현이 아닙니다. 이 브랜치의 f=6 경로는 layout과
-plan 수준에서 검증되었고 **GROMACS end-to-end 빌드는 아직 수행되지
-않았습니다.**
+statement이며 역학적 물성의 재현이 아닙니다. 이 브랜치의 f=6 경로는 GROMACS
+end-to-end로 1회 빌드·수렴·감사까지 통과했습니다(예제 07). **NPT/production
+MD, 용매화, relaxation(05) 워크플로는 아직 미실행입니다.**
 
 ## 인용, 연구비, 라이선스
 

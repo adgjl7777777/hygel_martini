@@ -254,23 +254,45 @@ def _resolve_close_contacts(
     if not atoms:
         return 0
     positions = np.array([a.position for a in atoms], dtype=np.float64)
-    grid_keys: dict = {}
+    # NOTE: this used to test only for atoms quantising to the SAME hash key,
+    # which detects exact duplicates but misses a pair 0.8*threshold apart in
+    # adjacent cells -- observed directly as Fmax = inf surviving the resolve
+    # pass. The 27 neighbouring cells are now searched, and the displaced atom
+    # is pushed apart along the actual separation direction so the resulting
+    # distance is at least *jitter*, rather than in a random direction that
+    # can leave the pair nearly as close as before.
+    grid: dict = {}
     jittered = 0
     rng = np.random.default_rng(seed)
     for i in range(len(positions)):
-        key = tuple(np.round(positions[i] / threshold).astype(np.int64).tolist())
-        if key in grid_keys:
-            direction = rng.standard_normal(3)
-            norm = float(np.linalg.norm(direction))
-            if norm < 1e-9:
-                direction = np.array([1.0, 0.0, 0.0])
+        key = tuple(np.floor(positions[i] / threshold).astype(np.int64).tolist())
+        partner = None
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for dz in (-1, 0, 1):
+                    for j in grid.get((key[0] + dx, key[1] + dy, key[2] + dz), ()):
+                        if float(np.linalg.norm(positions[i] - positions[j])) < threshold:
+                            partner = j
+                            break
+                    if partner is not None:
+                        break
+                if partner is not None:
+                    break
+            if partner is not None:
+                break
+        if partner is not None:
+            separation = positions[i] - positions[partner]
+            distance = float(np.linalg.norm(separation))
+            if distance < 1e-9:
+                direction = rng.standard_normal(3)
+                direction /= max(float(np.linalg.norm(direction)), 1e-9)
             else:
-                direction /= norm
-            positions[i] += direction * jitter
+                direction = separation / distance
+            positions[i] = positions[partner] + direction * jitter
             atoms[i].position = positions[i].copy()
             jittered += 1
-        else:
-            grid_keys[key] = i
+            key = tuple(np.floor(positions[i] / threshold).astype(np.int64).tolist())
+        grid.setdefault(key, []).append(i)
     if jittered:
         Config.debug_log(f"[isotropic] _resolve_close_contacts: {jittered} overlap(s) jittered by {jitter} nm")
         print(f"[info] Resolved {jittered} close-contact atom pair(s) by jitter={jitter} nm")

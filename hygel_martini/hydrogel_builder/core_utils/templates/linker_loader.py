@@ -124,11 +124,17 @@ def linker_definitions_from_library(library: LinkerTemplateLibrary) -> List[Dict
                 for idx, params in bonds
             ]
 
-        external_bonds = [_external(group) for group in template.stub_bonds]
+        external_bonds_by_stub = [_external(group) for group in template.stub_bonds]
+        # 'external_bonds' predates this work and is read as a FLAT list by
+        # three consumers (proto_builder, proto_layout, isotropic_builder) that
+        # sum bond lengths from it. Reusing that key for a per-stub nested list
+        # broke them at runtime, so the flat spelling keeps its old shape and
+        # the nested one gets its own name.
+        external_bonds = [bond for group in external_bonds_by_stub for bond in group]
         # The two-stub spelling stays populated for the diamond layout, which
         # reads external_bonds_1/_2 directly.
-        external_bonds_1 = external_bonds[0] if template.functionality == 2 else []
-        external_bonds_2 = external_bonds[1] if template.functionality == 2 else []
+        external_bonds_1 = external_bonds_by_stub[0] if template.functionality == 2 else []
+        external_bonds_2 = external_bonds_by_stub[1] if template.functionality == 2 else []
 
         definition = {
             "linker_name": template.linker_name,
@@ -139,6 +145,7 @@ def linker_definitions_from_library(library: LinkerTemplateLibrary) -> List[Dict
             "beads": bead_defs,
             "bonds": bonds,
             "external_bonds": external_bonds,
+            "external_bonds_by_stub": external_bonds_by_stub,
             "functionality": template.functionality,
             "arm_vectors": template.arm_vectors,
             "external_bonds_1": external_bonds_1,
