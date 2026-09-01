@@ -3,7 +3,7 @@
 Record of every defect found while extending the builder toward general force
 fields and general junction functionality, on branch `omni/general-ff-and-f6`.
 
-Baseline: `d02a821` (Series-01 frozen tree). Tests at baseline: 48. Now: 156.
+Baseline: `d02a821` (Series-01 frozen tree). Tests at baseline: 48. Now: 164.
 
 **The common shape.** Almost every defect below produced a *plausible but
 wrong* result rather than an error. A build succeeded, a topology was written,
