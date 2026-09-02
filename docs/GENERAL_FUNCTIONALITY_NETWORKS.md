@@ -366,19 +366,18 @@ angles touching a stub atom are parameterless in both arm states, so the
 project's ``[ angletypes ]`` must carry each entry under both sulfur types
 (example 08's ``build_templates.py`` emits them mechanically).
 
-**Strand length and density are coupled, and the coupling is a hard limit.**
-A whole-strand template is placed rigidly, so the junction spacing is the
-template's end-to-end distance -- which fixes the density once the net and
-repeat count are chosen. For a real prepolymer the two cannot be satisfied at
-once: example 08's n = 33 strand has an 11.8 nm contour and a 13.15 nm
-extended span, so an ideal pcu net built from it sits at 0.004 g/cm3, while
-melt density (1 g/cm3) would need a 2.33 nm junction spacing -- strands coiled
-to a sixth of their contour, which a single rigid conformer cannot be (a coil
-of 373 atoms occupies a ball wider than that spacing). The construction is
-therefore a low-density scaffold with correct topology and chemistry; bringing
-it to density is the guarded-shrink workflow's job (example 05), and that step
-is also what coils the chains. A builder able to place a *flexible* strand
-along a planned path would remove the coupling; it does not exist yet.
+**Strand length sets the construction box, and construction density is not
+final density.** A whole-strand template is placed rigidly, so the junction
+spacing is the template's end-to-end distance: example 08's n = 33 strand has
+an 11.8 nm contour and a 13.15 nm extended span, giving a 60 nm box at
+0.004 g/cm3, while melt density would need a 2.33 nm junction spacing --
+coiled strands. That gap is what the post-build relaxation is for, not a
+limitation of the build: ``relax/`` provides staged minimization (soft_em),
+settling MD (soft_md) and guarded shrink-minimization (hard_em_shrink, with
+per-step guards, NVT recovery and last-valid rollback), driven by example 05,
+and the shrink is precisely the step that contracts the box and coils the
+chains. Size the construction box for the geometry you must place; size the
+final box with ``target_box_nm``.
 
 Long strands themselves come from tiling a parameterized short one
 (``example/08_des_thiourethane_aa/parameterization/tile_ppg.py``), which

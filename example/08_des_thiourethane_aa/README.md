@@ -119,21 +119,27 @@ at full conversion all 6 x 64 cap hydrogens go, so n = 33 gives
 192x373 + 64x93 - 384 = 77 184.)
 
 Both are one to two orders of magnitude below a polymer melt (~1 g/cm³), and
-the reason is architectural rather than a parameter to tune: an ideal net puts
-**one strand per lattice edge**, while a real melt-density network
-interpenetrates. Reaching 1.0 g/cm³ with the n = 33 strand would need
-`cell_parameter` ≈ 2.33 nm — a junction spacing *one sixth* of the strand's
-11.8 nm contour, i.e. strands that are coiled, not extended. A rigidly placed
-single conformer cannot be both: it has one end-to-end distance, and if that
-distance is a coil's then its 373 atoms occupy a ball wider than the lattice
-spacing.
+that is by design rather than a defect. A construction box is sized by the
+geometry it has to place: an ideal net puts one extended strand per lattice
+edge, so `cell_parameter` follows the strand's end-to-end distance. Reaching
+1.0 g/cm³ with the n = 33 strand needs `cell_parameter` ≈ 2.33 nm — a junction
+spacing *one sixth* of the strand's 11.8 nm contour, i.e. coiled strands. A
+rigidly placed conformer is not the thing that produces those coils, and it
+does not have to be.
 
-So the honest statement of what these builds are: **correct topology and
-chemistry at low density**, which is the standard starting point for a
-compression workflow, not an equilibrated melt. Bringing one to density means
-the guarded-shrink relaxation (example 05) followed by NPT — which is also the
-step that coils the extended chains. No transport, mechanical, or
-coordination number should be read off these builds directly.
+**Densification is a separate, existing stage**, not a missing feature:
+staged minimization (`soft_em`), settling MD (`soft_md`) and guarded
+shrink–minimization (`hard_em_shrink`) live in `hygel_martini/relax/` with
+example 05 as their driver. The shrink contracts box and coordinates toward a
+formulation-specific `target_box_nm` in small guarded steps, rolls back to the
+last valid state on a failed guard, and is exactly the step that coils the
+extended chains. The Series-01 systems were prepared along this path, over a
+box contraction considerably larger than the ~6.5x in box length this one
+needs, and hundreds of ns of NPT follow it before anything is measured.
+
+So what these builds are: **correct topology and chemistry at construction
+density**, the intended input to that workflow. Read no transport,
+mechanical, or coordination number off them directly.
 
 ## Known approximations (deliberate, documented)
 
