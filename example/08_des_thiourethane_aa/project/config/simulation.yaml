@@ -44,6 +44,20 @@ simulation_parameters:
     pairs: true
     # funct for the emitted dihedrals: 3 = Ryckaert-Bellemans (OPLS-AA torsions).
     dihedral_funct: 3
+    # 한글: 새 결합이 완성한 평면 중심(thiourethane 카보닐 탄소)의 improper.
+    #   strand 템플릿에서 이 탄소는 O와 N에만 결합한 2배위라 improper를 가질 수
+    #   없고, junction의 S가 붙어 3배위가 되어야 sp2 평면성이 정의된다.
+    #   값은 LNK 모델 화합물의 N-C(-S)=O improper 그대로.
+    # English: the planarity improper on the centre the new bond completes. In
+    #   the strand template that carbonyl carbon is two-coordinate (O, N) and
+    #   can carry no improper; it becomes three-coordinate only when the
+    #   junction sulfur arrives. Parameters are the LNK model compound's own
+    #   N-C(-S)=O improper; funct 4 with the central atom second is the
+    #   convention every template in this project uses. Omit 'params' to emit
+    #   them parameterless and resolve from [dihedraltypes] instead.
+    impropers:
+      funct: 4
+      params: [180.0, 43.932, 2]
 
   # Default angle when no specific rule matches (degrees, kJ/mol/rad^2).
   # In all-atom mode, angles crossing a builder bond are emitted

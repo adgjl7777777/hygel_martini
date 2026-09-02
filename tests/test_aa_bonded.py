@@ -57,7 +57,7 @@ def test_a_crosslink_bond_generates_its_crossing_dihedrals_and_pairs() -> None:
     chain_b = _chain(_Template(), 3)
     Attributes.Bond(chain_a[2], chain_b[0], funct=1, c0=0.15, c1=1000.0)
 
-    added, pairs = generate_junction_bonded_terms(world)
+    added, pairs, _ = generate_junction_bonded_terms(world)
 
     # Crossing torsions: a0-a1-a2-b0, a1-a2-b0-b1, a2-b0-b1-b2.
     assert added == 3
@@ -84,7 +84,7 @@ def test_template_internal_paths_are_never_regenerated() -> None:
     world = _fresh_world()
     _chain(_Template(), 5)
 
-    added, pairs = generate_junction_bonded_terms(world)
+    added, pairs, _ = generate_junction_bonded_terms(world)
 
     assert added == 0
     assert pairs == []
@@ -105,7 +105,7 @@ def test_ring_closures_are_kept_out_of_the_one_four_list() -> None:
                  (b0.atom_id, b1.atom_id), (b1.atom_id, a0.atom_id)):
         Attributes.Bond(i, j, funct=1, c0=0.15, c1=1000.0)
 
-    added, pairs = generate_junction_bonded_terms(world)
+    added, pairs, _ = generate_junction_bonded_terms(world)
 
     assert added > 0
     assert pairs == []
@@ -124,7 +124,7 @@ def test_existing_template_dihedrals_are_not_duplicated() -> None:
     existing.dihedral_c0 = 180.0
     existing.dihedral_c1 = 5.0
 
-    added, _ = generate_junction_bonded_terms(world)
+    added, _, _ = generate_junction_bonded_terms(world)
 
     assert added == 2  # the other two crossing torsions only
 
@@ -194,7 +194,7 @@ def test_two_instances_of_one_template_still_generate_crossing_terms() -> None:
         world.Atoms[atom_id][0].chain_index = 1
     Attributes.Bond(chain_a[2], chain_b[0], funct=1, c0=0.15, c1=1000.0)
 
-    added, pairs = generate_junction_bonded_terms(world)
+    added, pairs, _ = generate_junction_bonded_terms(world)
 
     assert added == 3
     assert len(pairs) == 3
@@ -209,7 +209,7 @@ def test_generated_pairs_merge_with_preexisting_template_pairs() -> None:
     Attributes.Bond(chain_a[2], chain_b[0], funct=1, c0=0.15, c1=1000.0)
     world.generated_pairs = [(97, 99)]  # as if copied from a template
 
-    _, crossing = generate_junction_bonded_terms(world)
+    _, crossing, _ = generate_junction_bonded_terms(world)
 
     assert (97, 99) in world.generated_pairs
     assert set(crossing) <= set(world.generated_pairs)
@@ -242,3 +242,58 @@ def test_written_charges_survive_the_round_trip(tmp_path) -> None:
     written = [bead["charge"] for bead in definition["beads"]]
     assert written == pytest.approx(charges, abs=1e-9)
     assert sum(written) == pytest.approx(sum(charges), abs=1e-9)
+
+
+def test_impropers_complete_the_centre_the_new_bond_made(tmp_path) -> None:
+    # A thiourethane carbonyl carbon is bonded to O and N in the strand
+    # template and only becomes three-coordinate when the junction's sulfur
+    # arrives, so its planarity improper exists in neither template. Model
+    # that: chain A's last atom carries two extra neighbours, and the builder
+    # bond to chain B completes it.
+    world = _fresh_world()
+    chain_a = _chain(_Template(), 3)
+    extra = [Attributes.Atom(source_template=world.Atoms[chain_a[0]][0].source_template)
+             for _ in range(1)]
+    oxygen = Attributes.Atom(source_template=None)
+    oxygen.mass = 16.0
+    Attributes.Bond(chain_a[2], oxygen.atom_id, funct=1, c0=0.12, c1=1000.0)
+    chain_b = _chain(_Template(), 3)
+    Attributes.Bond(chain_a[2], chain_b[0], funct=1, c0=0.17, c1=1000.0)
+
+    added, pairs, impropers = generate_junction_bonded_terms(
+        world, generate_impropers=True, improper_funct=4,
+        improper_params=[180.0, 43.932, 2],
+    )
+
+    # chain_a[2] now has three neighbours (chain_a[1], oxygen, chain_b[0]);
+    # chain_b[0] has two (chain_a[2], chain_b[1]) and gets none. Two of the
+    # bonds touching the centre are builder bonds, and it still gets exactly
+    # one improper -- two would assert the same planarity twice.
+    assert impropers == 1
+    written = [
+        d for key in world.Dihedrals for d in world.Dihedrals[key]
+        if int(d.dihedral_funct) == 4
+    ]
+    assert len(written) == 1
+    improper = written[0]
+    # Central atom second, the convention the OPLS templates themselves use.
+    assert improper.dihedral_atom_2.atom_id == chain_a[2]
+    assert improper.dihedral_params == [180.0, 43.932, 2.0]
+
+
+def test_impropers_are_off_unless_requested() -> None:
+    world = _fresh_world()
+    chain_a = _chain(_Template(), 3)
+    oxygen = Attributes.Atom(source_template=None)
+    oxygen.mass = 16.0
+    Attributes.Bond(chain_a[2], oxygen.atom_id, funct=1, c0=0.12, c1=1000.0)
+    chain_b = _chain(_Template(), 3)
+    Attributes.Bond(chain_a[2], chain_b[0], funct=1, c0=0.17, c1=1000.0)
+
+    _, _, impropers = generate_junction_bonded_terms(world)
+
+    assert impropers == 0
+    assert not [
+        d for key in world.Dihedrals for d in world.Dihedrals[key]
+        if int(d.dihedral_funct) == 4
+    ]

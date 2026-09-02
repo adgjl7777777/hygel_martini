@@ -1423,16 +1423,46 @@ def _execute_all_mode():
         from hygel_martini.hydrogel_builder.core_utils.runtime.aa_bonded import (
             generate_junction_bonded_terms,
         )
-        added, pairs = generate_junction_bonded_terms(
+        # Impropers may be requested as a bare flag or as a mapping carrying
+        # the funct and inline parameters, e.g.
+        #   impropers: {funct: 4, params: [180.0, 43.932, 2]}
+        improper_cfg = junction_cfg.get("impropers", False)
+        if isinstance(improper_cfg, dict):
+            unknown = sorted(set(improper_cfg) - {"funct", "params"})
+            if unknown:
+                raise ValueError(
+                    f"'junction_bonded_generation.impropers' has unknown key(s) "
+                    f"{unknown}; expected ['funct', 'params']"
+                )
+            generate_impropers = True
+            improper_funct = int(improper_cfg.get("funct", 4))
+            improper_params = improper_cfg.get("params")
+        else:
+            generate_impropers = bool(improper_cfg)
+            improper_funct = int(junction_cfg.get("improper_funct", 4))
+            improper_params = None
+
+        added, pairs, impropers = generate_junction_bonded_terms(
             hydrogel_world,
             dihedral_funct=int(junction_cfg.get("dihedral_funct", 3)),
             generate_dihedrals=bool(junction_cfg.get("dihedrals", True)),
             generate_pairs=bool(junction_cfg.get("pairs", True)),
+            generate_impropers=generate_impropers,
+            improper_funct=improper_funct,
+            improper_params=improper_params,
         )
         print(
             f"[INFO] junction bonded terms: dihedrals+{added}, pairs+{len(pairs)} "
             f"(funct {junction_cfg.get('dihedral_funct', 3)}, parameterless)"
         )
+        if generate_impropers:
+            shape = (
+                f"params {improper_params}" if improper_params else "parameterless"
+            )
+            print(
+                f"[INFO] junction impropers: +{impropers} "
+                f"(funct {improper_funct}, {shape})"
+            )
 
     current_gro_file = os.path.join(output_dir, "initial_hydrogel.gro")
 

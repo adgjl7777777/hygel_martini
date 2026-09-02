@@ -384,8 +384,27 @@ Long strands themselves come from tiling a parameterized short one
 refuses to run unless the repeat interior is verifiably regular -- see that
 example's README for the transferability and neutrality caveats.
 
-Known limits of the all-atom path, in one place: impropers spanning a builder-created bond are not generated (the carbonyl
-planarity improper at a thiourethane linkage is lost); and the net layout
+**Impropers across a new bond are opt-in.** A builder-created bond can
+complete a planar centre that neither template could declare -- a thiourethane
+carbonyl carbon is two-coordinate in the strand template and becomes sp2 only
+when the junction's sulfur arrives. Unlike a proper dihedral, whose presence
+follows from connectivity, an improper asserts a geometry, so it is requested
+rather than inferred::
+
+    junction_bonded_generation:
+      impropers: {funct: 4, params: [180.0, 43.932, 2]}   # omit params for
+                                                          # parameterless
+
+One improper is emitted per *centre* that a builder bond leaves
+three-coordinate (per centre, not per bond: a centre touched by two new bonds
+would otherwise have its planarity asserted twice), with the central atom
+second -- the convention every OPLS template in this project uses -- and the
+outer atoms sorted. For the planarity form (phase 180, multiplicity 2) the
+energy is even in the angle, so that ordering does not change it. Measured on
+example 08: out-of-plane deviation at the 384 thiourethane centres falls from
+mean 8.7 deg / max 49.7 deg to mean 2.4 / max 8.2.
+
+Known limits of the all-atom path, in one place: the net layout
 supports exactly one whole-strand backbone entry per build (refused
 otherwise), so strand-length polydispersity is future work.
 

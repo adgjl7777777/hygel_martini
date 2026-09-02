@@ -1,0 +1,38 @@
+# maker_shrink_n33.yaml — guarded shrink of the EXPERIMENTAL-LENGTH (n = 33)
+# all-atom network, from its 60.2 nm construction box to a dense state.
+#
+# Same stage and guards as maker_shrink.yaml; two differences:
+#   * target 9.32 nm, which puts this composition's 489 kamu at ~1.0 g/cm3;
+#   * cut-off electrostatics during the shrink (config_shrink/minim_cutoff.mdp).
+#     A 60 nm starting box would need a ~512^3 PME grid for 77k widely
+#     separated atoms. The shrink is a geometry-driving stage; PME belongs to
+#     the NPT that follows it, where the box is small and dense.
+#
+# 한글: 건설 밀도(희박)에서 실제 밀도로 줄이는 단계. 건설 상자는 놓아야 할
+#   기하가 정하고, 최종 상자는 여기서 target_box_nm이 정한다.
+# English: the construction box is set by the geometry that has to be placed;
+#   the final box is set here. This is the stage that coils the extended
+#   strands, and it is a demonstration of the path, not a physical claim about
+#   the n = 3 model (whose strands are shorter than the experimental ones).
+#
+# From the 60.16 nm construction box to 9.32 nm is a 6.5x contraction in box
+# length -- less than the Series-01 systems went through on this same stage.
+includes:
+  - ../../05_hydrogel_relaxation/project/config/common.yaml
+  - ../../05_hydrogel_relaxation/project/config/hard_em_shrink.yaml
+
+runtime:
+  omp_threads: 4
+
+paths:
+  start_gro: ${CONFIG_DIR}/output_n33/final_system.gro
+  system_top: ${CONFIG_DIR}/output_n33/final_system_no_ions_geo_opt/system.top
+  bonded_itp: ${CONFIG_DIR}/output_n33/initial_hydrogel.itp
+  workdir: ${CONFIG_DIR}/shrink_output_n33
+
+hard_em_shrink:
+  minim_mdp: ${CONFIG_DIR}/config_shrink/minim_cutoff.mdp
+  nvt_recovery_mdp: ${CONFIG_DIR}/config_shrink/nvt_recovery.mdp
+  target_box_nm: 9.32
+  shrink_fraction: 0.02
+  max_steps: 300

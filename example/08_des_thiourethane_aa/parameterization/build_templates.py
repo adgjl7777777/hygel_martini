@@ -37,10 +37,14 @@ Known approximations, in one place:
 * Charges are 1.14*CM1A-LBCC ("rough"); good enough to validate construction,
   not for quantitative ion transport. Charge folding (H into S, cap into
   carbonyl C) preserves neutrality exactly but localizes the residual.
-* The carbonyl planarity improper N-C(=O)-S=O cannot survive: its four atoms
-  span the junction and the strand, the strand template cannot reference the
-  junction sulfur, and the builder generates only proper dihedrals across new
-  bonds. sp2 geometry at that carbon is held by the crossing RB torsions only.
+* The carbonyl planarity improper N-C(=O)-S=O cannot live in either template:
+  its four atoms span the junction and the strand, so the strand template --
+  where that carbon is only two-coordinate -- cannot declare it. The builder
+  generates it instead, from
+  ``simulation_parameters.junction_bonded_generation.impropers`` in
+  config/simulation.yaml, using this LNK model compound's own parameters
+  (180.0, 43.932, 2). Measured effect at the 384 centres: out-of-plane
+  deviation drops from mean 8.7 deg / max 49.7 deg to mean 2.4 / max 8.2.
 * Junction-internal S parameters keep HEX's thiol-context values; only the
   sulfur's nonbonded type and the terms crossing the new bond use the
   thiourethane (LNK) values.
@@ -384,7 +388,7 @@ def write_forcefield(hex_mol, arms, str_mol, ends):
         f.write("\n[ dihedraltypes ]\n")
         f.write("; every proper torsion crossing the builder-formed S-C bond;\n")
         f.write("; Ryckaert-Bellemans coefficients from LNK. The carbonyl\n")
-        f.write("; planarity improper N-C-S=O cannot cross the junction and is\n")
+        f.write("; planarity improper N-C-S=O spans junction and strand, so it\n")
         f.write("; a documented loss.\n")
         seen_d = set()
 
