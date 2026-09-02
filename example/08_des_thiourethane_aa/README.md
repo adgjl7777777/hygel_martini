@@ -141,6 +141,39 @@ So what these builds are: **correct topology and chemistry at construction
 density**, the intended input to that workflow. Read no transport,
 mechanical, or coordination number off them directly.
 
+### Densification, run rather than argued (`maker_shrink.yaml`)
+
+`maker_shrink.yaml` drives the guarded shrink on the n = 3 build, from its
+17.44 nm construction box to a 6.34 nm target (≈1.0 g/cm³ for this
+composition), 2 % of box length per step:
+
+```bash
+PYTHONPATH=$REPO python -m hygel_martini.hydrogel_builder.relax     example/08_des_thiourethane_aa/project/maker_shrink.yaml
+```
+
+Measured outcome — 51 steps, **all accepted, no guard rejection, no NVT
+recovery**, ending exactly on target:
+
+| | construction | post-shrink |
+|---|---|---|
+| box | 17.440 nm | 6.340 nm |
+| density | 0.048 g/cm³ | **1.003 g/cm³** |
+| bond lengths | 0.099–0.187 nm | 0.099–0.186 nm |
+| crosslink S–C | mean 0.174 nm | mean 0.169 nm (b₀ = 0.1715) |
+| covalent components | 1 | 1 |
+| closest nonbonded | 0.193 nm | 0.137 nm |
+
+A 21× compression in density leaves the bonded structure untouched: no bond
+stretched or crushed, the crosslinks still sit on their equilibrium length,
+and the network is still one covalent component. The one number that moves the
+wrong way is the closest nonbonded contact (0.137 nm), which says exactly what
+it should — this is an energy-minimized structure at melt density, not a
+thermally equilibrated one. Long NPT is the next stage, and in the Series-01
+systems it is also what erases the builder's lattice pattern.
+
+Only `shrink_output/{final.gro,state.json,history.jsonl}` are tracked; the
+per-step directories are reproducible.
+
 ## Known approximations (deliberate, documented)
 
 * **Charges are rough.** 1.14*CM1A-LBCC validates construction; quantitative

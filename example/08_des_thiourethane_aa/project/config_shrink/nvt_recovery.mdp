@@ -1,0 +1,21 @@
+; Short NVT used only to recover a shrink step whose EM failed its guards.
+integrator              = md
+dt                      = 0.001
+nsteps                  = 20000
+continuation            = no
+gen_vel                 = yes
+gen_temp                = 300
+gen_seed                = -1
+nstenergy               = 500
+nstlog                  = 500
+constraints             = none
+cutoff-scheme           = Verlet
+coulombtype             = PME
+rcoulomb                = 1.1
+rvdw                    = 1.1
+tcoupl                  = v-rescale
+tc-grps                 = System
+tau-t                   = 0.5
+ref-t                   = 300
+pcoupl                  = no
+periodic-molecules      = yes
