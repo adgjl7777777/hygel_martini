@@ -171,6 +171,16 @@ it should — this is an energy-minimized structure at melt density, not a
 thermally equilibrated one. Long NPT is the next stage, and in the Series-01
 systems it is also what erases the builder's lattice pattern.
 
+`maker_shrink_n33.yaml` does the same for the experimental-length network
+(cut-off electrostatics during the shrink, since a 60 nm starting box would
+need a ~512³ PME grid; PME belongs to the NPT that follows). Measured: **93
+steps, all accepted, no rejection, no recovery**, 60.16 → 9.320 nm — a 6.5×
+contraction in box length, 270× in volume — taking 77 184 atoms from 0.004 to
+**1.002 g/cm³** with bonds 0.097–0.189 nm, crosslinks at 0.168 nm mean, one
+covalent component, and the same 0.133 nm closest-contact signature. That the
+larger contraction needed no guard intervention either is the point of the
+guards: they are there to catch the run that does.
+
 Only `shrink_output/{final.gro,state.json,history.jsonl}` are tracked; the
 per-step directories are reproducible.
 
