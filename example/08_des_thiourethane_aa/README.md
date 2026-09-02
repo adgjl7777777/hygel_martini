@@ -179,7 +179,12 @@ contraction in box length, 270× in volume — taking 77 184 atoms from 0.004 to
 **1.002 g/cm³** with bonds 0.097–0.189 nm, crosslinks at 0.168 nm mean, one
 covalent component, and the same 0.133 nm closest-contact signature. That the
 larger contraction needed no guard intervention either is the point of the
-guards: they are there to catch the run that does.
+guards: they are there to catch the run that does. Re-run after the crossing
+impropers were enabled, it reproduced step for step, and the 384 thiourethane
+carbonyl centres stay near planar through the compression (mean 4.62°, max
+25.5°, 4 beyond 20°) — worse than the 2.44° at construction density, as a
+270× compression should be, and far better than the 49.7° the term's absence
+allowed before any compression at all.
 
 Only `shrink_output/{final.gro,state.json,history.jsonl}` are tracked; the
 per-step directories are reproducible.
