@@ -1,0 +1,21 @@
+# maker_des.yaml — the DES system: network + acetylcholine chloride.
+#
+# The n = 3 network (fast to build) with the experimental DES loading, so the
+# insertion path itself is what gets exercised. Scale to maker_n33's strand by
+# swapping the BACKBONES block as that file does.
+#
+# What this adds over maker.yaml: config/add_des.yaml, which packs 384 AcCh(+)
+# and 384 Cl(-) into the dilute construction box. Densification is then
+# maker_shrink_des.yaml, which compresses network and solvent together.
+includes:
+  - config/simulation.yaml
+  - config/mdp.yaml
+  - config/hydrogel.yaml
+  - config/network.yaml
+  - config/add_des.yaml
+
+simulation_parameters:
+  output_dir: ${CONFIG_DIR}/output_des
+  # The DES is charged per molecule but neutral in total (384 (+1) + 384 (-1)),
+  # and the network carries only LigParGen's rounding residual.
+  grompp_maxwarn: 2

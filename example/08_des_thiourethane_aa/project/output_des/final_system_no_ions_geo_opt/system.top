@@ -1,0 +1,16 @@
+#include "/nas_1/transcendence/2026_2/omni_hygel_package/package/example/08_des_thiourethane_aa/project/structure/forcefield.itp"
+#include "/nas_1/transcendence/2026_2/omni_hygel_package/package/example/08_des_thiourethane_aa/project/structure/STR.itp"
+#include "/nas_1/transcendence/2026_2/omni_hygel_package/package/example/08_des_thiourethane_aa/project/structure/HEXU.itp"
+#include "/nas_1/transcendence/2026_2/omni_hygel_package/package/example/08_des_thiourethane_aa/project/structure/STR_n33.itp"
+#include "/nas_1/transcendence/2026_2/omni_hygel_package/package/example/08_des_thiourethane_aa/project/structure/ACC.itp"
+#include "/nas_1/transcendence/2026_2/omni_hygel_package/package/example/08_des_thiourethane_aa/project/structure/CL.itp"
+#include "/nas_1/transcendence/2026_2/omni_hygel_package/package/example/08_des_thiourethane_aa/project/output_des/initial_hydrogel.itp"
+
+[ system ]
+My System
+
+[ molecules ]
+; Compound        #mols
+HYDROGEL        1
+ACC             384
+CL              384

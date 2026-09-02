@@ -189,6 +189,47 @@ allowed before any compression at all.
 Only `shrink_output/{final.gro,state.json,history.jsonl}` are tracked; the
 per-step directories are reproducible.
 
+## The DES itself (`maker_des.yaml`)
+
+The formulation is Hexakis : AcChCl = 1 : 6, so a 64-junction network takes
+**384 acetylcholine cations and 384 chlorides**. Two obstacles, both resolved
+rather than worked around:
+
+* **LigParGen refuses ions under LBCC.** 1.14*CM1A-LBCC is defined for neutral
+  molecules; the server rejects any charged species with it and accepts them
+  with plain `cm1a`. That one substitution is the whole difficulty — the same
+  submission that failed as `cm1abcc` succeeds as `cm1a`.
+* **A monatomic ion has no SMILES geometry to optimize**, so chloride cannot
+  come from LigParGen at all. It is taken from the OPLS-AA force field GROMACS
+  ships (`oplsaa.ff/ffnonbonded.itp`, `opls_401`: σ = 0.441724 nm,
+  ε = 0.492833 kJ/mol), quoted with that provenance.
+
+`parameterization/build_des_components.py` writes `ACC.{itp,gro}` and
+`CL.{itp,gro}`, renames the cation's types (`ac*`) so LigParGen's
+per-submission `opls_8xx` namespace cannot collide with the polymer
+templates', corrects the cation to exactly +1 e (LigParGen leaves +0.9998, and
+384 pairs would otherwise put −0.077 e on the system), and merges both
+molecules' `[ atomtypes ]` into `forcefield.itp` inside a marked fence — that
+file is the only correct home for them, since GROMACS wants every atomtype
+before the first moleculetype. Run it *after* `build_templates.py`, which owns
+that file.
+
+**Insertion order is not a detail.** The DES goes in while the construction
+box is still dilute, and the shrink then compresses network and solvent
+together; at 1 g/cm³ there is no room left to add anything.
+`config/add_des.yaml` places both species in one Packmol call through the
+`add_molecule` stage, which now accepts a list. The ion stage cannot serve
+here: `genion` inserts by *replacing* solvent molecules, and in a DES the ions
+are the solvent.
+
+Measured: 29 952 atoms in the 17.44 nm construction box — `HYDROGEL 1,
+ACC 384, CL 384` in `[ molecules ]`, and 9 984 = 384 × 26 cation atoms plus
+384 chlorides in the coordinates. All EM stages converge.
+
+Charges are the provisional part. The collaboration's DFT project has RESP
+charges for acetylcholine, and replacing the charge column is the intended
+upgrade; nothing else about these templates depends on it.
+
 ## Known approximations (deliberate, documented)
 
 * **Charges are rough.** 1.14*CM1A-LBCC validates construction; quantitative

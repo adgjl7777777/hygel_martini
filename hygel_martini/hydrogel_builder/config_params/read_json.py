@@ -496,6 +496,96 @@ def _merge_two_stage_job_defaults(defaults, job):
     return merged
 
 
+def _itp_moleculetypes(path):
+    """Names declared by ``[ moleculetype ]`` blocks in an ITP, or an empty set.
+
+    A light scan rather than a full parse: the caller only needs to know which
+    molecule names a file claims, and must work on files whose masses come
+    from an [ atomtypes ] table it has not loaded.
+    """
+    names = set()
+    try:
+        expecting = False
+        for line in open(path, encoding="utf-8", errors="replace"):
+            stripped = line.split(";", 1)[0].strip()
+            if not stripped:
+                continue
+            if stripped.startswith("["):
+                expecting = "moleculetype" in stripped
+                continue
+            if expecting:
+                names.add(stripped.split()[0])
+                expecting = False
+    except OSError:
+        return set()
+    return names
+
+
+def _normalize_add_molecule_specs(add_series_params, sim_params):
+    """Normalize ``add_series_parameters.add_molecule`` to a list of specs.
+
+    Accepts the historical single mapping and a list of mappings, so a
+    multi-component solvent (a DES cation plus its anion) is expressible
+    without a second stage. Species with ``num_molecules <= 0`` are dropped,
+    as are those whose coordinate file is missing under ``test_mode`` --
+    outside test mode a missing file is an error, because silently building a
+    system without its solvent is worse than stopping.
+
+    Returns:
+        List of dicts with ``molecule_gro``, ``num_molecules``,
+        ``molecule_name`` and optionally ``molecule_itp``. Empty when the
+        stage is not configured.
+
+    Raises:
+        ValueError: A spec without ``molecule_gro``, a missing coordinate file
+            outside test mode, or two species resolving to the same
+            ``molecule_name`` (their [molecules] counts would merge, and the
+            topology would claim one species where two were requested).
+    """
+    raw = add_series_params.get('add_molecule')
+    if not raw:
+        return []
+    entries = raw if isinstance(raw, list) else [raw]
+
+    specs = []
+    seen_names = {}
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            raise ValueError(
+                f"add_molecule[{index}] must be a mapping, got {type(entry).__name__}"
+            )
+        count = int(entry.get('num_molecules', 0) or 0)
+        if count <= 0:
+            continue
+        source = entry.get('molecule_gro')
+        if not source:
+            raise ValueError(f"add_molecule[{index}] needs 'molecule_gro'")
+        if not os.path.exists(source):
+            if sim_params.get('test_mode'):
+                print(
+                    f"[TEST_MODE] Molecule source '{source}' not found. "
+                    "Skipping this add_molecule species."
+                )
+                continue
+            raise ValueError(
+                f"add_molecule[{index}]: coordinate file not found: {source}"
+            )
+        name = entry.get('molecule_name') or os.path.splitext(os.path.basename(source))[0]
+        if name in seen_names:
+            raise ValueError(
+                f"add_molecule species {index} and {seen_names[name]} share the "
+                f"molecule_name {name!r}; their [molecules] counts would be "
+                "merged into one entry"
+            )
+        seen_names[name] = index
+        spec = dict(entry)
+        spec['molecule_gro'] = source
+        spec['molecule_name'] = name
+        spec['num_molecules'] = count
+        specs.append(spec)
+    return specs
+
+
 def _execute_pack_polymer_then_water_mode():
     """YAML-accessible route for polymer-first, fixed-polymer water packing."""
     print("\n--- YAML mode: pack_polymer_then_water ---")
@@ -1673,116 +1763,100 @@ def _execute_all_mode():
 
     # 3. Add Molecule
 
-    if 'add_molecule' in add_series_params and add_series_params['add_molecule'].get('num_molecules', 0) > 0:
+    # add_molecule takes either one species (a mapping) or several (a list of
+    # mappings). Several is what a deep eutectic solvent needs: its cation is a
+    # whole molecule that Packmol must place, while its anion is monatomic, and
+    # the ion stage cannot help because genion works by REPLACING solvent -- in
+    # a DES the ions are the solvent. All species are packed in one Packmol
+    # call so they are placed against each other rather than in sequence.
+    molecule_specs = _normalize_add_molecule_specs(add_series_params, sim_params)
+    if molecule_specs:
         if progress:
             progress.start_stage("add_molecule", 10)
 
-        mol_params = add_series_params['add_molecule']
+        molecules_to_add = []
+        for spec in molecule_specs:
+            source_gro = spec['molecule_gro']
+            name = spec['molecule_name']
 
-        mol_source = mol_params['molecule_gro']
-        if not os.path.exists(mol_source) and sim_params.get('test_mode'):
-            print(f"[TEST_MODE] Molecule source '{mol_source}' not found. Skipping add_molecule step.")
-            mol_params['num_molecules'] = 0
-            add_series_params['add_molecule']['num_molecules'] = 0
-            mol_source = None
-        if not mol_source:
-            # skip the rest of add_molecule
-            mol_source_gro = None
-        else:
-            mol_name = mol_params.get('molecule_name')
-            if not mol_name:
-                mol_name = os.path.splitext(os.path.basename(mol_source))[0]
-                mol_params['molecule_name'] = mol_name
-
-            if mol_source.endswith('.xyz'):
-                gro_filename = f"{os.path.splitext(os.path.basename(mol_source))[0]}.gro"
-                mol_source_gro = packer.convert_xyz_to_gro(
-                    mol_source,
+            if source_gro.endswith('.xyz'):
+                gro_filename = f"{os.path.splitext(os.path.basename(source_gro))[0]}.gro"
+                source_gro = packer.convert_xyz_to_gro(
+                    source_gro,
                     os.path.join(output_dir, gro_filename),
                     sim_params.get('gromacs_executable_path') or 'gmx_mpi',
-                    molecule_name=mol_params['molecule_name']
+                    molecule_name=name,
                 )
+
+            dest_gro = os.path.join(output_dir, os.path.basename(source_gro))
+            if os.path.abspath(source_gro) != os.path.abspath(dest_gro):
+                shutil.copy(source_gro, dest_gro)
+
+            itp_path_to_add = spec.get('molecule_itp')
+            if not itp_path_to_add:
+                candidate = os.path.splitext(spec['molecule_gro'])[0] + '.itp'
+                if os.path.exists(candidate):
+                    itp_path_to_add = candidate
+                    print(f"자동으로 분자 ITP 파일을 감지했습니다: {itp_path_to_add}")
             else:
-                mol_source_gro = mol_source
-
-        if mol_source_gro is None:
-            mol_params['num_molecules'] = 0
-            add_series_params['add_molecule']['num_molecules'] = 0
-            mol_source = None
-        else:
-            mol_dest_gro = os.path.join(output_dir, os.path.basename(mol_source_gro))
-
-            if os.path.abspath(mol_source_gro) != os.path.abspath(mol_dest_gro):
-
-                shutil.copy(mol_source_gro, mol_dest_gro)
-
-
-
-            itp_path_to_add = None
-
-            if 'molecule_itp' in mol_params:
-
-                itp_path_to_add = mol_params['molecule_itp']
-
                 print(f"설정 파일에서 분자 ITP 경로를 사용합니다: {itp_path_to_add}")
 
-            else:
-
-                base_path, _ = os.path.splitext(mol_source)
-
-                potential_itp_path = base_path + ".itp"
-
-                if os.path.exists(potential_itp_path):
-
-                    itp_path_to_add = potential_itp_path
-
-                    print(f"자동으로 분자 ITP 파일을 감지했습니다: {itp_path_to_add}")
-
-
-
             if itp_path_to_add:
-
                 itp_dest = os.path.join(output_dir, os.path.basename(itp_path_to_add))
-
                 if os.path.abspath(itp_path_to_add) != os.path.abspath(itp_dest):
-
                     shutil.copy(itp_path_to_add, itp_dest)
-                if itp_dest not in itp_files_to_include:
+                # A template that already reaches the topology another way --
+                # typically by living in gromacs_include_path, whose ITPs are
+                # collected automatically -- must not be included twice: one
+                # moleculetype defined in two files makes the later one
+                # silently win. The charge audit catches that later; catching
+                # it here says which file and why.
+                declared = _itp_moleculetypes(itp_dest)
+                already = set()
+                for existing in itp_files_to_include:
+                    if os.path.abspath(existing) != os.path.abspath(itp_dest):
+                        already |= _itp_moleculetypes(existing)
+                clash = declared & already
+                if clash:
+                    print(
+                        f"분자 ITP '{os.path.basename(itp_dest)}'는 이미 포함된 "
+                        f"토폴로지가 moleculetype {sorted(clash)}를 정의하므로 "
+                        "include하지 않습니다. / Already declared by an included "
+                        "topology; not including this copy."
+                    )
+                elif itp_dest not in itp_files_to_include:
                     itp_files_to_include.append(itp_dest)
-
-                print(f"분자 ITP 파일 추가: {itp_dest}")
-                # 기존 merged ITP가 있으면 외부 분자 ITP를 붙여 새 merged 생성
+                    print(f"분자 ITP 파일 추가: {itp_dest}")
                 prev_merged = Config.get_runtime("merged_itp_path")
                 if prev_merged and os.path.isfile(prev_merged):
                     merged_path = os.path.join(output_dir, "merged_after_molecule.itp")
-                    _merge_world_and_itps(None, [prev_merged, itp_dest], merged_path, moleculetype_name="HYDROGEL")
-                    # merged ITP는 편의용으로 생성만 하고, 실제 topology include는 기존 방식 유지
+                    _merge_world_and_itps(
+                        None, [prev_merged, itp_dest], merged_path,
+                        moleculetype_name="HYDROGEL",
+                    )
                     Config.set_runtime("merged_itp_path", merged_path)
-
             else:
+                print(
+                    f"경고: 분자 '{name}'의 ITP 파일을 찾을 수 없습니다. "
+                    "grompp 단계에서 오류가 발생할 수 있습니다."
+                )
 
-                print(f"경고: 분자 '{mol_params['molecule_name']}'의 ITP 파일을 찾을 수 없습니다. grompp 단계에서 오류가 발생할 수 있습니다.")
+            molecules_to_add.append({"file": dest_gro, "number": spec['num_molecules']})
 
+        packed_after_mol_gro = os.path.join(output_dir, "packed_after_molecule.gro")
+        current_gro_file, pack_success = _run_packing_step(
+            "Add_Molecule", current_gro_file, molecules_to_add,
+            packed_after_mol_gro, sim_params,
+        )
 
-
-        if mol_source_gro is not None:
-
-            molecules_to_add = [{"file": mol_dest_gro, "number": mol_params['num_molecules']}]
-
-            packed_after_mol_gro = os.path.join(output_dir, "packed_after_molecule.gro")
-
-
-
-            current_gro_file, pack_success = _run_packing_step(
-                "Add_Molecule", current_gro_file, molecules_to_add, packed_after_mol_gro, sim_params
-            )
-
-            if pack_success:
-                molecule_counts_for_top[mol_params['molecule_name']] = molecule_counts_for_top.get(mol_params['molecule_name'], 0) + mol_params['num_molecules']
-            else:
-                print("[TEST_MODE] Packmol skipped; molecule count not added to topology.")
-
-        
+        if pack_success:
+            for spec in molecule_specs:
+                name = spec['molecule_name']
+                molecule_counts_for_top[name] = (
+                    molecule_counts_for_top.get(name, 0) + spec['num_molecules']
+                )
+        else:
+            print("[TEST_MODE] Packmol skipped; molecule counts not added to topology.")
 
         # --- GEO OPT 4: Hydrogel + Molecule ---
         current_gro_file = _perform_geo_opt_step(

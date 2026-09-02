@@ -1,0 +1,31 @@
+# config/add_des.yaml — the deep eutectic solvent, inserted into the network.
+#
+# 한글: Hexakis : AcChCl = 1 : 6 (실험 조성). junction 64개 → 384쌍.
+#   두 종을 한 번의 Packmol 호출로 함께 넣는다. add_small_ion(genion)은 쓸 수
+#   없다 — genion은 용매 분자를 '치환'하는 방식이고, DES에서는 이온이 곧
+#   용매여서 치환할 대상이 없다.
+# English: the experimental 1 : 6 Hexakis : AcChCl ratio, so a 64-junction
+#   network takes 384 pairs. Both species go through add_molecule (a list) in
+#   one Packmol call. The ion stage cannot serve here: genion inserts by
+#   REPLACING solvent molecules, and in a DES the ions are the solvent.
+#
+# 삽입 시점이 중요하다: 건설 상자는 희박하므로 여기서 DES가 들어갈 자리가
+# 있고, 그 뒤 shrink가 네트워크와 DES를 함께 압축한다. 밀도 1.0의 dry
+# 네트워크에 나중에 넣으려 하면 넣을 공간이 없다.
+# Insertion order matters: the construction box is dilute, so the DES fits
+# now, and the shrink then compresses network and solvent together. There is
+# no room to add it to an already-dense network.
+add_series_parameters:
+  add_molecule:
+    # 아세틸콜린 양이온 (26원자). LigParGen OPLS-AA, plain 1.14*CM1A
+    # (LBCC는 중성 분자용이라 이온에 쓸 수 없다). 전하는 DFT RESP로 교체 예정.
+    - molecule_gro: ${CONFIG_DIR}/structure/ACC.gro
+      molecule_itp: ${CONFIG_DIR}/structure/ACC.itp
+      molecule_name: ACC
+      num_molecules: 384
+    # 염화 이온. 단원자라 LigParGen 경로가 없어 GROMACS 동봉 OPLS-AA의
+    # opls_401을 출처 명시하고 사용.
+    - molecule_gro: ${CONFIG_DIR}/structure/CL.gro
+      molecule_itp: ${CONFIG_DIR}/structure/CL.itp
+      molecule_name: CL
+      num_molecules: 384

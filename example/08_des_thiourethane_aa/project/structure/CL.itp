@@ -1,0 +1,9 @@
+; Chloride ion. Parameters: GROMACS oplsaa.ff/ffnonbonded.itp opls_401
+; A monatomic ion has no SMILES geometry to optimize, so
+; LigParGen cannot produce it; the shipped OPLS-AA force field
+; is the source instead.
+[ moleculetype ]
+  CL     3
+
+[ atoms ]
+     1  desCL     1  CL    CL       1 -1.000000  35.4530
