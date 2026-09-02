@@ -1,0 +1,27 @@
+{
+  "step_index": 44,
+  "target_box_nm": [
+    7.19,
+    7.19,
+    7.19
+  ],
+  "last_event": {
+    "step": 44,
+    "attempted_shrink_fraction": 0.02,
+    "box_before_nm": [
+      7.31593,
+      7.31593,
+      7.31593
+    ],
+    "box_after_nm": [
+      7.19,
+      7.19,
+      7.19
+    ],
+    "fmax": 999.10266,
+    "potential": -99776.28125,
+    "nvt_recovery_used": false,
+    "accepted": true,
+    "error": null
+  }
+}

@@ -230,6 +230,29 @@ Charges are the provisional part. The collaboration's DFT project has RESP
 charges for acetylcholine, and replacing the charge column is the intended
 upgrade; nothing else about these templates depends on it.
 
+### Densifying the DES system
+
+`maker_shrink_des.yaml` compresses network and solvent together to a 7.19 nm
+target (223.7 kamu at ~1.0 g/cm³ — larger than the dry network's 6.34 nm
+because the DES adds mass). Measured: **44 steps, all accepted, no rejection,
+no recovery**, 17.44 → 7.190 nm, density 0.070 → **0.999 g/cm³**, network
+bonds 0.099–0.189 nm, crosslinks at 0.169 nm mean, one covalent component,
+and the composition unchanged (STR 14 400 / HEX 5 184 / ACC 9 984 / CL 384).
+
+**What this structure does *not* yet show.** A tempting first look is where
+the chlorides sit: nearest network nitrogen 0.558 nm on average, nearest
+sulfur 0.642 nm — closer to N, which is the ordering the DFT work predicts on
+binding energy. That inference does not survive counting the sites. The
+network has 768 N and 384 S, so nitrogen is at twice the number density, and
+for randomly placed anions the nearest-neighbour distance alone scales as
+n^(−1/3): the expected ratio is 2^(1/3) = 1.260, while the observed ratio is
+1.151. The observation is *weaker* than random placement would give, so this
+frame carries no site preference at all — which is what should be expected
+from Packmol placement followed by minimization, with no thermal sampling in
+between. Site preference is an NPT-trajectory question (RDFs, running
+coordination numbers, hydrogen-bond occupancy and residence times), not a
+single-frame one.
+
 ## Known approximations (deliberate, documented)
 
 * **Charges are rough.** 1.14*CM1A-LBCC validates construction; quantitative
