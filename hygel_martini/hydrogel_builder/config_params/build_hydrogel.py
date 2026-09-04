@@ -343,7 +343,7 @@ def _resolve_network_layout(sim_params):
     conversion = raw.get("conversion") or {}
     if not isinstance(conversion, dict):
         raise ValueError("'network_layout.conversion' must be a mapping")
-    conversion_known = {"fraction", "seed"}
+    conversion_known = {"fraction", "count", "seed"}
     conversion_unknown = sorted(set(conversion) - conversion_known)
     if conversion_unknown:
         raise ValueError(
@@ -351,6 +351,13 @@ def _resolve_network_layout(sim_params):
             f"expected {sorted(conversion_known)}"
         )
     fraction = conversion.get("fraction")
+    count = conversion.get("count")
+    if fraction is not None and count is not None:
+        raise ValueError(
+            "'network_layout.conversion' takes 'fraction' or 'count', not both: "
+            "a per-strand probability and an exact strand count are different "
+            "models of the same chemistry."
+        )
     if fraction is not None:
         fraction = float(fraction)
         if not 0.0 < fraction <= 1.0:
@@ -365,6 +372,24 @@ def _resolve_network_layout(sim_params):
                 "without one the strand selection differs on every run and the "
                 "build is silently irreproducible."
             )
+    if count is not None:
+        # An experimental equivalent ratio fixes how many prepolymer molecules
+        # are present, so the count is exact and the upper bound (the net's
+        # edge total) is checked by the layout, which knows the supercell.
+        if isinstance(count, bool) or not isinstance(count, int):
+            raise ValueError(
+                f"'network_layout.conversion.count' must be an integer, got {count!r}"
+            )
+        if count < 1:
+            raise ValueError(
+                f"'network_layout.conversion.count' must be at least 1, got {count}"
+            )
+        if conversion.get("seed") is None:
+            raise ValueError(
+                "'network_layout.conversion' needs a 'seed' when 'count' is set: "
+                "without one WHICH strands form differs on every run and the "
+                "build is silently irreproducible."
+            )
 
     return {
         "net": str(net),
@@ -374,6 +399,7 @@ def _resolve_network_layout(sim_params):
         "rewire_seed": rewiring.get("seed"),
         "rewire_kwargs": rewire_kwargs,
         "conversion_fraction": fraction,
+        "conversion_count": count,
         "conversion_seed": conversion.get("seed"),
     }
 
@@ -479,6 +505,7 @@ def _plan_backbone_blueprint(sim_params, output_dir):
             rewire_seed=net_layout_config["rewire_seed"],
             rewire_kwargs=net_layout_config["rewire_kwargs"],
             conversion_fraction=net_layout_config["conversion_fraction"],
+            conversion_count=net_layout_config["conversion_count"],
             conversion_seed=net_layout_config["conversion_seed"],
         )
         for key, value in net_result.summary().items():

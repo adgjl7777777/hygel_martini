@@ -174,3 +174,66 @@ def test_secondary_loops_are_placeable() -> None:
 
     assert report["secondary_loop_count"] > 0
     assert all(cell.metadata["strand_length"] > 0 for cell in result.layout_plan.cells)
+
+
+def test_conversion_count_forms_exactly_that_many_strands() -> None:
+    """An experimental equivalent ratio fixes a count, so the build must hit it.
+
+    ``fraction`` draws each strand independently and therefore lands *near*
+    its target (28 of 192 for the 1/6 nominal used by this project's partial
+    example); a formulation that supplies 32 prepolymer molecules supplies
+    exactly 32, and a binomial scatter around that would be an artifact of the
+    model rather than of the chemistry.
+    """
+    result = _layout(net="pcu", repeats=4, cell_parameter=3.0,
+                     conversion_count=32, conversion_seed=3)
+    assert len(result.layout_plan.cells) == 32
+
+    summary = result.summary()["conversion"]
+    assert summary["target_count"] == 32
+    assert summary["target_fraction"] is None
+    assert summary["strands_before"] == 192
+    assert summary["strands_formed"] == 32
+    assert summary["realized_fraction"] == pytest.approx(32 / 192)
+
+
+def test_conversion_count_selection_is_seeded_and_order_stable() -> None:
+    """Same seed, same strands; different seed, different strands.
+
+    The strands are also handed downstream in the net's own order rather than
+    in the order the sampler produced them, so two builds that formed the same
+    set cannot differ in atom numbering.
+    """
+    first = _reduced(_layout(net="pcu", repeats=4, cell_parameter=3.0,
+                             conversion_count=20, conversion_seed=7))
+    again = _reduced(_layout(net="pcu", repeats=4, cell_parameter=3.0,
+                             conversion_count=20, conversion_seed=7))
+    other = _reduced(_layout(net="pcu", repeats=4, cell_parameter=3.0,
+                             conversion_count=20, conversion_seed=8))
+    assert first == again
+    assert first != other
+
+    # Order stability: the formed strands appear in the same relative order as
+    # in the full net, so the selection cannot permute the output.
+    full = _layout(net="pcu", repeats=4, cell_parameter=3.0)
+    full_pairs = [tuple(cell.metadata["junctions"])
+                  for cell in full.layout_plan.cells]
+    formed_pairs = [tuple(cell.metadata["junctions"])
+                    for cell in _layout(net="pcu", repeats=4, cell_parameter=3.0,
+                                        conversion_count=20,
+                                        conversion_seed=7).layout_plan.cells]
+    positions = [full_pairs.index(pair) for pair in formed_pairs]
+    assert positions == sorted(positions)
+
+
+def test_conversion_count_above_the_edge_total_is_refused() -> None:
+    """192 edges cannot host 200 strands; say so before an hour of building."""
+    with pytest.raises(ValueError, match=r"must be in \[1, 192\]"):
+        _layout(net="pcu", repeats=4, cell_parameter=3.0,
+                conversion_count=200, conversion_seed=3)
+
+
+def test_conversion_count_and_fraction_together_are_refused() -> None:
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        _layout(net="pcu", repeats=4, cell_parameter=3.0,
+                conversion_count=32, conversion_fraction=0.5, conversion_seed=3)

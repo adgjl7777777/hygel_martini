@@ -165,3 +165,38 @@ def test_partial_conversion_without_a_seed_is_refused() -> None:
     )
     assert resolved["conversion_fraction"] == pytest.approx(0.5)
     assert resolved["conversion_seed"] == 11
+
+
+def test_conversion_count_needs_a_seed_and_an_integer() -> None:
+    """An exact strand count is the shape an experimental recipe comes in.
+
+    A formulation fixes how many prepolymer molecules are present, not a
+    per-strand probability, so ``count`` must be reproducible (seed) and must
+    not be silently truncated from a float.
+    """
+    with pytest.raises(ValueError, match="needs a 'seed' when 'count' is set"):
+        _resolve_network_layout(_block(conversion={"count": 32}))
+    with pytest.raises(ValueError, match="must be an integer"):
+        _resolve_network_layout(_block(conversion={"count": 32.5, "seed": 3}))
+    with pytest.raises(ValueError, match="must be at least 1"):
+        _resolve_network_layout(_block(conversion={"count": 0, "seed": 3}))
+
+    resolved = _resolve_network_layout(_block(conversion={"count": 32, "seed": 3}))
+    assert resolved["conversion_count"] == 32
+    assert resolved["conversion_fraction"] is None
+    assert resolved["conversion_seed"] == 3
+
+
+def test_conversion_fraction_and_count_together_are_refused() -> None:
+    """Two different models of the same chemistry; applying one silently is worse."""
+    with pytest.raises(ValueError, match="not both"):
+        _resolve_network_layout(
+            _block(conversion={"fraction": 0.5, "count": 32, "seed": 3})
+        )
+
+
+def test_full_conversion_leaves_both_selectors_unset() -> None:
+    """``fraction: 1.0`` is the default full path, not a 100% dilution draw."""
+    resolved = _resolve_network_layout(_block(conversion={"fraction": 1.0}))
+    assert resolved["conversion_fraction"] is None
+    assert resolved["conversion_count"] is None

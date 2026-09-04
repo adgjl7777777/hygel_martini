@@ -73,9 +73,10 @@ class NetLayoutResult:
         Always: net name/coordination, repeats, junction/strand counts,
         whether rewiring ran. With a matching plan: circuit count and the
         single-circuit flag ("one polymer"), degree violations, state
-        counts. With conversion: the target/realized fractions and the
-        realized junction-degree histogram (a formed strand counts once per
-        end it lands on).
+        counts. With conversion: the target fraction or target count
+        (whichever was asked for; the other is None), the realized fraction,
+        and the realized junction-degree histogram (a formed strand counts
+        once per end it lands on).
         """
         record: Dict[str, Any] = {
             "net": self.net.name,
@@ -146,9 +147,15 @@ def generate_net_layout_plan(
     rewire_kwargs: Dict[str, Any] | None = None,
     plan_seed: int | None = None,
     conversion_fraction: float | None = None,
+    conversion_count: int | None = None,
     conversion_seed: int | None = None,
 ) -> NetLayoutResult:
     """Build a :class:`LayoutPlan` on a periodic net.
+
+    ``conversion_fraction`` forms each strand with that probability;
+    ``conversion_count`` forms exactly that many, chosen by
+    ``conversion_seed``.  The two are mutually exclusive -- see the selection
+    block below for why an experimental equivalent ratio wants the count.
 
     ``max_span`` is the rewiring cutoff, in the same length units as
     ``cell_parameter``; pass ``None`` to keep the regular net, which leaves the
@@ -201,7 +208,22 @@ def generate_net_layout_plan(
     # number of arms) simply does not apply to it. "One polymer" is then a
     # statement about the reduced junction-strand graph, not about a circuit;
     # see the theory document's partial-conversion section.
+    #
+    # Two ways to say how much converted, because two different things are
+    # being modelled. ``conversion_fraction`` is a per-strand probability: the
+    # right model for "each reactive pair had this chance", and its realized
+    # count scatters around the target. ``conversion_count`` fixes the number
+    # exactly: an experimental formulation supplies a functional-equivalent
+    # ratio, which sets how many prepolymer molecules are *present*, and a
+    # binomial draw around that number would be a modelling artifact rather
+    # than chemistry. They are mutually exclusive.
     conversion = None
+    if conversion_fraction is not None and conversion_count is not None:
+        raise ValueError(
+            "conversion_fraction and conversion_count are mutually exclusive: "
+            "a probability per strand and an exact strand count are different "
+            "models, and applying both would silently apply only one"
+        )
     if conversion_fraction is not None:
         fraction = float(conversion_fraction)
         if not 0.0 < fraction < 1.0:
@@ -217,6 +239,30 @@ def generate_net_layout_plan(
             )
         conversion = {
             "target_fraction": fraction,
+            "target_count": None,
+            "seed": conversion_seed,
+            "strands_before": len(strands),
+            "strands_formed": len(formed),
+            "realized_fraction": len(formed) / len(strands),
+        }
+        strands = formed
+    elif conversion_count is not None:
+        count = int(conversion_count)
+        if not 0 < count <= len(strands):
+            raise ValueError(
+                f"conversion_count must be in [1, {len(strands)}] for this "
+                f"supercell, got {count}"
+            )
+        rng = Random(conversion_seed)
+        # Sampled without replacement, then restored to the net's own strand
+        # order: the selection is what the seed decides, but the order the
+        # strands are handed downstream should not also depend on it, or two
+        # builds that formed the same strands would differ in atom numbering.
+        chosen = set(rng.sample(range(len(strands)), count))
+        formed = [strand for index, strand in enumerate(strands) if index in chosen]
+        conversion = {
+            "target_fraction": None,
+            "target_count": count,
             "seed": conversion_seed,
             "strands_before": len(strands),
             "strands_formed": len(formed),
