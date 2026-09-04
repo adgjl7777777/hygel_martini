@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
-# Build one cell at a requested size, then shrink it, sizing the run to the
-# node it happens to land on.
+# Build one cell at a requested size, then shrink it.
 #
-# Why a wrapper rather than a maker per size: the thread count and GPU that
-# are polite on one node are wrong on the next, and the shrink target for a
-# partial build is only known once the build has decided which strands formed.
-# So resources are measured at launch (node_resources.py), the makers are
-# generated for this size (cell_sizes.py emit), and the shrink target is
-# recomputed from the finished topology before the shrink runs.
+# Why a wrapper rather than a maker per size: the makers have to be generated
+# for the size, and the shrink target for a partial build is only known once
+# the build has decided which strands formed. So this emits the pair
+# (cell_sizes.py emit), builds, recomputes the target from the finished
+# topology, and shrinks.
+#
+# Cores are whatever the batch allocation gave: --omp N, else
+# SLURM_CPUS_PER_TASK, else OMP_NUM_THREADS, else the project defaults. This
+# script does not survey the node or second-guess the scheduler. GPUs are left
+# to GROMACS, which honours the CUDA_VISIBLE_DEVICES the scheduler sets.
 #
 # The import path is set explicitly: this checkout must shadow the frozen
 # Series-01 install, which is what an unset PYTHONPATH would import instead.
@@ -16,6 +19,10 @@
 #   ./run_size.sh --repeats 6 --strand n33 --des
 #   ./run_size.sh --repeats 4 --strand n3 --conversion count:32 --seed 3
 #   ./run_size.sh --repeats 4 --strand n3 --build-only --force
+#
+# Under Slurm, nothing extra is needed -- SLURM_CPUS_PER_TASK is picked up:
+#   #SBATCH --cpus-per-task=16
+#   srun ./run_size.sh --repeats 6 --strand n33 --des
 #
 # Every argument except the flags below is passed through to
 # "cell_sizes.py emit".
@@ -32,6 +39,7 @@ PROJECT="$(cd "$HERE/../project" && pwd)"
 LEDGER="$HERE/run_ledger.tsv"
 
 emit_args=()
+omp=""
 do_build=1
 do_shrink=1
 tag=""
@@ -40,6 +48,7 @@ while [[ $# -gt 0 ]]; do
     --build-only)  do_shrink=0; shift ;;
     --shrink-only) do_build=0; shift ;;
     --tag)         tag="$2"; emit_args+=("--tag" "$2"); shift 2 ;;
+    --omp)         omp="$2"; shift 2 ;;
     *)             emit_args+=("$1"); shift ;;
   esac
 done
@@ -69,15 +78,21 @@ if [[ ${#missing[@]} -gt 0 ]]; then
   exit 1
 fi
 
-# 1. What can we politely take on this node?
-omp="$(python3 "$HERE/node_resources.py" --omp-only)"
-echo "== node =="
-python3 "$HERE/node_resources.py"
+# 1. Cores: the allocation decides, not this script.
+if [[ -z "$omp" ]]; then omp="${SLURM_CPUS_PER_TASK:-}"; fi
+if [[ -z "$omp" ]]; then omp="${OMP_NUM_THREADS:-}"; fi
+if [[ -n "$omp" ]]; then
+  echo "cores: $omp (from --omp / SLURM_CPUS_PER_TASK / OMP_NUM_THREADS)"
+  emit_args+=("--omp-threads" "$omp")
+else
+  echo "cores: not specified; keeping the project defaults"
+  omp="-"
+fi
 
-# 2. Generate the makers for this size with that thread count.
+# 2. Generate the makers for this size.
 echo
 echo "== emit =="
-emit_log="$(python3 "$HERE/cell_sizes.py" emit --omp-threads "$omp" "${emit_args[@]}")"
+emit_log="$(python3 "$HERE/cell_sizes.py" emit "${emit_args[@]}")"
 echo "$emit_log"
 if [[ -z "$tag" ]]; then
   # cell_sizes.py prints "wrote .../maker_size_<tag>.yaml" first.

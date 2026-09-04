@@ -5,14 +5,13 @@ for demonstrating a feature and wrong for production, where the cell should be
 as large as the node that happens to be free can carry, and the chemistry
 should not have to be re-specified to get there.
 
-These four files make size an input.
+These three files make size an input.
 
 | file | what it does |
 |---|---|
 | `itp_inventory.py` | atom counts, masses and charges read out of ITP/TOP files; the shared composition primitive |
 | `cell_sizes.py` | the size ladder, and the maker/shrink-maker generator for one size |
-| `node_resources.py` | what the node has free, and a polite thread count and GPU |
-| `run_size.sh` | emit for this size with this node's resources, build, retarget the shrink from the realized topology, shrink, log the cost |
+| `run_size.sh` | emit for this size, build, retarget the shrink from the realized topology, shrink, log the cost |
 
 ## What actually changes with size
 
@@ -79,17 +78,19 @@ nobody has confirmed yet -- whether `Hexakis:PPG-TDI = 1:0.5` is a molar, an
 equivalent or a mass ratio (see `handoff/DEV_PLAN_20260905.md` §2). All three
 readings are one `--conversion` argument apart.
 
-## Resources are measured, not declared
+## Cores come from the allocation
 
-`node_resources.py` reports cores, load, memory and GPU state, and recommends
-a thread count that leaves the node usable: at most half the cores, minus what
-`loadavg` says is already busy, minus a two-core reserve -- and hard-capped at
-4 on a node whose GPUs are busy, because someone else's GPU job needs CPU
-cores to feed it and starving it to speed up our EM is a bad trade. A GPU is
-claimed only when it is idle by both utilization and memory.
+`run_size.sh` takes the thread count from `--omp N`, else
+`SLURM_CPUS_PER_TASK`, else `OMP_NUM_THREADS`, else it leaves the project
+defaults alone. It does not survey the node or second-guess the scheduler --
+under a batch system the allocation already decided, and a script that
+re-decides would either waste the reservation or overrun it. GPUs are left to
+GROMACS, which honours the `CUDA_VISIBLE_DEVICES` the scheduler sets.
 
-`run_size.sh` calls it at launch, so the same command is polite on a quiet
-workstation and on a busy GPU node.
+```bash
+#SBATCH --cpus-per-task=16
+srun ./run_size.sh --repeats 6 --strand n33 --des
+```
 
 ## One loop that has to be closed after the build
 
