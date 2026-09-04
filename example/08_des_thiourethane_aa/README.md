@@ -253,6 +253,24 @@ between. Site preference is an NPT-trajectory question (RDFs, running
 coordination numbers, hydrogen-bond occupancy and residence times), not a
 single-frame one.
 
+## Any size, on whatever node is free (`sizing/`)
+
+The four makers above each fix a size. `sizing/` makes size an input instead:
+`cell_sizes.py table` prints the size ladder (`pcu` takes even repeats of at
+least 4, so 4, 6, 8, ... per axis, anisotropic allowed), `cell_sizes.py emit`
+writes a matched build+shrink maker pair for one size, `node_resources.py`
+recommends a thread count and GPU that leave the node usable, and
+`run_size.sh` measures the node at launch, builds, recomputes the shrink
+target from the realized topology, shrinks, and logs the cost. The arithmetic
+is checked against this example: it reproduces all three shrink targets above
+(6.34, 9.32 and 7.19 nm) to 0.01 nm. See `sizing/README.md`.
+
+Worth reading off that ladder: the experiment-facing cell (n ≈ 33, molar-ratio
+conversion, AcChCl) is **28 192 atoms** at the smallest legal size --
+*smaller* than the n = 33 full-conversion demonstration here, because at 1/6
+conversion five sixths of the net's edges hold no prepolymer. Size is not what
+stands between this example and a production run; composition is.
+
 ## Known approximations (deliberate, documented)
 
 * **Charges are rough.** 1.14*CM1A-LBCC validates construction; quantitative
@@ -283,5 +301,24 @@ single-frame one.
   model compound rather than from this exact environment.
 * **No rewiring.** A rigid molecule has one length; rewired (heterogeneous)
   junction gaps cannot be spanned. The layout refuses the combination.
+* **A shrunk cell is an EM state, not an equilibrated one.** The shrink ends
+  after an energy minimization at the target box; nearest non-bonded contacts
+  sit near 0.13 nm and no velocity has ever been assigned to most of it. No
+  property -- density included, since 1.0 g/cm³ is the target that was *set*,
+  not a measurement -- may be read before restrained heating and a proper NPT.
+* **Partial-conversion cells need the recovery path, and it was untested.**
+  The three shrinks above never triggered the guard's NVT recovery
+  (`history.jsonl`: 0 recoveries in 51, 93 and 44 steps). The first
+  sub-gel cell that did exposed an unconstrained-hydrogen instability in
+  `config_shrink/nvt_recovery.mdp`; see defect #31.
+* **A sparse cell's build-stage EM folds some urethane N-H onto its own
+  carbonyl.** An OPLS-AA polar hydrogen has no LJ parameters, so its 1-4
+  Coulomb attraction to the carbamate oxygen has no repulsive floor, and at
+  T = 0 in a cell where nothing competes sterically the angle bends and the
+  hydrogen falls in. Measured over every strand's `N-C(=O)` angle: full
+  networks are clean (min 116-118 deg, 0 below 110), the 1/6 builds are not
+  (min 76 deg, 10-13% below 110), and the guarded shrink removes it entirely
+  (min 118.3, mean 123.5, none below 110). So `output_partial`'s geometry is a
+  construction artifact; read geometry only after the shrink. Defect #32.
 * AcChCl (the DES electrolyte) and the PEO plasticizer belong to the
   solvation stage, not the network build.

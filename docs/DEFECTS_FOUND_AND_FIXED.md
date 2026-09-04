@@ -659,6 +659,97 @@ in value, and now prints charges as ``0.000000`` rather than ``0.0000``.
 
 *Fixed in `02c8f17`.*
 
+### 31. The shrink's NVT recovery had never run, and broke a molecule when it did
+
+Found by shrinking the first cell whose compression actually needed the
+guard's escape hatch. The guarded shrink runs an NVT recovery when a step's EM
+fails, and `example/08`'s three committed shrinks (51, 93 and 44 steps) all
+passed every step on EM alone -- `history.jsonl` shows `recovery: 0` in every
+one of them. So `config_shrink/nvt_recovery.mdp` was configured, committed and
+documented without ever having been executed on an all-atom system.
+
+The first cell to trigger it (n = 3, `conversion.count: 32`, a sub-gel
+fragmented network) stalled at step 11: steepest descents reported
+"converged to machine precision" with `Fmax = 3.3e4` on one atom, at every
+backoff scale down to 0.125% -- a localized pathology inherited from the
+structure rather than caused by the compression. The atom was a strand's
+urethane N-H hydrogen sitting **0.068 nm from its own carbonyl oxygen**, a
+1-4 partner whose LJ repulsion carries `fudgeLJ = 0.5` and therefore offers no
+wall to escape from.
+
+The recovery mdp ran `constraints = none` at `dt = 1 fs` for 20 ps. An
+unconstrained X-H stretch has a period near 11 fs, so that step samples it
+about ten times per cycle; with generated velocities and a rescaling
+thermostat the error accumulates until a hydrogen is driven somewhere no EM
+can undo. The setting is harmless for the coarse-grained systems the shrink
+workflow came from, which have no explicit hydrogens at all.
+
+**Fix.** The recovery constrains X-H bonds (`constraints = h-bonds`, LINCS),
+which removes exactly the motion a 1 fs step cannot resolve and leaves the
+rest of the dynamics alone. The comment in the mdp records the observation
+rather than the rule, so the next person can tell why it is there.
+
+Two things this exposes beyond the one setting: a config path that no example
+exercises is untested no matter how carefully it was written, and
+`gen_seed = -1` makes each recovery attempt unreproducible -- which is
+deliberate (a retry wants a different kick) but means a stalled shrink cannot
+be replayed exactly.
+
+Validated by re-running the same shrink: the compression that previously died
+at step 11 (box 14.8 nm, `Fmax = 3.3e4`) now reaches the 4.819 nm target in 65
+accepted steps, using the recovery three times along the way.
+
+*Fixed in `%%HASH%%`.*
+
+### 32. Energy minimization folds a urethane N-H onto its own carbonyl in sparse cells
+
+Found while diagnosing #31, and the more interesting half of it. In OPLS-AA a
+polar hydrogen carries **no Lennard-Jones parameters at all** (`st846`:
+sigma = 0, epsilon = 0). Its 1-4 partner across the carbamate, the carbonyl
+oxygen, carries -0.426 e against the hydrogen's +0.525 e. With no repulsive
+term in the pair, that 1-4 Coulomb attraction is a well with no floor: the
+only thing holding the hydrogen off the oxygen is the bonded geometry
+(`N-C=O` angle, k = 669 kJ/mol/rad^2, and the `H-N-C=O` torsion).
+
+At finite temperature that is enough. In a *minimization*, in a cell where
+nothing else competes sterically, it is not -- the angle bends and the
+hydrogen falls in. Measured across the `N-C(=O)` angle of every strand:
+
+| build | strands | min angle | mean | below 110 deg |
+|---|---:|---:|---:|---:|
+| n=3 full (committed) | 192 | 116.2 | 123.7 | 0 |
+| n=33 full (committed) | 192 | 117.5 | 124.5 | 0 |
+| n=3 full + DES (committed) | 192 | 116.3 | 123.8 | 0 |
+| n=3 partial 1/6 (committed) | 28 | **76.2** | 116.6 | **3 (10.7%)** |
+| n=3 `count: 32` | 32 | **76.2** | 115.7 | **4 (12.5%)** |
+| the same cell after the shrink | 32 | 118.3 | 123.5 | 0 |
+
+So it is specifically the **partial-conversion** cells: at 1/6 conversion five
+sixths of the net's edges are empty and a strand has room to fold onto itself,
+where in a full network its neighbours are in the way. The worst cases reach
+`H...O = 0.12 nm`, against 0.31 nm in the template and 0.26 nm for even a
+fully *cis* planar carbamate -- and once there, a subsequent minimization
+cannot climb back out, which is what starved the shrink in #31.
+
+**Not fixed in the builder, and arguably not a builder bug**: the topology is
+complete (every strand instance carries all 126 template angles, 182
+dihedrals and 158 pairs; the parameters are the template's own), and the
+force field is being applied correctly. It is minimization at T = 0 finding a
+real, unphysical minimum of a fixed-charge model. The last row of the table is
+the mitigation and it is already in the workflow: a short constrained NVT
+removes every distortion.
+
+**What follows from it.**
+
+* No geometry may be read from a build-stage EM of a sparse cell. The
+  committed `output_partial` evidence carries three folded urethanes; that is
+  a construction artifact, not a conformational result.
+* The guarded shrink (with #31's fix) is the earliest point at which the
+  geometry is trustworthy, and a partial cell should always be run through it.
+* If a build-stage structure is ever needed directly, the build needs a short
+  restrained NVT of its own, or a minimization that guards polar-hydrogen
+  contacts the way `min_distance_report` guards overlaps.
+
 ## Still open
 
 - The f=6 path now builds end to end under GROMACS (example 07): all EM

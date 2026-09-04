@@ -8,7 +8,20 @@ gen_temp                = 300
 gen_seed                = -1
 nstenergy               = 500
 nstlog                  = 500
-constraints             = none
+; All-atom hydrogens: an unconstrained X-H stretch has a ~11 fs period, so a
+; 1 fs step samples it about ten times per cycle. Over 20 ps with generated
+; velocities and a thermostat that rescales, the integration error accumulates
+; until a hydrogen is driven into a 1-4 partner -- which is only softly
+; repelled, because 1-4 LJ carries fudgeLJ = 0.5 -- and no subsequent EM can
+; pull it back out (steepest descents reports "converged to machine precision"
+; with Fmax ~3e4 on that one atom). Observed exactly that on the first cell
+; whose shrink ever triggered this recovery: a urethane N-H hydrogen 0.068 nm
+; from its own carbonyl oxygen. Constraining the X-H bonds removes the fast
+; motion this step cannot resolve and leaves the rest of the dynamics intact.
+constraints             = h-bonds
+constraint-algorithm    = lincs
+lincs-order             = 4
+lincs-iter              = 1
 cutoff-scheme           = Verlet
 coulombtype             = PME
 rcoulomb                = 1.1
