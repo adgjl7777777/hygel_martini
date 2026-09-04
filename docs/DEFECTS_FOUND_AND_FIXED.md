@@ -699,7 +699,7 @@ Validated by re-running the same shrink: the compression that previously died
 at step 11 (box 14.8 nm, `Fmax = 3.3e4`) now reaches the 4.819 nm target in 65
 accepted steps, using the recovery three times along the way.
 
-*Fixed in `%%HASH%%`.*
+*Fixed in `734ac0e`.*
 
 ### 32. Energy minimization folds a urethane N-H onto its own carbonyl in sparse cells
 
