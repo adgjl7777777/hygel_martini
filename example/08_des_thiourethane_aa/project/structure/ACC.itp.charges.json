@@ -1,0 +1,76 @@
+{
+  "action": "neutralize",
+  "timestamp": "2026-09-05T09:29:28+09:00",
+  "source_itp": "../project/structure/ACC.itp",
+  "source_sha256": "2faa0ddd78352bf0089a082468acdc29ba5efe0f579b2e82460cdfae0fa73fe2",
+  "moleculetype": "ACC",
+  "target_total": 1,
+  "total_before": "1.000008",
+  "total_after": "1.000000",
+  "rule": "heavy",
+  "changed_atoms": [
+    {
+      "name": "C00",
+      "before": "-0.225092",
+      "after": "-0.225091"
+    },
+    {
+      "name": "C01",
+      "before": "0.384408",
+      "after": "0.384407"
+    },
+    {
+      "name": "O02",
+      "before": "-0.397192",
+      "after": "-0.397193"
+    },
+    {
+      "name": "O03",
+      "before": "-0.290292",
+      "after": "-0.290293"
+    },
+    {
+      "name": "C04",
+      "before": "-0.005292",
+      "after": "-0.005293"
+    },
+    {
+      "name": "C05",
+      "before": "-0.126192",
+      "after": "-0.126193"
+    },
+    {
+      "name": "N06",
+      "before": "-0.042992",
+      "after": "-0.042993"
+    },
+    {
+      "name": "C07",
+      "before": "-0.152592",
+      "after": "-0.152593"
+    },
+    {
+      "name": "C08",
+      "before": "-0.150092",
+      "after": "-0.150093"
+    },
+    {
+      "name": "C09",
+      "before": "-0.150792",
+      "after": "-0.150793"
+    }
+  ],
+  "neutralization": {
+    "C00": "0.000001",
+    "C01": "-0.000001",
+    "O02": "-0.000001",
+    "O03": "-0.000001",
+    "C04": "-0.000001",
+    "C05": "-0.000001",
+    "N06": "-0.000001",
+    "C07": "-0.000001",
+    "C08": "-0.000001",
+    "C09": "-0.000001"
+  },
+  "extra": []
+}

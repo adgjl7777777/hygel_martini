@@ -1,0 +1,20 @@
+{
+  "release": "v0_ligpargen_draft",
+  "status": "draft",
+  "frozen_at": "2026-09-05T09:27:36+09:00",
+  "frozen_by": "transcendence",
+  "notes": [
+    "LigParGen OPLS-AA 1.14*CM1A-LBCC (neutral) / CM1A (AcCh+), Cl- opls_401; crossing terms from LNK model compound; as used by every build in example 08 through commit 367f747",
+    "Known: each neutral ITP sums to -1.0e-4 e (upstream four-decimal tables); not yet neutralized"
+  ],
+  "files": {
+    "structure/forcefield.itp": "5b19b4f993e55641981f98f2bbe015441032235e6fd31e79b7d8cc40acd446b2",
+    "structure/HEXU.itp": "d51d4cb7fad885db3cf526d33c6813b42e08373044db0679d07b9795578c5f66",
+    "structure/STR.itp": "76f49797dcfb1748393b8398b2f69e26585af1f0840cd6f8a469d962f1addaad",
+    "structure/STR_n33.itp": "77d41c6f05513a01c69ef601a59b1d0451fe3c40f1ac551aab994b7a24908374",
+    "structure/ACC.itp": "2faa0ddd78352bf0089a082468acdc29ba5efe0f579b2e82460cdfae0fa73fe2",
+    "structure/CL.itp": "bf055b239d3710601435f29851814387c65740fd3c034a88e1344f69cf1b95f3",
+    "structure/hydrogel_stubs_snippet.yaml": "44cb84a084ee06a07a56f6320c2b3ecb454fde6619e2f671cdf2d40ef5e68a0e",
+    "config/hydrogel.yaml": "d5306c6943237ced77268d5ada7adab7d3e775d035c6a16b774b190f4c2825b5"
+  }
+}

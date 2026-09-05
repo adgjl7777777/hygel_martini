@@ -1,0 +1,20 @@
+{
+  "release": "v1_ligpargen_neutral",
+  "status": "draft",
+  "frozen_at": "2026-09-05T09:29:28+09:00",
+  "frozen_by": "transcendence",
+  "notes": [
+    "v0 charges neutralized to exactly 0 e per neutral molecule (rule heavy), ACC to exactly +1 e; reacted-S stub overrides refreshed to q(S)+q(H) at 6 decimals",
+    "Ion-scaled variants ACC/CL_f080, _f069 written alongside (not tracked by the manifest; derived)"
+  ],
+  "files": {
+    "structure/forcefield.itp": "5b19b4f993e55641981f98f2bbe015441032235e6fd31e79b7d8cc40acd446b2",
+    "structure/HEXU.itp": "dee3ffcefe5f93e01a0b7c0f521624e9b25c53e3d0e8e56e5094158262fc4757",
+    "structure/STR.itp": "402d30292010ca2f03c46a692e13c5aabc24e372186f76d2186afd08eb8a2088",
+    "structure/STR_n33.itp": "d22e68a0d9baad5eb4c3950ac8209d0a5d5f4ca9c5e739e9b916cce779272af0",
+    "structure/ACC.itp": "07001f5769c99f9bacf861e0481c23f4cb8a5aab5cc684fa9efa637d3998d507",
+    "structure/CL.itp": "e668f414a36f6dc963a6a562400ab3d4980d0519f1f4fcef4361d2fc015dce76",
+    "structure/hydrogel_stubs_snippet.yaml": "cb065c748b3fcbae85d84a31e00f22810da848d9bc4b66e1780c4b5362c09e4b",
+    "config/hydrogel.yaml": "b20988bb6fe14630bd4b19c736b169d8a264a7ec990aae352566ba41013a0e20"
+  }
+}

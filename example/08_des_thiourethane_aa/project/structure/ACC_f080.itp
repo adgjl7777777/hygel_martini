@@ -10,36 +10,43 @@
 ; target total +1 e; before +1.000008, after +1.000000 (exact at 6 decimals)
 ; neutralization rule heavy: 10 atom(s) adjusted, max |dq| over all atoms 0.000001 e
 ; adjustments: 10 atom(s) -0.000001 each; C00 +0.000001
+; apply_charges.py scale x0.80 -- 2026-09-05T09:34:47+09:00
+; source itp: ACC.itp sha256 07001f5769c99f9bacf861e0481c23f4cb8a5aab5cc684fa9efa637d3998d507
+; ion charge scaling factor 0.80: formal +1 e -> +0.800000 e
+; moleculetype ACC -> ACC_f080 (a variant must not share the original's name in the include path)
+; target total +0 e; before +1.000000, after +0.800000 (exact at 6 decimals)
+; neutralization rule heavy: 10 atom(s) adjusted, max |dq| over all atoms 0.079439 e
+; adjustments: 10 atom(s) +0.000000 each; C00 +0.000003
 [ moleculetype ]
-  ACC     3
+  ACC_f080  3
 
 [ atoms ]
-     1  ac800       1  ACC   C00       1  -0.225091  12.0110
-     2  ac801       1  ACC   C01       2   0.384407  12.0110
-     3  ac802       1  ACC   O02       3  -0.397193  15.9990
-     4  ac803       1  ACC   O03       4  -0.290293  15.9990
-     5  ac804       1  ACC   C04       5  -0.005293  12.0110
-     6  ac805       1  ACC   C05       6  -0.126193  12.0110
-     7  ac806       1  ACC   N06       7  -0.042993  14.0070
-     8  ac807       1  ACC   C07       8  -0.152593  12.0110
-     9  ac808       1  ACC   C08       9  -0.150093  12.0110
-    10  ac809       1  ACC   C09      10  -0.150793  12.0110
-    11  ac810       1  ACC   H0A      11   0.129708  1.0080
-    12  ac811       1  ACC   H0B      12   0.129708  1.0080
-    13  ac812       1  ACC   H0C      13   0.129708  1.0080
-    14  ac813       1  ACC   H0D      14   0.119708  1.0080
-    15  ac814       1  ACC   H0E      15   0.119708  1.0080
-    16  ac815       1  ACC   H0F      16   0.145908  1.0080
-    17  ac816       1  ACC   H0G      17   0.145908  1.0080
-    18  ac817       1  ACC   H0H      18   0.136108  1.0080
-    19  ac818       1  ACC   H0I      19   0.136108  1.0080
-    20  ac819       1  ACC   H0J      20   0.136108  1.0080
-    21  ac820       1  ACC   H0K      21   0.138408  1.0080
-    22  ac821       1  ACC   H0M      22   0.138408  1.0080
-    23  ac822       1  ACC   H0N      23   0.138408  1.0080
-    24  ac823       1  ACC   H0O      24   0.137408  1.0080
-    25  ac824       1  ACC   H0P      25   0.137408  1.0080
-    26  ac825       1  ACC   H0Q      26   0.137408  1.0080
+     1  ac800       1  ACC   C00       1  -0.180070  12.0110
+     2  ac801       1  ACC   C01       2   0.307526  12.0110
+     3  ac802       1  ACC   O02       3  -0.317754  15.9990
+     4  ac803       1  ACC   O03       4  -0.232234  15.9990
+     5  ac804       1  ACC   C04       5  -0.004234  12.0110
+     6  ac805       1  ACC   C05       6  -0.100954  12.0110
+     7  ac806       1  ACC   N06       7  -0.034394  14.0070
+     8  ac807       1  ACC   C07       8  -0.122074  12.0110
+     9  ac808       1  ACC   C08       9  -0.120074  12.0110
+    10  ac809       1  ACC   C09      10  -0.120634  12.0110
+    11  ac810       1  ACC   H0A      11   0.103766  1.0080
+    12  ac811       1  ACC   H0B      12   0.103766  1.0080
+    13  ac812       1  ACC   H0C      13   0.103766  1.0080
+    14  ac813       1  ACC   H0D      14   0.095766  1.0080
+    15  ac814       1  ACC   H0E      15   0.095766  1.0080
+    16  ac815       1  ACC   H0F      16   0.116726  1.0080
+    17  ac816       1  ACC   H0G      17   0.116726  1.0080
+    18  ac817       1  ACC   H0H      18   0.108886  1.0080
+    19  ac818       1  ACC   H0I      19   0.108886  1.0080
+    20  ac819       1  ACC   H0J      20   0.108886  1.0080
+    21  ac820       1  ACC   H0K      21   0.110726  1.0080
+    22  ac821       1  ACC   H0M      22   0.110726  1.0080
+    23  ac822       1  ACC   H0N      23   0.110726  1.0080
+    24  ac823       1  ACC   H0O      24   0.109926  1.0080
+    25  ac824       1  ACC   H0P      25   0.109926  1.0080
+    26  ac825       1  ACC   H0Q      26   0.109926  1.0080
 
 [ bonds ]
   2  1   1  0.1522  265265.600

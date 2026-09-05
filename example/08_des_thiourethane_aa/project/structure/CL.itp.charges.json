@@ -1,0 +1,14 @@
+{
+  "action": "neutralize",
+  "timestamp": "2026-09-05T09:29:28+09:00",
+  "source_itp": "../project/structure/CL.itp",
+  "source_sha256": "bf055b239d3710601435f29851814387c65740fd3c034a88e1344f69cf1b95f3",
+  "moleculetype": "CL",
+  "target_total": -1,
+  "total_before": "-1.000000",
+  "total_after": "-1.000000",
+  "rule": "uniform",
+  "changed_atoms": [],
+  "neutralization": {},
+  "extra": []
+}

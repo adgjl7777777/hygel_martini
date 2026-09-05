@@ -1,0 +1,25 @@
+{
+  "action": "scale x0.80",
+  "timestamp": "2026-09-05T09:34:47+09:00",
+  "source_itp": "../project/structure/CL.itp",
+  "source_sha256": "e668f414a36f6dc963a6a562400ab3d4980d0519f1f4fcef4361d2fc015dce76",
+  "moleculetype": "CL_f080",
+  "target_total": "-0.800000",
+  "total_before": "-1.000000",
+  "total_after": "-0.800000",
+  "rule": "uniform",
+  "changed_atoms": [
+    {
+      "name": "CL",
+      "before": "-1.000000",
+      "after": "-0.800000"
+    }
+  ],
+  "neutralization": {},
+  "extra": [
+    "ion charge scaling factor 0.80: formal -1 e -> -0.800000 e",
+    "moleculetype CL -> CL_f080 (a variant must not share the original's name in the include path)"
+  ],
+  "moleculetype_from": "CL",
+  "gro_copied_from": "../project/structure/CL.gro"
+}

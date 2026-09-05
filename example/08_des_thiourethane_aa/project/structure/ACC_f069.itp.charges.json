@@ -1,0 +1,161 @@
+{
+  "action": "scale x0.69",
+  "timestamp": "2026-09-05T09:34:48+09:00",
+  "source_itp": "../project/structure/ACC.itp",
+  "source_sha256": "07001f5769c99f9bacf861e0481c23f4cb8a5aab5cc684fa9efa637d3998d507",
+  "moleculetype": "ACC_f069",
+  "target_total": "0.690000",
+  "total_before": "1.000000",
+  "total_after": "0.690000",
+  "rule": "heavy",
+  "changed_atoms": [
+    {
+      "name": "C00",
+      "before": "-0.225091",
+      "after": "-0.155313"
+    },
+    {
+      "name": "C01",
+      "before": "0.384407",
+      "after": "0.265240"
+    },
+    {
+      "name": "O02",
+      "before": "-0.397193",
+      "after": "-0.274064"
+    },
+    {
+      "name": "O03",
+      "before": "-0.290293",
+      "after": "-0.200303"
+    },
+    {
+      "name": "C04",
+      "before": "-0.005293",
+      "after": "-0.003653"
+    },
+    {
+      "name": "C05",
+      "before": "-0.126193",
+      "after": "-0.087074"
+    },
+    {
+      "name": "N06",
+      "before": "-0.042993",
+      "after": "-0.029666"
+    },
+    {
+      "name": "C07",
+      "before": "-0.152593",
+      "after": "-0.105290"
+    },
+    {
+      "name": "C08",
+      "before": "-0.150093",
+      "after": "-0.103565"
+    },
+    {
+      "name": "C09",
+      "before": "-0.150793",
+      "after": "-0.104048"
+    },
+    {
+      "name": "H0A",
+      "before": "0.129708",
+      "after": "0.089499"
+    },
+    {
+      "name": "H0B",
+      "before": "0.129708",
+      "after": "0.089499"
+    },
+    {
+      "name": "H0C",
+      "before": "0.129708",
+      "after": "0.089499"
+    },
+    {
+      "name": "H0D",
+      "before": "0.119708",
+      "after": "0.082599"
+    },
+    {
+      "name": "H0E",
+      "before": "0.119708",
+      "after": "0.082599"
+    },
+    {
+      "name": "H0F",
+      "before": "0.145908",
+      "after": "0.100677"
+    },
+    {
+      "name": "H0G",
+      "before": "0.145908",
+      "after": "0.100677"
+    },
+    {
+      "name": "H0H",
+      "before": "0.136108",
+      "after": "0.093915"
+    },
+    {
+      "name": "H0I",
+      "before": "0.136108",
+      "after": "0.093915"
+    },
+    {
+      "name": "H0J",
+      "before": "0.136108",
+      "after": "0.093915"
+    },
+    {
+      "name": "H0K",
+      "before": "0.138408",
+      "after": "0.095502"
+    },
+    {
+      "name": "H0M",
+      "before": "0.138408",
+      "after": "0.095502"
+    },
+    {
+      "name": "H0N",
+      "before": "0.138408",
+      "after": "0.095502"
+    },
+    {
+      "name": "H0O",
+      "before": "0.137408",
+      "after": "0.094812"
+    },
+    {
+      "name": "H0P",
+      "before": "0.137408",
+      "after": "0.094812"
+    },
+    {
+      "name": "H0Q",
+      "before": "0.137408",
+      "after": "0.094812"
+    }
+  ],
+  "neutralization": {
+    "C00": "0.000000",
+    "C01": "-0.000001",
+    "O02": "-0.000001",
+    "O03": "-0.000001",
+    "C04": "-0.000001",
+    "C05": "-0.000001",
+    "N06": "-0.000001",
+    "C07": "-0.000001",
+    "C08": "-0.000001",
+    "C09": "-0.000001"
+  },
+  "extra": [
+    "ion charge scaling factor 0.69: formal +1 e -> +0.690000 e",
+    "moleculetype ACC -> ACC_f069 (a variant must not share the original's name in the include path)"
+  ],
+  "moleculetype_from": "ACC",
+  "gro_copied_from": "../project/structure/ACC.gro"
+}

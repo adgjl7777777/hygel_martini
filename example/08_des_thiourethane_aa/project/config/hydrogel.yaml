@@ -53,11 +53,11 @@ hydrogel_components:
           - [{between: STR1, bond_funct: 1, bond_c0: 0.1715, bond_c1: 187443.2}]
           - [{between: STR1, bond_funct: 1, bond_c0: 0.1715, bond_c1: 187443.2}]
         stub_caps:
-          - {cap_atoms: [H1C], reacted: {S00: {charge: -0.2749, type: lkS}}}
-          - {cap_atoms: [H1Q], reacted: {S0E: {charge: -0.2697, type: lkS}}}
-          - {cap_atoms: [H1X], reacted: {S0M: {charge: -0.2703, type: lkS}}}
-          - {cap_atoms: [H28], reacted: {S0X: {charge: -0.2637, type: lkS}}}
-          - {cap_atoms: [H2F], reacted: {S14: {charge: -0.2720, type: lkS}}}
-          - {cap_atoms: [H2N], reacted: {S1B: {charge: -0.2717, type: lkS}}}
+          - {cap_atoms: [H1C], reacted: {S00: {charge: -0.274892, type: lkS}}}
+          - {cap_atoms: [H1Q], reacted: {S0E: {charge: -0.269698, type: lkS}}}
+          - {cap_atoms: [H1X], reacted: {S0M: {charge: -0.270298, type: lkS}}}
+          - {cap_atoms: [H28], reacted: {S0X: {charge: -0.263698, type: lkS}}}
+          - {cap_atoms: [H2F], reacted: {S14: {charge: -0.271998, type: lkS}}}
+          - {cap_atoms: [H2N], reacted: {S1B: {charge: -0.271698, type: lkS}}}
     SEQUENCE_STRATEGY:
       strategy: random
