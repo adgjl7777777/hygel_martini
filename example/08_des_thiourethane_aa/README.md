@@ -279,11 +279,20 @@ integrated report's hand-over conditions (§18B.5, §18C.4, §18C.5):
   heating (`heat_posres.mdp`, POSRES_FC 1000 → 200 → 0, X–H constrained),
   NPT equilibration (`npt_equil.mdp`, C-rescale, PME) and production
   (`production.mdp`), driven by `run_equilibration.sh`, which generates the
-  heavy-atom restraints from the ITP masses into a topology copy. Nothing in
-  it declares equilibrium: `check_convergence.py` gates production on block
-  plateaus of density, volume and energy. The mdps carry **300 K as a
-  provisional temperature**; the experimental temperature has not been
-  supplied. grompp-tested on the shrunk `count:32` cell; no NPT has been run.
+  heavy-atom restraints from the ITP masses into a topology copy, continues
+  the second and third heating stages from the previous checkpoint (one
+  heating, stepwise restraint release), and writes each stage's
+  include-resolved topology (`grompp -pp`) and drawn seed to
+  `stage_manifest.tsv`. Nothing in it declares equilibrium:
+  `check_convergence.py` requires a complete, finite record with enough
+  frames after the skip, tests both the last block and the last half against
+  earlier windows, and writes a `<edr>.plateau.json` bound to the energy
+  file's sha256; the `production` stage refuses to start without a matching
+  PLATEAU artifact. That artifact screens thermodynamic plateaus only --
+  structural equilibrium is listed in it as not assessed. The mdps carry
+  **300 K as a provisional temperature**; the experimental temperature has
+  not been supplied. grompp-tested warning-free on the v1 `count:32` cell; no
+  NPT has been run.
 
 ## Any size, on whatever node is free (`sizing/`)
 

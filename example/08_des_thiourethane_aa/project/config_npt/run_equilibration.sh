@@ -14,16 +14,23 @@
 # Cores follow the allocation (--omp/SLURM_CPUS_PER_TASK/OMP_NUM_THREADS),
 # never a survey of the node. GROMACS honours CUDA_VISIBLE_DEVICES itself.
 #
-# Nothing here declares equilibrium. Run check_convergence.py on the NPT
-# energy file; production starts only when it reports a plateau.
+# Nothing here declares equilibrium. "all" runs heat and NPT only. The
+# explicit "production" stage requires a PLATEAU artifact from
+# check_convergence.py whose sha256 matches the current NPT energy file --
+# and even then that artifact only screens thermodynamic plateaus; structural
+# equilibrium is assessed separately.
 
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 shrink="${1:?shrink workdir}"; top="${2:?system.top}"; out="${3:?outdir}"; stage="${4:-all}"
-omp="${OMP_NUM_THREADS:-${SLURM_CPUS_PER_TASK:-}}"
+# Same precedence as sizing/run_size.sh: explicit OMP, then the scheduler's
+# allocation, then OMP_NUM_THREADS, else GROMACS decides.
+omp="${OMP:-${SLURM_CPUS_PER_TASK:-${OMP_NUM_THREADS:-}}}"
 ntomp=(); [[ -n "$omp" ]] && ntomp=(-ntomp "$omp")
 gmx="${GMX:-gmx_mpi}"
-maxwarn="${MAXWARN:-1}"
+# No blanket warning allowance: a v1 topology preprocesses warning-free, and
+# any warning that does appear should be looked at, not waved through.
+maxwarn="${MAXWARN:-0}"
 
 start="$shrink/last_valid.gro"; [[ -f "$shrink/final.gro" ]] && start="$shrink/final.gro"
 mkdir -p "$out"
@@ -71,27 +78,75 @@ run() {  # run <name> <mdp> <start.gro> [extra grompp args...]
   local d="$out/$name"; mkdir -p "$d"
   if [[ -f "$d/$name.gro" ]]; then echo "[$name] done already"; return 0; fi
   ( cd "$d" && "$gmx" grompp -f "$mdp" -c "$gro" -r "$gro" -p "$top_posres" -o "$name.tpr" \
-        -maxwarn "$maxwarn" "$@" > grompp.log 2>&1 ) || { echo "[$name] grompp failed, see $d/grompp.log"; return 1; }
+        -pp "$name.processed.top" -po "$name.mdout.mdp" -maxwarn "$maxwarn" "$@" > grompp.log 2>&1 ) \
+        || { echo "[$name] grompp failed, see $d/grompp.log"; return 1; }
+  # Stage manifest: include-resolved topology, tpr, the mdp actually used
+  # (with the seed grompp drew when gen_seed = -1) and the input coordinates.
+  python3 - "$d" "$name" "$mdp" "$gro" >> "$out/stage_manifest.tsv" <<'PY'
+import hashlib, re, sys, os, datetime
+d, name, mdp, gro = sys.argv[1:5]
+def h(p):
+    return hashlib.sha256(open(p, "rb").read()).hexdigest()[:16]
+mdout = os.path.join(d, f"{name}.mdout.mdp")
+seed = "?"
+for line in open(mdout):
+    if re.match(r"\s*gen[-_]seed\s*=", line):
+        seed = line.split("=", 1)[1].strip()
+print("\t".join([datetime.datetime.now().isoformat(timespec="seconds"), name,
+                 f"mdp={h(mdp)}", f"gro={h(gro)}", f"tpr={h(os.path.join(d, name + '.tpr'))}",
+                 f"processed_top={h(os.path.join(d, name + '.processed.top'))}", f"gen_seed={seed}"]))
+PY
   ( cd "$d" && "$gmx" mdrun -deffnm "$name" "${ntomp[@]}" > mdrun.log 2>&1 ) \
         || { echo "[$name] mdrun failed, see $d/mdrun.log"; return 1; }
   echo "[$name] ok"
 }
 
-# Stage-specific mdps are derived from heat_posres.mdp by swapping POSRES_FC.
-stage_mdp() { sed "s/-DPOSRES_FC=1000/-DPOSRES_FC=$1/" "$HERE/heat_posres.mdp" > "$out/heat_fc$1.mdp"; echo "$out/heat_fc$1.mdp"; }
+# Stage-specific mdps are derived from heat_posres.mdp. Only the first stage
+# generates velocities; the later ones continue from the previous checkpoint,
+# so the three stages are one heating with stepwise restraint release, not
+# three cold restarts.
+stage_mdp() {  # stage_mdp <fc> <continue: 0|1>
+  local fc="$1" cont="$2" f="$out/heat_fc$1.mdp"
+  sed "s/-DPOSRES_FC=1000/-DPOSRES_FC=$fc/" "$HERE/heat_posres.mdp" > "$f"
+  if [[ "$cont" == "1" ]]; then
+    sed -i -e 's/^continuation .*/continuation            = yes/' -e 's/^gen_vel .*/gen_vel                 = no/' "$f"
+  fi
+  echo "$f"
+}
 
 if [[ "$stage" == "heat" || "$stage" == "all" ]]; then
-  run heat_fc1000 "$(stage_mdp 1000)" "$start" || exit 1
-  run heat_fc200  "$(stage_mdp 200)"  "$out/heat_fc1000/heat_fc1000.gro" || exit 1
-  # fc 0: drop the define entirely so no restraint file is even read.
+  run heat_fc1000 "$(stage_mdp 1000 0)" "$start" || exit 1
+  run heat_fc200  "$(stage_mdp 200 1)"  "$out/heat_fc1000/heat_fc1000.gro" -t "$out/heat_fc1000/heat_fc1000.cpt" || exit 1
+  # fc 0: drop the define entirely so no restraint file is even read, and
+  # restore COM-motion removal now that nothing pins the frame.
   sed -e '/^define/d' -e 's/^comm-mode .*/comm-mode               = Linear\nnstcomm                 = 100/' \
+      -e 's/^continuation .*/continuation            = yes/' -e 's/^gen_vel .*/gen_vel                 = no/' \
       "$HERE/heat_posres.mdp" > "$out/heat_free.mdp"
-  run heat_free "$out/heat_free.mdp" "$out/heat_fc200/heat_fc200.gro" || exit 1
+  run heat_free "$out/heat_free.mdp" "$out/heat_fc200/heat_fc200.gro" -t "$out/heat_fc200/heat_fc200.cpt" || exit 1
 fi
 if [[ "$stage" == "npt" || "$stage" == "all" ]]; then
   run npt_equil "$HERE/npt_equil.mdp" "$out/heat_free/heat_free.gro" -t "$out/heat_free/heat_free.cpt" || exit 1
   echo "now: python3 $HERE/check_convergence.py $out/npt_equil/npt_equil.edr"
 fi
 if [[ "$stage" == "production" ]]; then
+  # Production is gated on a PLATEAU artifact that belongs to *this* NPT
+  # energy file (sha256 match). No artifact, a stale one, or NOT YET all refuse.
+  edr="$out/npt_equil/npt_equil.edr"
+  if ! python3 - "$edr" <<'PY'
+import hashlib, json, os, sys
+edr = sys.argv[1]; art = edr + ".plateau.json"
+if not os.path.exists(art):
+    sys.exit(f"no plateau artifact for {edr}; run check_convergence.py first")
+a = json.load(open(art))
+digest = hashlib.sha256(open(edr, "rb").read()).hexdigest()
+if a.get("edr_sha256") != digest:
+    sys.exit("plateau artifact does not belong to the current energy file (hash mismatch); re-run check_convergence.py")
+if a.get("verdict") != "PLATEAU":
+    sys.exit(f"convergence verdict is {a.get('verdict')!r}; production is not approved")
+print(f"plateau artifact ok ({a['checked_at']}); note it does not assess: {', '.join(a.get('not_assessed_here', []))}")
+PY
+  then
+    echo "production refused" >&2; exit 1
+  fi
   run production "$HERE/production.mdp" "$out/npt_equil/npt_equil.gro" -t "$out/npt_equil/npt_equil.cpt" || exit 1
 fi
