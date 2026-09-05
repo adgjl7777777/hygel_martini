@@ -18,9 +18,15 @@ now explicit and fail closed:
 * Every value must be finite and every term must share one time grid.
 * After ``--skip-ps``, at least ``--blocks`` blocks of at least
   ``--min-frames`` frames each must remain; otherwise exit 2.
-* Two comparisons must both pass for every gated term: the last block against
-  the one before it, and the last half against the third quarter (the
-  longer-window test this file's docstring promised and did not implement).
+* Three comparisons must all pass for every gated term: the last block
+  against the one before it, the last half against the third quarter, and
+  **the last block against the first** -- the whole window. The first two
+  alone are local: the pilot's 200 ps NPT drifted 1056.6 -> 1073.1 kg/m^3
+  monotonically, 0.3% per block step and 1.6% overall, and passed both while
+  obviously still densifying. A slow steady march is the drift a plateau
+  screen exists to catch.
+* Strictly monotonic block means are reported as a trend, because they say
+  "still going somewhere" even when every step is small.
 * The verdict is written to ``<edr>.plateau.json`` together with the sha256
   of the energy file, so ``run_equilibration.sh production`` can require a
   PASS that belongs to *this* energy file and no other.
@@ -130,13 +136,19 @@ def assess(series: Dict[str, object], keep: List[int], blocks: int, tol: float) 
         third_q = sum(vals[n // 2:3 * n // 4]) / max(1, 3 * n // 4 - n // 2)
         drift_block = _rel(means[-1], means[-2])
         drift_window = _rel(last_half, third_q)
+        # The whole window: a monotonic march of small steps is still a march.
+        drift_total = _rel(means[-1], means[0])
+        monotonic = (all(b > a for a, b in zip(means, means[1:]))
+                     or all(b < a for a, b in zip(means, means[1:])))
         std = (sum((v - sum(vals) / n) ** 2 for v in vals) / max(1, n - 1)) ** 0.5
-        ok = drift_block <= tol and drift_window <= tol
+        ok = drift_block <= tol and drift_window <= tol and drift_total <= tol
         gated = term in REQUIRED
         if gated:
             verdicts.append(ok)
         report["terms"][term] = {"block_means": means, "drift_last_block": drift_block,
                                  "drift_last_half_vs_third_quarter": drift_window,
+                                 "drift_first_to_last_block": drift_total,
+                                 "monotonic_blocks": monotonic,
                                  "std": std, "ok": ok, "gated": gated}
     report["plateau"] = bool(verdicts) and all(verdicts)
     report["not_assessed_here"] = ["RDF/CN", "AcCh+Cl- pair fraction",
@@ -164,11 +176,13 @@ def main(argv=None) -> int:
     report = assess(series, keep, args.blocks, args.tol)
 
     print(f"{'term':<12} " + " ".join(f"{'block %d' % (b + 1):>12}" for b in range(args.blocks))
-          + f" {'last blk':>9} {'last half':>9}  plateau")
+          + f" {'last blk':>9} {'last half':>9} {'whole':>9}  plateau")
     for term, r in report["terms"].items():
         print(f"{term:<12} " + " ".join(f"{m:12.4f}" for m in r["block_means"])
-              + f" {r['drift_last_block']:9.2e} {r['drift_last_half_vs_third_quarter']:9.2e}  "
-              + ("ok" if r["ok"] else "NO") + ("" if r["gated"] else " (not gated)"))
+              + f" {r['drift_last_block']:9.2e} {r['drift_last_half_vs_third_quarter']:9.2e}"
+              + f" {r['drift_first_to_last_block']:9.2e}  "
+              + ("ok" if r["ok"] else "NO") + ("" if r["gated"] else " (not gated)")
+              + ("  [monotonic]" if r["monotonic_blocks"] else ""))
     verdict = "PLATEAU" if report["plateau"] else "NOT YET"
     print(f"\nverdict: {verdict} ({report['frames']} frames after {args.skip_ps} ps, "
           f"{args.blocks} blocks, tol {args.tol:.1%}); structural equilibrium not assessed here")

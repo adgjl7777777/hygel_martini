@@ -64,6 +64,24 @@ def test_strong_earlier_drift_with_flat_last_two_blocks_is_not_a_plateau(conv, m
     assert conv.main([conv._edr]) == 1
 
 
+def test_a_slow_monotonic_drift_is_not_a_plateau(conv, monkeypatch):
+    """The pilot's own 200 ps NPT: 0.3% per block step, 1.6% overall, still densifying.
+
+    Consecutive-block and last-half tests both passed on it while density
+    climbed 1056.6 -> 1073.1 kg/m3 without turning over. The whole-window
+    comparison is what refuses it.
+    """
+    blocks = [1056.6498, 1063.5912, 1066.1477, 1070.0508, 1073.1253]
+    vals = [v for m in blocks for v in [m] * 20]
+    monkeypatch.setattr(conv, "energy_series",
+                        lambda *a, **k: _series(conv, conv.REQUIRED, values=vals))
+    assert conv.main([conv._edr]) == 1
+    art = json.load(open(conv._edr + ".plateau.json"))
+    density = art["terms"]["Density"]
+    assert density["monotonic_blocks"] is True
+    assert density["drift_last_block"] < 0.005 < density["drift_first_to_last_block"]
+
+
 def test_a_stationary_complete_record_passes_and_writes_a_bound_artifact(conv, monkeypatch):
     monkeypatch.setattr(conv, "energy_series", lambda *a, **k: _series(conv, conv.REQUIRED))
     assert conv.main([conv._edr]) == 0
