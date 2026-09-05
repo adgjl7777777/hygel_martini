@@ -1,0 +1,14 @@
+# The experiment-facing cell under the molar reading of 1:0.5, at the
+# smallest legal pcu size: n ~ 33 strand, 32 bridging prepolymers per 64
+# junctions, AcChCl at the experimental 1:6 per Hexakis. No PEO or water yet
+# (their counts wait on PEO Mn and water uptake from the experimental team).
+# PROVISIONAL until the ratio, %NCO and conversion are confirmed.
+name: target_molar_r4
+provisional: true
+network:
+  HEXU: 64
+  STR_n33: 32
+  reacted_arms: 64
+species:
+  ACC: {count: 384, charge: 1}
+  CL:  {count: 384, charge: -1}

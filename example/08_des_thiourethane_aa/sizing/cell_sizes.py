@@ -58,6 +58,25 @@ from itp_inventory import MoleculeType, moleculetypes, system_composition
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJECT = os.path.abspath(os.path.join(HERE, os.pardir, "project"))
 
+#: Size profiles, named as in the integrated report (§18C.3) so the tool and
+#: the shared spec say the same thing. ``strands_per_junction`` turns into an
+#: exact ``count`` for whatever repeats are chosen: the molar reading of the
+#: experimental 1:0.5 is 32 prepolymers per 64 junctions (0.5 each), the
+#: equivalent-ratio reading 96 (1.5 each). ``repeats`` is the default size and
+#: ``--repeats`` overrides it.
+PROFILES = {
+    "diagnostic_n3": dict(strand="n3", repeats=(4, 4, 4), strands_per_junction=0.5,
+                          des=False, note="topology/parameter smoke test"),
+    "target_molar": dict(strand="n33", repeats=(4, 4, 4), strands_per_junction=0.5,
+                         des=True, note="n~33, Hexakis:PPG-TDI = 1:0.5 as a molar ratio, AcChCl 1:6"),
+    "target_equiv": dict(strand="n33", repeats=(4, 4, 4), strands_per_junction=1.5,
+                         des=True, note="n~33, SH:NCO = 1:0.5 as an equivalent ratio, AcChCl 1:6"),
+    "n33_full_control": dict(strand="n33", repeats=(4, 4, 4), strands_per_junction=None,
+                             des=False, note="full-conversion upper-bound control"),
+    "scaled_supercell": dict(strand="n33", repeats=(6, 6, 6), strands_per_junction=0.5,
+                             des=True, note="target_molar at 6^3 for size convergence / integer PEO count"),
+}
+
 #: ``pcu`` constraints, mirrored from
 #: ``hygel_martini/hydrogel_builder/core_utils/layout/nets.py``. Mirrored rather
 #: than imported so this planner runs without PYTHONPATH set; ``--check-net``
@@ -160,6 +179,9 @@ class CellPlan:
     edges: int
     #: ``{molecule_name: count}`` for species added on top of the network.
     extras: Dict[str, int]
+    #: ``{molecule_name: file stem}`` when a species comes from a variant file
+    #: (``ACC`` from ``structure/ACC_f080.itp`` for a charge-scaled ion).
+    stems: Dict[str, str]
     atom_count: int
     mass: float
     #: Unreacted arms left carrying a real thiol S-H.
@@ -195,7 +217,8 @@ def plan_cell(repeats: Sequence[int],
               conversion_count: int | None = None,
               conversion_fraction: float | None = None,
               extras: Dict[str, int] | None = None,
-              density: float = 1.0) -> CellPlan:
+              density: float = 1.0,
+              stems: Dict[str, str] | None = None) -> CellPlan:
     """Compute one cell's composition and boxes.
 
     ``conversion`` is ``full`` (every net edge becomes a strand), ``count``
@@ -238,11 +261,12 @@ def plan_cell(repeats: Sequence[int],
             - 2 * formed * cap_mass)
 
     extras = dict(extras or {})
+    stems = {name: (stems or {}).get(name, name) for name in extras}
     for name, count in extras.items():
         if name not in types:
             raise KeyError(
                 f"species {name!r} has no [ moleculetype ]; expected "
-                f"{PROJECT}/structure/{name}.itp"
+                f"{PROJECT}/structure/{stems[name]}.itp"
             )
         atoms += types[name].atom_count * count
         mass += types[name].mass * count
@@ -258,6 +282,7 @@ def plan_cell(repeats: Sequence[int],
         formed_strands=formed,
         edges=edges,
         extras=extras,
+        stems=stems,
         atom_count=atoms,
         mass=mass,
         free_thiols=junctions * PCU_ARMS - 2 * formed,
@@ -346,7 +371,10 @@ def default_tag(plan: CellPlan, conversion: str) -> str:
     rx, ry, rz = plan.repeats
     size = f"r{rx}" if rx == ry == rz else f"r{rx}{ry}{rz}"
     conv = {"full": "full", "count": f"c{plan.formed_strands}", "fraction": "part"}[conversion]
-    extras = "_" + "".join(sorted(k.lower() for k in plan.extras)) if plan.extras else ""
+    # ACC_f080 + CL_f080 -> "_acccl_f080"; ACC + CL -> "_acccl"
+    bases = sorted(k.split("_")[0].lower() for k in plan.extras)
+    tags = sorted({k.split("_", 1)[1] for k in plan.extras if "_" in k})
+    extras = ("_" + "".join(bases) + ("_" + tags[0] if tags else "")) if plan.extras else ""
     return f"{plan.strand.name}_{size}_{conv}{extras}"
 
 
@@ -439,8 +467,9 @@ def emit_build_maker(plan: CellPlan, tag: str, conversion: str,
                   "  # here because the ions ARE the solvent, not a dilute additive.",
                   "  add_molecule:"]
         for name in sorted(plan.extras):
-            lines += [f"    - molecule_gro: ${{CONFIG_DIR}}/structure/{name}.gro",
-                      f"      molecule_itp: ${{CONFIG_DIR}}/structure/{name}.itp",
+            stem = plan.stems.get(name, name)
+            lines += [f"    - molecule_gro: ${{CONFIG_DIR}}/structure/{stem}.gro",
+                      f"      molecule_itp: ${{CONFIG_DIR}}/structure/{stem}.itp",
                       f"      molecule_name: {name}",
                       f"      num_molecules: {plan.extras[name]}"]
 
@@ -501,19 +530,63 @@ def emit_shrink_maker(plan: CellPlan, tag: str, omp_threads: int | None) -> str:
 # CLI
 # --------------------------------------------------------------------------
 
-def _load_types(strand: StrandVariant, extras: Sequence[str]) -> Dict[str, MoleculeType]:
+def _load_types(strand: StrandVariant, extras: Sequence[str],
+                stems: Dict[str, str] | None = None) -> Dict[str, MoleculeType]:
     """Parse the ITPs this plan needs, and only those."""
     paths = [os.path.join(PROJECT, "structure", "HEXU.itp"), strand.itp]
     for name in extras:
-        path = os.path.join(PROJECT, "structure", f"{name}.itp")
+        stem = (stems or {}).get(name, name)
+        path = os.path.join(PROJECT, "structure", f"{stem}.itp")
         if not os.path.exists(path):
-            raise FileNotFoundError(
-                f"species {name!r} needs {path}, which does not exist. PEO and "
-                "water are not parameterized yet (see handoff/DEV_PLAN items 9 "
-                "and 10); this planner will not invent them."
-            )
+            hint = ("apply_charges.py scale writes this variant"
+                    if "_f" in name else
+                    "PEO and water are not parameterized yet (handoff/DEV_PLAN items 9 "
+                    "and 10); this planner will not invent them")
+            raise FileNotFoundError(f"species {name!r} needs {path}, which does not exist. {hint}.")
         paths.append(path)
     return moleculetypes(paths)
+
+
+def _ion_names(args) -> Tuple[str, str]:
+    """Moleculetype names of the AcChCl pair for the requested charge scaling.
+
+    A scaled variant is its own moleculetype (``ACC_f080``), because the
+    builder auto-includes every ITP under ``structure/`` and refuses two files
+    that declare the same name -- so the variant cannot be called ``ACC``.
+    File stem and moleculetype name coincide by construction
+    (``apply_charges.py scale``).
+    """
+    factor = getattr(args, "ion_charge_scale", None)
+    if factor is None or abs(float(factor) - 1.0) < 1e-12:
+        return "ACC", "CL"
+    tag = f"f{int(round(float(factor) * 100)):03d}"
+    return f"ACC_{tag}", f"CL_{tag}"
+
+
+def _ion_stems(args) -> Dict[str, str]:
+    """Kept for callers that pass stems explicitly; names are stems now."""
+    return {}
+
+
+def _apply_profile(args) -> None:
+    """Fill unset arguments from ``--profile``; explicit flags win."""
+    name = getattr(args, "profile", None)
+    if not name:
+        return
+    if name not in PROFILES:
+        raise SystemExit(f"unknown profile {name!r}; have {', '.join(PROFILES)}")
+    prof = PROFILES[name]
+    if getattr(args, "strand", None) in (None, "n33") and not getattr(args, "_strand_explicit", False):
+        args.strand = prof["strand"]
+    if getattr(args, "repeats", None) in (None, []):
+        args.repeats = list(prof["repeats"])
+    if prof["des"]:
+        args.des = True
+    per = prof["strands_per_junction"]
+    if getattr(args, "conversion", "full") == "full" and per is not None:
+        reps = args.repeats if len(args.repeats) == 3 else args.repeats * 3
+        junctions = reps[0] * reps[1] * reps[2]
+        args.conversion = f"count:{int(round(per * junctions))}"
 
 
 def _resolve_extras(args, junctions: int) -> Dict[str, int]:
@@ -521,8 +594,9 @@ def _resolve_extras(args, junctions: int) -> Dict[str, int]:
     extras: Dict[str, int] = {}
     if args.des:
         pairs = args.des_ratio * junctions
-        extras["ACC"] = pairs
-        extras["CL"] = pairs
+        cation, anion = _ion_names(args)
+        extras[cation] = pairs
+        extras[anion] = pairs
     for spec in args.extra or []:
         if ":" not in spec:
             raise ValueError(f"--extra takes NAME:COUNT, got {spec!r}")
@@ -559,7 +633,8 @@ def cmd_table(args) -> int:
               f"{'mass/kDa':>9} {'build box':>10} {'target box':>11} {'shrink':>7}")
     for name in names:
         strand = strands[name]
-        types = _load_types(strand, list(_resolve_extras(args, 1)))
+        stems = _ion_stems(args)
+        types = _load_types(strand, list(_resolve_extras(args, 1)), stems)
         print()
         print(header)
         for repeat in range(PCU_MIN_REPEAT, args.max_repeat + 1, 2):
@@ -571,7 +646,7 @@ def cmd_table(args) -> int:
                 continue
             plan = plan_cell(counts, strand, types, conversion=conversion,
                              conversion_count=count, conversion_fraction=fraction,
-                             extras=extras, density=args.density)
+                             extras=extras, density=args.density, stems=stems)
             if args.max_atoms and plan.atom_count > args.max_atoms:
                 print(f"{name:>7} {repeat:>3}^3    {junctions:>6} {plan.formed_strands:>8} "
                       f"{plan.atom_count:>9} -- above --max-atoms, stopping")
@@ -587,20 +662,26 @@ def cmd_table(args) -> int:
 
 def cmd_emit(args) -> int:
     """Write the build and shrink makers for one size."""
+    _apply_profile(args)
     strands = discover_strands()
     if args.strand not in strands:
         raise SystemExit(f"unknown strand {args.strand!r}; have {', '.join(strands)}")
     strand = strands[args.strand]
+    if not args.repeats:
+        raise SystemExit("--repeats is required (or a --profile that supplies it)")
     repeats = validate_repeats(args.repeats if len(args.repeats) == 3
                                else args.repeats * 3)
     junctions = repeats[0] * repeats[1] * repeats[2]
     extras = _resolve_extras(args, junctions)
-    types = _load_types(strand, list(extras))
+    stems = _ion_stems(args)
+    types = _load_types(strand, list(extras), stems)
     conversion, count, fraction = _conversion_from_args(args)
     plan = plan_cell(repeats, strand, types, conversion=conversion,
                      conversion_count=count, conversion_fraction=fraction,
-                     extras=extras, density=args.density)
-    tag = args.tag or default_tag(plan, conversion)
+                     extras=extras, density=args.density, stems=stems)
+    tag = args.tag or (f"{args.profile}_r{repeats[0]}" if getattr(args, "profile", None)
+                       and repeats[0] == repeats[1] == repeats[2]
+                       else default_tag(plan, conversion))
 
     files = {
         os.path.join(PROJECT, f"maker_size_{tag}.yaml"):
@@ -685,6 +766,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                        help="extra species from structure/NAME.itp, repeatable")
         p.add_argument("--density", type=float, default=1.0,
                        help="shrink target density, g/cm3 (default 1.0)")
+        p.add_argument("--ion-charge-scale", type=float, default=None,
+                       help="use charge-scaled ion variants structure/ACC_fNNN.itp and "
+                            "CL_fNNN.itp (written by apply_charges.py scale), e.g. 0.8")
 
     t = sub.add_parser("table", help="size ladder with atom counts and boxes")
     add_common(t, with_strand_default=False)
@@ -695,8 +779,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     e = sub.add_parser("emit", help="write maker + shrink maker for one size")
     add_common(e, with_strand_default=True)
-    e.add_argument("--repeats", type=int, nargs="+", required=True,
-                   help="one value for a cubic supercell, or three")
+    e.add_argument("--repeats", type=int, nargs="+", default=None,
+                   help="one value for a cubic supercell, or three (a --profile "
+                        "supplies a default)")
+    e.add_argument("--profile", choices=sorted(PROFILES),
+                   help="named size profile from the integrated report §18C.3; "
+                        "explicit flags override its defaults")
     e.add_argument("--seed", type=int, default=None,
                    help="conversion seed (required by the builder when partial)")
     e.add_argument("--omp-threads", type=int, default=None,

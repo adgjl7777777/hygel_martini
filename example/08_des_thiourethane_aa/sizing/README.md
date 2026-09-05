@@ -60,6 +60,57 @@ full-conversion demonstration (77 184 atoms), because at 1/6 conversion five
 sixths of the net's edges hold no prepolymer at all. Size is not the obstacle
 to a production run; composition still is.
 
+## Profiles, named as in the shared spec
+
+The integrated report (§18C.3) names five size profiles; `emit` accepts the
+same names so the tool and the spec cannot drift apart. A profile fixes the
+strand, a default supercell, whether AcChCl is present and -- for the partial
+cells -- strands **per junction**, which becomes an exact `count` for whatever
+repeats are chosen (0.5 per junction is the molar reading of 1:0.5, 1.5 the
+equivalent-ratio reading):
+
+| profile | strand | default | conversion | AcChCl | atoms |
+|---|---|---|---|---|---:|
+| `diagnostic_n3` | n3 | 4³ | count 0.5/junction (32) | no | 8 224 |
+| `target_molar` | n33 | 4³ | count 0.5/junction (32) | 1:6 | 28 192 |
+| `target_equiv` | n33 | 4³ | count 1.5/junction (96) | 1:6 | ~55k |
+| `n33_full_control` | n33 | 4³ | full | no | 77 184 |
+| `scaled_supercell` | n33 | 6³ | count 0.5/junction (108) | 1:6 | 95 148 |
+
+```
+python3 cell_sizes.py emit --profile target_molar
+python3 cell_sizes.py emit --profile target_molar --repeats 6      # count follows: 108
+python3 cell_sizes.py emit --profile target_molar --ion-charge-scale 0.8
+```
+
+`--ion-charge-scale f` swaps the AcChCl pair for the variants
+`structure/ACC_fNNN.itp` / `CL_fNNN.itp` written by
+`parameterization/apply_charges.py scale` (0.80 and 0.69 are shipped); the
+neutral network is untouched, which is the report's charge-scaling design.
+
+The variants are their own moleculetypes (`ACC_f080`, not `ACC`), and that is
+not cosmetic. The builder auto-includes every `*.itp` under `structure/`
+recursively; two files declaring the same moleculetype are refused outright
+(`DuplicateDeclaration`), and an `add_molecule` ITP whose moleculetype an
+included file already declares is **silently not included** -- the original
+would have won and the run would have carried unscaled ions under a scaled
+label. Distinct names make both guards work for us. Recipes and analyses
+address the ions by the variant name.
+
+## Composition audit: the go/no-go gate
+
+`composition_audit.py` compares a built `system.top` with a recipe YAML
+(`project/recipes/`): molecule counts, the network molecule's atom count and
+mass derived from the templates, and **charge per molecule against its formal
+integer** -- not "rounds to zero". It fails a topology whose neutral molecules
+carry the LigParGen −1e-4 e each (the v0 builds do; release v1 neutralizes the
+templates so new builds pass). Exit 1 on any failed row.
+
+```
+python3 composition_audit.py --top ../project/output_size_<tag>/system.top \
+                             --recipe ../project/recipes/target_molar_r4.yaml
+```
+
 ## Conversion: fraction or count
 
 `--conversion fraction:F` forms each strand with probability `F`. That is the

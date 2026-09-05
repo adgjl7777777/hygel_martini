@@ -1,0 +1,14 @@
+# Recipe for the exact-count diagnostic cell (sizing/README.md): pcu 4x4x4,
+# n = 3 strand, exactly 32 of 192 edges formed, no solvent.
+#
+# The molar reading of the experimental Hexakis:PPG-TDI = 1:0.5 gives 32
+# prepolymer molecules per 64 junctions; every one bridges two junctions when
+# NCO conversion is complete, so 64 arms react and lose their cap hydrogen.
+# PROVISIONAL: the 1:0.5 definition is unconfirmed (integrated report §2.4).
+name: diagnostic_n3_r4_c32
+provisional: true
+network:
+  HEXU: 64
+  STR: 32
+  reacted_arms: 64
+species: {}

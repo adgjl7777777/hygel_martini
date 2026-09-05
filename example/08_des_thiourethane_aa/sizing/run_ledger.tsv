@@ -1,2 +1,4 @@
 when	host	tag	omp	atoms	build_wall	build_peak_kb	build_status	shrink_wall	shrink_peak_kb	shrink_status
 2026-09-05T02:27:57+09:00	tcsmserver	test_n3_r4_c32	12	-	-	-	skipped	5:24.84	125596	0
+2026-09-05T09:29:32+09:00	tcsmserver	v1_diag	-	-	0:03.68	158500	1	-	-	skipped
+2026-09-05T09:34:57+09:00	tcsmserver	v1_diag	-	8224	0:09.13	190244	0	-	-	skipped
