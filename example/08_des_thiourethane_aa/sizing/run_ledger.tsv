@@ -2,3 +2,6 @@ when	host	tag	omp	atoms	build_wall	build_peak_kb	build_status	shrink_wall	shrink
 2026-09-05T02:27:57+09:00	tcsmserver	test_n3_r4_c32	12	-	-	-	skipped	5:24.84	125596	0
 2026-09-05T09:29:32+09:00	tcsmserver	v1_diag	-	-	0:03.68	158500	1	-	-	skipped
 2026-09-05T09:34:57+09:00	tcsmserver	v1_diag	-	8224	0:09.13	190244	0	-	-	skipped
+2026-09-05T14:57:58+09:00	tcsmserver	pilot_target_molar	8	28192	0:16.46	279956	audit-failed	-	-	skipped
+2026-09-05T15:23:08+09:00	tcsmserver	pilot_target_molar	8	28192	-	-	skipped	23:48.29	3306248	0
+2026-09-05T16:11:04+09:00	tcsmserver	pilot_target_molar	-	28192	-	-	skipped	-	-	stale-inputs

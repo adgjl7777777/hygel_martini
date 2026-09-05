@@ -1,0 +1,56 @@
+{
+  "tag": "pilot_target_molar",
+  "written_at": "2026-09-05T14:59:19+09:00",
+  "host": "tcsmserver",
+  "git_head": "63e694f67860e8bea09ff80a3f9d787be8ec5760",
+  "git_dirty": true,
+  "release": [
+    "v1_ligpargen_neutral"
+  ],
+  "gromacs": "/opt/gromacs/2026/bin/gmx_mpi :: :-) GROMACS - gmx_mpi, 2026.2 (-:",
+  "packmol": "/nas_3/active/transcendence/anaconda3/envs/hygel/bin/packmol",
+  "python": "3.12.12",
+  "seeds": {
+    "conversion_seed": 3,
+    "conversion": {
+      "count": 32,
+      "seed": 3
+    },
+    "placement_random_seed": 2020
+  },
+  "recipe": "/nas_1/transcendence/2026_2/omni_hygel_package/package/example/08_des_thiourethane_aa/project/recipes/target_molar_r4.yaml",
+  "files": {
+    "project/maker_size_pilot_target_molar.yaml": "da20fe60bf36b4d4120782062763c8e995ef02aad6d4309971c277f761fc98b9",
+    "project/maker_size_pilot_target_molar_shrink.yaml": "a6e8d89b10bc270003001d80301542fe8af1fb683e251096f4030946560535b9",
+    "project/config/simulation.yaml": "e56f3587269034d35e60ac1485c40aa684ac4124d1ea6ea5d8776ebfed6a9197",
+    "project/config/mdp.yaml": "acdeae319e369111eb60f279af65710dff40df2e88b208cb3ef893cc6efc263e",
+    "project/config/hydrogel.yaml": "b20988bb6fe14630bd4b19c736b169d8a264a7ec990aae352566ba41013a0e20",
+    "project/config/network.yaml": "39cdfc4b993f1462e5a509b7b1f509462747b2bb4049b22d42cd5a9e7563ff40",
+    "project/structure/STR_n33.gro": "570b6709d15ef6700446328e86115053faa9e04eda673ba3d5a8b0902bd35c81",
+    "project/structure/STR_n33.itp": "d22e68a0d9baad5eb4c3950ac8209d0a5d5f4ca9c5e739e9b916cce779272af0",
+    "project/structure/ACC.gro": "34b27b97027d78b1a2f3b0304960feaddb8afa425beac43ccbd35cad5dfaaf85",
+    "project/structure/ACC.itp": "07001f5769c99f9bacf861e0481c23f4cb8a5aab5cc684fa9efa637d3998d507",
+    "project/structure/CL.gro": "21740220f540f6d74dfe464d353308e7ba13cbcec38e06f635cef9d988a93803",
+    "project/structure/CL.itp": "e668f414a36f6dc963a6a562400ab3d4980d0519f1f4fcef4361d2fc015dce76",
+    "../05_hydrogel_relaxation/project/config/common.yaml": "eab78993578bdc8edcffc16078fd9c9483bd08e57d4ba3c3187d1d90da27d57f",
+    "../05_hydrogel_relaxation/project/config/hard_em_shrink.yaml": "8b47a92d4905e067c9cd486caf7f8af5d16bd62c5b0a33793c7f71dfecd2ee3f",
+    "project/output_size_pilot_target_molar/final_system.gro": "d9cfb741daa850a590b8495cbdaa8886626bd609a4e1b91b7cb10c2a3ec9d994",
+    "project/output_size_pilot_target_molar/final_system_no_ions_geo_opt/system.top": "df1169830f3d1f4bbc3acd413c48261f824044d2061678ca0b6b8a84bef5a383",
+    "project/output_size_pilot_target_molar/initial_hydrogel.itp": "3d76c0a613f737e183971ef07e970a345e25a6e479c722a55129330ec21fc93a",
+    "project/config_shrink/minim.mdp": "9593ff97aa985bf765f2006eedae93ec7a975157b655edb14857c8120f670d9a",
+    "project/config_shrink/nvt_recovery.mdp": "4bbfa4203f3efa9c1f4a1d7b19f6eaa60b712b5ef640b9eb85733ab04fd7f924",
+    "project/structure/forcefield.itp": "5b19b4f993e55641981f98f2bbe015441032235e6fd31e79b7d8cc40acd446b2",
+    "project/structure/STR.gro": "0eaa4bd388211f23fcfef2f9e052ee4f759958cf099e23c39215a97592debab0",
+    "project/structure/STR.itp": "402d30292010ca2f03c46a692e13c5aabc24e372186f76d2186afd08eb8a2088",
+    "project/structure/HEXU.gro": "f28d73311308027fc59b9c0bdbabd78a377ae9feacca5300aeeb429e2350e553",
+    "project/structure/HEXU.itp": "dee3ffcefe5f93e01a0b7c0f521624e9b25c53e3d0e8e56e5094158262fc4757",
+    "project/structure/ACC_f069.itp": "fbcafa9ea1c131653923978219c595e1130b4b1bcf483e794bd5dce12c39df3c",
+    "project/structure/ACC_f080.itp": "b06f5ed1d8f7b4ba43577c57c92c69d3f7a75c404c9ce21bf897ea72c0ce1b66",
+    "project/structure/CL_f069.itp": "22e90909e8400eba3929bd9bd3b4d2677d6aa23f42d99068499119a99904337a",
+    "project/structure/CL_f080.itp": "55d23fe5f9379fe8e94fdac40a6f63ff90adc2b2403959a7fa3a04d0ccfd1fee",
+    "project/config_npt/heat_posres.mdp": "7fbcd6140c3c1d0b373b0a14175c70539c9ff01b6df977dbbb79c64d2f0d7190",
+    "project/config_npt/npt_equil.mdp": "ff7ebb9a05f692a1f5d7f7830e802b84eb140783fe9cec3adac287630f0ada14",
+    "project/config_npt/production.mdp": "4a407f3b865ddfa2a2e0998286500e962acd95c048d6220e5bf2150c9f377b5d",
+    "project/recipes/target_molar_r4.yaml": "5f1d9864c5ea1573b625d71eb7cc2efaf4ba16c8bbfaed083e1e1bcb02d13860"
+  }
+}
