@@ -253,6 +253,23 @@ between. Site preference is an NPT-trajectory question (RDFs, running
 coordination numbers, hydrogen-bond occupancy and residence times), not a
 single-frame one.
 
+## Does the force field agree with the DFT? (`validation/`)
+
+Not about the ordering the project rests on. `validation/ff_pair_benchmark.py`
+puts our parameters on the DFT-optimized Cl⁻ complexes and sums the exact
+intermolecular energy (verified against GROMACS once its reaction-field
+self-energy is accounted for). DFT puts the thiourethane N–H **2.83 kcal/mol
+below** the urethane N–H; this force field puts it **0.84 kcal/mol above**,
+because 1.14\*CM1A-LBCC gives the two N–H hydrogens the same charge to within
+0.004 e. The thiol is correctly weakest. Everything underbinds by 11–17
+kcal/mol, which a non-polarizable model in the gas phase is expected to do —
+the *relative* error is the problem.
+
+So no statement about **which donor holds chloride** may be made from MD on
+this force field; the pending RESP charges are a prerequisite, not an
+upgrade. Construction, topology, compression, stability and cost results are
+unaffected. See `validation/README.md`.
+
 ## Charges, releases and what comes after the shrink
 
 Three more pieces sit beside the templates, each answering one of the
@@ -314,9 +331,10 @@ stands between this example and a production run; composition is.
 
 ## Known approximations (deliberate, documented)
 
-* **Charges are rough.** 1.14*CM1A-LBCC validates construction; quantitative
-  ion transport (the cowork's Q1–Q3) needs better charges (and likely charge
-  scaling). LigParGen rounding left −0.0001 e per molecule (−0.026 e over
+* **Charges are rough, and measurably so.** 1.14*CM1A-LBCC validates
+  construction and *inverts the DFT donor ranking* (`validation/`);
+  quantitative ion transport (the cowork's Q1–Q3) needs better charges (and
+  likely charge scaling). LigParGen rounding left −0.0001 e per molecule (−0.026 e over
   the full system, −0.0096 e over the count:32 cell) in every build above,
   made under release v0; release v1 neutralizes each template exactly, so
   builds from the current tree carry 0 e and `composition_audit.py` gates on
