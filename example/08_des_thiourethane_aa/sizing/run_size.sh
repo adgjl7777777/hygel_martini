@@ -64,7 +64,19 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# 0. Preflight. The builder shells out to gmx and Packmol, and a missing one
+# 0a. Arguments first. These cost nothing to check and do not depend on the
+# environment, so a missing --tag should say so rather than reporting whatever
+# binary happens to be absent as well.
+if [[ $do_build -eq 0 ]]; then
+  [[ -n "$tag" ]] || { echo "--shrink-only needs --tag (which build to resume)" >&2; exit 1; }
+  if [[ ! -f "$HERE/manifests/run_manifest_${tag}.json" ]]; then
+    echo "no run manifest for tag '$tag': a build made before manifests existed" >&2
+    echo "cannot be resumed under the audit trail -- rebuild it" >&2
+    exit 1
+  fi
+fi
+
+# 0b. Preflight. The builder shells out to gmx and Packmol, and a missing one
 # surfaces halfway through as a confusing failure, so it is checked up front.
 # GMXRC is sourced automatically when GROMACS is installed but not on PATH
 # (it only prepends GROMACS's own paths); Packmol lives in a conda env here,
@@ -116,12 +128,6 @@ fi
 # a build means resuming ITS inputs, so that mode requires an existing tag
 # and an existing manifest and touches neither.
 if [[ $do_build -eq 0 ]]; then
-  [[ -n "$tag" ]] || { echo "--shrink-only needs --tag (which build to resume)" >&2; exit 1; }
-  if [[ ! -f "$HERE/manifests/run_manifest_${tag}.json" ]]; then
-    echo "no run manifest for tag '$tag': a build made before manifests existed" >&2
-    echo "cannot be resumed under the audit trail -- rebuild it" >&2
-    exit 1
-  fi
   echo "resuming tag '$tag' against the manifest its build wrote (no re-emit)"
   # Whether those inputs still match is decided by the manifest check below,
   # which runs in both modes.
