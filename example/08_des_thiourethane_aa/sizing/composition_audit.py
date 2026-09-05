@@ -83,7 +83,16 @@ def expected_network(recipe: dict, structure: str, hydrogel_yaml: str) -> Molecu
     net = recipe["network"]
     reacted = int(net.get("reacted_arms", 0))
     parts = {k: int(v) for k, v in net.items() if k != "reacted_arms"}
-    types = moleculetypes([os.path.join(structure, f"{name}.itp") for name in parts])
+    # Recipe keys are ITP file stems (STR_n33), not moleculetype names (that
+    # file declares STR33): parse each file on its own and take whatever one
+    # moleculetype it declares. Keying by moleculetype name here made the
+    # pilot's audit crash with KeyError instead of judging the cell.
+    types: Dict[str, MoleculeType] = {}
+    for stem in parts:
+        found = moleculetypes([os.path.join(structure, f"{stem}.itp")])
+        if len(found) != 1:
+            raise ValueError(f"{stem}.itp must declare exactly one moleculetype, found {sorted(found)}")
+        types[stem] = next(iter(found.values()))
     exp = MoleculeType(name="HYDROGEL", source="recipe")
     for name, count in parts.items():
         exp.atom_count += types[name].atom_count * count
