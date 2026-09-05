@@ -1,0 +1,5 @@
+# reconstructed from step_*/nvt_recovery/mdout.mdp and nvt.log; history.jsonl untouched
+step	scale	finished_mdrun	dt	nsteps	ref-t	gen-temp	gen-seed	constraints	tcoupl	mdout_sha256
+8	0.005	True	0.001	20000	300	300	1375187439	h-bonds	v-rescale	573613dfda38bb19
+8	0.01	False	0.001	20000	300	300	-100679691	h-bonds	v-rescale	15ae80a168d290bf
+8	0.02	False	0.001	20000	300	300	1583611868	h-bonds	v-rescale	38a632fb5d8daa38

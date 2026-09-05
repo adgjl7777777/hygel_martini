@@ -73,7 +73,7 @@ equivalent-ratio reading):
 |---|---|---|---|---|---:|
 | `diagnostic_n3` | n3 | 4³ | count 0.5/junction (32) | no | 8 224 |
 | `target_molar` | n33 | 4³ | count 0.5/junction (32) | 1:6 | 28 192 |
-| `target_equiv` | n33 | 4³ | count 1.5/junction (96) | 1:6 | ~55k |
+| `target_equiv` | n33 | 4³ | count 1.5/junction (96) | 1:6 | 51 936 |
 | `n33_full_control` | n33 | 4³ | full | no | 77 184 |
 | `scaled_supercell` | n33 | 6³ | count 0.5/junction (108) | 1:6 | 95 148 |
 
@@ -96,6 +96,29 @@ included file already declares is **silently not included** -- the original
 would have won and the run would have carried unscaled ions under a scaled
 label. Distinct names make both guards work for us. Recipes and analyses
 address the ions by the variant name.
+
+## Fail closed, and prove what ran
+
+`run_size.sh` stops at every stage boundary that can be checked (independent
+review 2026-09-05, Major 1): a refused emit (malformed inputs exit 2 before
+any file is written), a force field matching no frozen release, a failed
+build, a failed `--recipe` audit, inputs that changed since the tag was
+emitted, or a failed retarget. The ledger records which (`audit-failed`,
+`stale-inputs`, `no-build`, `retarget-failed`). `--density` reaches the
+retarget step too.
+
+`run_manifest.py write --tag T` freezes everything the run reads -- makers,
+included configs, **every** ITP under `structure/` (the builder's include
+closure), referenced `.gro`, recipe, `config_npt` mdps, seeds, git HEAD,
+release, binaries -- and `verify` reports drift per file. `run_size.sh`
+writes it after emit and verifies before the shrink; the base release alone
+does not cover charge-scaled variants (Major 3), this does.
+
+`recovery_audit.py <shrink_workdir>` reconstructs each NVT recovery's
+dt/nsteps/T/seed/constraints and whether mdrun finished from the attempt's own
+`mdout.mdp`/`nvt.log`, for shrinks whose `history.jsonl` predates the
+`nvt_recovery_settings` field (`recovery_audit_test_n3_r4_c32.tsv`). The
+history itself is never rewritten.
 
 ## Composition audit: the go/no-go gate
 

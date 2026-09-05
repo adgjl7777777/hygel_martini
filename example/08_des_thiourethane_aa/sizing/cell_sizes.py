@@ -47,6 +47,7 @@ from __future__ import annotations
 import argparse
 import math
 import os
+import sys
 from dataclasses import dataclass
 from typing import Dict, List, Sequence, Tuple
 
@@ -245,6 +246,11 @@ def plan_cell(repeats: Sequence[int],
     elif conversion == "fraction":
         if conversion_fraction is None:
             raise ValueError("conversion='fraction' needs conversion_fraction")
+        if not 0.0 < float(conversion_fraction) < 1.0:
+            raise ValueError(
+                f"conversion fraction must be in (0, 1), got {conversion_fraction}; "
+                "for every edge use conversion='full'"
+            )
         formed = int(round(conversion_fraction * edges))
     else:
         raise ValueError(f"unknown conversion mode {conversion!r}")
@@ -260,7 +266,12 @@ def plan_cell(repeats: Sequence[int],
     mass = (junctions * hexu.mass + formed * strand_type.mass
             - 2 * formed * cap_mass)
 
+    if not (math.isfinite(density) and density > 0):
+        raise ValueError(f"density must be a finite positive number, got {density!r}")
     extras = dict(extras or {})
+    for name, count in extras.items():
+        if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+            raise ValueError(f"species {name!r} count must be a non-negative integer, got {count!r}")
     stems = {name: (stems or {}).get(name, name) for name in extras}
     for name, count in extras.items():
         if name not in types:
@@ -597,11 +608,19 @@ def _resolve_extras(args, junctions: int) -> Dict[str, int]:
         cation, anion = _ion_names(args)
         extras[cation] = pairs
         extras[anion] = pairs
+    if args.des and (not isinstance(args.des_ratio, int) or args.des_ratio < 0):
+        raise ValueError(f"--des-ratio must be a non-negative integer, got {args.des_ratio!r}")
     for spec in args.extra or []:
         if ":" not in spec:
             raise ValueError(f"--extra takes NAME:COUNT, got {spec!r}")
         name, _, count = spec.partition(":")
-        extras[name.strip()] = int(count)
+        try:
+            value = int(count)
+        except ValueError:
+            raise ValueError(f"--extra {spec!r}: COUNT must be an integer") from None
+        if value < 0:
+            raise ValueError(f"--extra {spec!r}: a negative molecule count is not a thing")
+        extras[name.strip()] = value
     return extras
 
 
@@ -611,9 +630,23 @@ def _conversion_from_args(args) -> Tuple[str, int | None, float | None]:
         return "full", None, None
     kind, _, value = spec.partition(":")
     if kind == "count":
-        return "count", int(value), None
+        try:
+            count = int(value)
+        except ValueError:
+            raise ValueError(f"--conversion count:N needs an integer, got {value!r}") from None
+        if count < 1:
+            raise ValueError(f"--conversion count must be at least 1, got {count}")
+        return "count", count, None
     if kind == "fraction":
-        return "fraction", None, float(value)
+        try:
+            fraction = float(value)
+        except ValueError:
+            raise ValueError(f"--conversion fraction:F needs a number, got {value!r}") from None
+        if not 0.0 < fraction < 1.0:
+            raise ValueError(
+                f"--conversion fraction must be in (0, 1), got {fraction}; use 'full' for every edge"
+            )
+        return "fraction", None, fraction
     raise ValueError(
         f"--conversion takes full, count:N or fraction:F, got {spec!r}"
     )
@@ -804,7 +837,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     g.set_defaults(func=cmd_target)
 
     args = parser.parse_args(argv)
-    return args.func(args)
+    try:
+        return args.func(args)
+    except (ValueError, KeyError, FileNotFoundError) as exc:
+        # Validation happens before any file is written, so a refusal here
+        # leaves the project directory untouched.
+        print(f"cell_sizes.py: refused: {exc}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

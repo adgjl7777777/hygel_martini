@@ -90,3 +90,32 @@ def test_profiles_scale_the_count_with_the_supercell(cs):
     c = A(); c.profile = "target_equiv"
     cs._apply_profile(c)
     assert c.conversion == "count:96"
+
+
+@pytest.mark.parametrize("argv", [
+    ["emit", "--strand", "n3", "--repeats", "4", "--conversion", "fraction:1.5"],
+    ["emit", "--strand", "n3", "--repeats", "4", "--conversion", "fraction:-0.5"],
+    ["emit", "--strand", "n3", "--repeats", "4", "--conversion", "fraction:1.0"],
+    ["emit", "--strand", "n3", "--repeats", "4", "--conversion", "count:0"],
+    ["emit", "--strand", "n3", "--repeats", "4", "--extra", "ACC:-3"],
+    ["emit", "--strand", "n3", "--repeats", "4", "--extra", "ACC:x"],
+    ["emit", "--strand", "n3", "--repeats", "4", "--density", "nan"],
+    ["emit", "--strand", "n3", "--repeats", "4", "--density", "-1"],
+    ["emit", "--strand", "n3", "--repeats", "5"],
+])
+def test_malformed_inputs_are_refused_before_anything_is_written(cs, argv, tmp_path, monkeypatch):
+    """The independent review fed these to emit and got makers back; now they get exit 2."""
+    monkeypatch.setattr(cs, "PROJECT", str(tmp_path))
+    # discover_strands reads the real project, so point PROJECT at a copy of
+    # just what it needs and assert nothing appears in it afterwards.
+    import shutil
+    (tmp_path / "structure").mkdir()
+    (tmp_path / "config").mkdir()
+    real = os.path.join(EXAMPLE, "project")
+    for rel in ("structure/HEXU.itp", "structure/STR.itp", "structure/STR.gro",
+                "config/network.yaml", "config/hydrogel.yaml"):
+        shutil.copy(os.path.join(real, rel), tmp_path / rel)
+    shutil.copy(os.path.join(real, "maker_n33.yaml"), tmp_path / "maker_n33.yaml")
+    before = sorted(p.name for p in tmp_path.iterdir())
+    assert cs.main(argv + ["--tag", "probe", "--seed", "3"]) == 2
+    assert sorted(p.name for p in tmp_path.iterdir()) == before
