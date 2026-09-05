@@ -76,6 +76,34 @@ def _energy_is_finite(gmx: str, edr: Path, out_xvg: Path, env: Dict[str, str]) -
         return False, None
 
 
+def _mdp_values(path: "Path", keys=("dt", "nsteps", "ref_t", "ref-t", "constraints")) -> Dict[str, Any]:
+    """The handful of mdp settings that describe a recovery run.
+
+    Recorded into every history event that used the recovery (integrated
+    report §18C.5: timestep, temperature and recovery count must be on the
+    record), so a stalled or healed shrink can be read back without opening
+    the mdp that may since have changed. Missing keys are simply absent.
+    """
+    wanted = {k.replace("-", "_") for k in keys}
+    out: Dict[str, Any] = {}
+    try:
+        for line in Path(path).read_text(encoding="utf-8").splitlines():
+            text = line.split(";", 1)[0].strip()
+            if "=" not in text:
+                continue
+            key, _, value = text.partition("=")
+            key = key.strip().lower().replace("-", "_")
+            if key in wanted:
+                value = value.strip()
+                try:
+                    out[key] = float(value) if "." in value or "e" in value.lower() else int(value)
+                except ValueError:
+                    out[key] = value
+    except OSError:
+        pass
+    return out
+
+
 def _run_nvt_recovery(
     *,
     gmx: str,
@@ -179,6 +207,7 @@ def run_hard_em_shrink(cfg: Dict[str, Any]) -> Path:
     start_gro = Path(str(paths["start_gro"])).resolve()
     minim_mdp = Path(str(shrink["minim_mdp"])).resolve()
     nvt_mdp = Path(str(shrink["nvt_recovery_mdp"])).resolve()
+    recovery_settings = _mdp_values(nvt_mdp)
     workdir = Path(str(paths["workdir"])).resolve()
     target = _target_box(shrink)
     ntomp = int(runtime.get("omp_threads", 1))
@@ -323,6 +352,9 @@ def run_hard_em_shrink(cfg: Dict[str, Any]) -> Path:
                 "fmax": fmax,
                 "potential": potential,
                 "nvt_recovery_used": recovery_used,
+                # dt (ps), nsteps, ref_t (K), constraints of the recovery that
+                # ran, or None when this attempt did not need one.
+                "nvt_recovery_settings": recovery_settings if recovery_used else None,
                 "accepted": valid,
                 "error": error,
             }
