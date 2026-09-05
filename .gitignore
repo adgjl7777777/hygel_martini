@@ -49,4 +49,5 @@ example/08_des_thiourethane_aa/project/maker_size_*.yaml
 example/08_des_thiourethane_aa/project/output_size_*/
 example/08_des_thiourethane_aa/project/shrink_output_size_*/
 example/08_des_thiourethane_aa/sizing/log_*.txt
+example/08_des_thiourethane_aa/project/equil_*/
 example/08_des_thiourethane_aa/project/shrink_output_des/
