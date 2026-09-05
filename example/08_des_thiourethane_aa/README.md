@@ -253,6 +253,38 @@ between. Site preference is an NPT-trajectory question (RDFs, running
 coordination numbers, hydrogen-bond occupancy and residence times), not a
 single-frame one.
 
+## Charges, releases and what comes after the shrink
+
+Three more pieces sit beside the templates, each answering one of the
+integrated report's hand-over conditions (§18B.5, §18C.4, §18C.5):
+
+* **`parameterization/apply_charges.py`** is the only way a charge set enters
+  these topologies. `neutralize` fixes a molecule's sum to its formal charge
+  *exactly at the written precision* (the LigParGen tables miss zero by
+  −1e-4 e per molecule, which PME hides behind a background charge and grompp
+  warns about); `apply` swaps in a release CSV and refuses one that is
+  incomplete or sums to the wrong integer; `convert` turns a DFT `.pc_resp`
+  plus the DFT team's atom mapping into that CSV; `scale` writes the ion-only
+  charge-scaling variants (`ACC_f080`, `CL_f069`, ...). Everything outside
+  `[ atoms ]` is written back byte-for-byte, a provenance block and a
+  `.charges.json` sidecar record what moved, and `--stub-caps` keeps the
+  junction's reacted-sulfur overrides (q(S)+q(H)) consistent with the
+  junction's charges.
+* **`parameterization/release.py`** freezes the force-field files with
+  sha256s and a status (`draft` / `candidate` / `production-approved`) under
+  `parameterization/releases/`. The tree now matches `v1_ligpargen_neutral`
+  (v0 charges, neutralized); `v0_ligpargen_draft` is what every build above
+  was made with. `release.py current` says which one a checkout is.
+* **`project/config_npt/`** is the protocol after the shrink: restrained
+  heating (`heat_posres.mdp`, POSRES_FC 1000 → 200 → 0, X–H constrained),
+  NPT equilibration (`npt_equil.mdp`, C-rescale, PME) and production
+  (`production.mdp`), driven by `run_equilibration.sh`, which generates the
+  heavy-atom restraints from the ITP masses into a topology copy. Nothing in
+  it declares equilibrium: `check_convergence.py` gates production on block
+  plateaus of density, volume and energy. The mdps carry **300 K as a
+  provisional temperature**; the experimental temperature has not been
+  supplied. grompp-tested on the shrunk `count:32` cell; no NPT has been run.
+
 ## Any size, on whatever node is free (`sizing/`)
 
 The four makers above each fix a size. `sizing/` makes size an input instead:
@@ -275,9 +307,11 @@ stands between this example and a production run; composition is.
 
 * **Charges are rough.** 1.14*CM1A-LBCC validates construction; quantitative
   ion transport (the cowork's Q1–Q3) needs better charges (and likely charge
-  scaling) via `param_opt`. LigParGen rounding leaves −0.0001 e per molecule
-  (−0.026 e over the full system) under PME with a uniform background;
-  `grompp_maxwarn: 2` covers the resulting warning.
+  scaling). LigParGen rounding left −0.0001 e per molecule (−0.026 e over
+  the full system, −0.0096 e over the count:32 cell) in every build above,
+  made under release v0; release v1 neutralizes each template exactly, so
+  builds from the current tree carry 0 e and `composition_audit.py` gates on
+  it.
 * **The stub-sulfur angle parameters live in `forcefield.itp`.** The linker
   loader keeps stub atoms out of a template's own angle list, so the 18
   S-adjacent angles per junction are emitted parameterless and resolve from

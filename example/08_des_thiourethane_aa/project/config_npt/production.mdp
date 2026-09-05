@@ -1,0 +1,41 @@
+; Stage 3: production (report §18C.5 step 9). NPT so the density is not
+; frozen at whatever the equilibration ended on; switch to NVT only for
+; observables that need a fixed box (a strain protocol, Q2).
+; Output cadence is set for the Q1 analyses (§18C.7): residence times and
+; donor switching need frames every few ps, MSD needs a long, evenly sampled
+; record.
+integrator              = md
+dt                      = 0.002
+nsteps                  = 50000000      ; 100 ns per segment; continue by checkpoint
+continuation            = yes
+gen_vel                 = no
+nstxout-compressed      = 1000          ; 2 ps
+compressed-x-precision  = 1000
+nstenergy               = 1000
+nstlog                  = 10000
+nstcalcenergy           = 100
+constraints             = h-bonds
+constraint-algorithm    = lincs
+lincs-order             = 4
+lincs-iter              = 1
+cutoff-scheme           = Verlet
+nstlist                 = 20
+coulombtype             = PME
+rcoulomb                = 1.1
+vdwtype                 = cutoff
+vdw-modifier            = Potential-shift
+rvdw                    = 1.1
+DispCorr                = EnerPres
+tcoupl                  = v-rescale
+tc-grps                 = System
+tau-t                   = 1.0
+ref-t                   = 300           ; PROVISIONAL
+pcoupl                  = C-rescale
+pcoupltype              = isotropic
+tau-p                   = 5.0
+ref-p                   = 1.0
+compressibility         = 4.5e-5
+pbc                     = xyz
+periodic-molecules      = yes
+comm-mode               = Linear
+nstcomm                 = 100

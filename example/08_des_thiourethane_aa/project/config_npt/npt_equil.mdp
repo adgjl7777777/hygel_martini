@@ -1,0 +1,42 @@
+; Stage 2: unrestrained NPT equilibration (report §18C.5 step 8).
+;
+; Dense charged system: PME, 2 fs with X-H constraints, C-rescale barostat.
+; 1.0 g/cm3 was the shrink TARGET; the density this stage settles at is the
+; first density that means anything, and it is compared to the experimental
+; dry density when the experimental team supplies one (§18A.2).
+; Length is a starting assumption (§18C.6): check_convergence.py decides
+; whether density/energy have reached a block plateau, not the clock.
+integrator              = md
+dt                      = 0.002
+nsteps                  = 5000000       ; 10 ns; extend by checkpoint as needed
+continuation            = yes
+gen_vel                 = no
+nstxout-compressed      = 25000         ; 50 ps
+nstenergy               = 1000
+nstlog                  = 5000
+nstcalcenergy           = 100
+constraints             = h-bonds
+constraint-algorithm    = lincs
+lincs-order             = 4
+lincs-iter              = 1
+cutoff-scheme           = Verlet
+nstlist                 = 20
+coulombtype             = PME
+rcoulomb                = 1.1
+vdwtype                 = cutoff
+vdw-modifier            = Potential-shift
+rvdw                    = 1.1
+DispCorr                = EnerPres
+tcoupl                  = v-rescale
+tc-grps                 = System
+tau-t                   = 1.0
+ref-t                   = 300           ; PROVISIONAL
+pcoupl                  = C-rescale
+pcoupltype              = isotropic
+tau-p                   = 5.0
+ref-p                   = 1.0
+compressibility         = 4.5e-5
+pbc                     = xyz
+periodic-molecules      = yes
+comm-mode               = Linear
+nstcomm                 = 100

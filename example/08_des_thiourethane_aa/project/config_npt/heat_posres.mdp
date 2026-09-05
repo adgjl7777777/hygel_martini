@@ -1,0 +1,45 @@
+; Stage 1 of the equilibration protocol (integrated report §18C.5 steps 7-9):
+; restrained NVT heating from the shrink's EM state.
+;
+; The shrink ends in a minimized structure with nearest non-bonded contacts
+; near 0.13 nm and no velocities. Heavy atoms are held by position restraints
+; (POSRES_FC, kJ/mol/nm^2, set per stage from run_equilibration.sh: 1000 ->
+; 200 -> 0) while hydrogens and then the backbone relax at temperature; the
+; X-H bonds are constrained so a 1 fs step is safe (defect #31 is the reason
+; this is not optional for an all-atom system).
+define                  = -DPOSRES -DPOSRES_FC=1000
+integrator              = md
+dt                      = 0.001
+nsteps                  = 100000        ; 100 ps per stage
+continuation            = no
+gen_vel                 = yes
+gen_temp                = 300           ; PROVISIONAL: experimental T not yet supplied
+gen_seed                = -1
+nstxout-compressed      = 5000
+nstenergy               = 500
+nstlog                  = 500
+nstcalcenergy           = 100
+constraints             = h-bonds
+constraint-algorithm    = lincs
+lincs-order             = 4
+lincs-iter              = 1
+cutoff-scheme           = Verlet
+nstlist                 = 20
+coulombtype             = PME
+rcoulomb                = 1.1
+vdwtype                 = cutoff
+vdw-modifier            = Potential-shift
+rvdw                    = 1.1
+DispCorr                = EnerPres
+tcoupl                  = v-rescale
+tc-grps                 = System
+tau-t                   = 0.5
+ref-t                   = 300
+pcoupl                  = no
+pbc                     = xyz
+periodic-molecules      = yes           ; the network spans the box
+; No COM-motion removal while restraints pin the frame: grompp notes the
+; combination can produce artifacts, and the restraints already fix the
+; reference. The unrestrained stages (heat_free, NPT) use Linear.
+comm-mode               = None
+refcoord-scaling        = com
