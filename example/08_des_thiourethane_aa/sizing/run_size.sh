@@ -109,6 +109,24 @@ else
 fi
 
 # 2. Generate the makers for this size.
+#
+# Not in --shrink-only: re-emitting there would rewrite the makers and then
+# re-write the run manifest, so the "inputs unchanged since the build" check
+# below would compare a manifest against itself and pass vacuously. Resuming
+# a build means resuming ITS inputs, so that mode requires an existing tag
+# and an existing manifest and touches neither.
+if [[ $do_build -eq 0 ]]; then
+  [[ -n "$tag" ]] || { echo "--shrink-only needs --tag (which build to resume)" >&2; exit 1; }
+  if [[ ! -f "$HERE/manifests/run_manifest_${tag}.json" ]]; then
+    echo "no run manifest for tag '$tag': a build made before manifests existed" >&2
+    echo "cannot be resumed under the audit trail -- rebuild it" >&2
+    exit 1
+  fi
+  echo "resuming tag '$tag' against the manifest its build wrote (no re-emit)"
+  # Whether those inputs still match is decided by the manifest check below,
+  # which runs in both modes.
+else
+
 echo
 echo "== emit =="
 emit_tmp="$(mktemp)"
@@ -125,9 +143,6 @@ if [[ -z "$tag" ]]; then
   tag="$(sed -n 's#^wrote .*/maker_size_\(.*\)\.yaml$#\1#p' <<<"$emit_log" | head -1)"
 fi
 [[ -n "$tag" ]] || { echo "could not determine the tag from emit output" >&2; exit 1; }
-build_maker="$PROJECT/maker_size_${tag}.yaml"
-shrink_maker="$PROJECT/maker_size_${tag}_shrink.yaml"
-outdir="$PROJECT/output_size_${tag}"
 
 # 2b. Freeze everything this run reads -- makers, configs, every ITP in the
 # include closure, recipe, mdps, seeds, HEAD, binaries -- so a later stage can
@@ -139,6 +154,11 @@ if ! python3 "$HERE/run_manifest.py" write "${manifest_args[@]}"; then
   echo "refusing to run without a complete run manifest" >&2
   exit 1
 fi
+fi   # end of the build-mode emit/manifest block
+
+build_maker="$PROJECT/maker_size_${tag}.yaml"
+shrink_maker="$PROJECT/maker_size_${tag}_shrink.yaml"
+outdir="$PROJECT/output_size_${tag}"
 
 # /usr/bin/time -v gives peak RSS, which is the number that decides whether a
 # bigger cell fits on this node. Fall back to the shell builtin if absent.

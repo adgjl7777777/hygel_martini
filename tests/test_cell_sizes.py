@@ -119,3 +119,23 @@ def test_malformed_inputs_are_refused_before_anything_is_written(cs, argv, tmp_p
     before = sorted(p.name for p in tmp_path.iterdir())
     assert cs.main(argv + ["--tag", "probe", "--seed", "3"]) == 2
     assert sorted(p.name for p in tmp_path.iterdir()) == before
+
+
+def test_shrink_only_requires_a_tag_and_its_build_manifest(tmp_path):
+    """Resuming a build means resuming ITS inputs.
+
+    In --shrink-only the wrapper used to re-emit and re-write the run
+    manifest, so the "inputs unchanged since the build" check compared a
+    manifest against one written moments earlier and passed vacuously. The
+    mode now refuses without a tag, and refuses a tag whose build predates
+    manifests.
+    """
+    import subprocess
+    script = os.path.join(EXAMPLE, "sizing", "run_size.sh")
+    for argv, expected in (
+        (["--shrink-only"], "needs --tag"),
+        (["--shrink-only", "--tag", "definitely_not_a_real_tag"], "no run manifest"),
+    ):
+        proc = subprocess.run(["bash", script, *argv], capture_output=True, text=True, timeout=120)
+        assert proc.returncode != 0
+        assert expected in proc.stderr, proc.stderr[-400:]

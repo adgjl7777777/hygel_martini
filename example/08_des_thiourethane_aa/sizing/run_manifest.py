@@ -176,10 +176,23 @@ def verify(tag: str) -> Dict[str, str]:
         path = os.path.join(EXAMPLE, rel)
         now = _sha256(path)
         result[rel] = "missing" if now is None else ("ok" if now == digest else "changed")
-    head = _git("rev-parse", "HEAD")
-    if head and data.get("git_head") and head != data["git_head"]:
-        result["<git HEAD>"] = "changed"
     return result
+
+
+def head_moved(tag: str) -> Optional[str]:
+    """The manifest's HEAD, if the repository has since moved off it.
+
+    Reported, never gated: the file hashes above are what decide whether this
+    run's *inputs* changed, and an unrelated commit elsewhere in the package
+    moves HEAD without touching any of them. Refusing there would make every
+    resume after any commit impossible while proving nothing.
+    """
+    with open(manifest_path(tag)) as handle:
+        recorded = json.load(handle).get("git_head")
+    head = _git("rev-parse", "HEAD")
+    if head and recorded and head != recorded:
+        return recorded
+    return None
 
 
 def main(argv=None) -> int:
@@ -212,6 +225,11 @@ def main(argv=None) -> int:
         bad = {k: v for k, v in result.items() if v != "ok"}
         for k, v in bad.items():
             print(f"  {v:8s} {k}")
+        moved = head_moved(args.tag)
+        if moved:
+            print(f"  note: HEAD has moved since this manifest was written "
+                  f"({moved[:10]} -> {_git('rev-parse', 'HEAD')[:10]}); "
+                  "input files are judged by hash, above")
         print(f"run manifest {args.tag}: {'matches' if not bad else 'DRIFTED'} "
               f"({len(result)} entries)")
         return 0 if not bad else 1
