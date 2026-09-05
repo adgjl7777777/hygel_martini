@@ -179,3 +179,55 @@ def test_two_backbones_claiming_one_residue_name_are_refused(example_components)
 
     with pytest.raises(DuplicateDeclaration, match="residue_name"):
         load_monomer_templates(example_components["monomers"], backbones)
+
+
+# --- add_molecule ITPs versus the auto-included include path -----------------
+
+from hygel_martini.hydrogel_builder.config_params.read_json import _admit_added_itp  # noqa: E402
+
+_ION = """[ moleculetype ]
+  {name}  3
+[ atoms ]
+     1  desCL     1  CL    CL       1 {charge}  35.4530
+"""
+
+
+def test_an_identical_add_molecule_copy_is_deduplicated(tmp_path) -> None:
+    included = tmp_path / "structure" / "CL.itp"
+    included.parent.mkdir()
+    included.write_text(_ION.format(name="CL", charge="-1.000000"))
+    added = tmp_path / "out" / "CL.itp"
+    added.parent.mkdir()
+    added.write_text(included.read_text())
+    includes = [str(included)]
+    assert _admit_added_itp(str(added), includes) is False
+    assert includes == [str(included)]
+
+
+def test_a_same_name_add_molecule_with_different_content_is_refused(tmp_path) -> None:
+    """A charge-scaled ion left under the original's name must not be skipped silently.
+
+    Before this guard the second file was dropped with a note and the run
+    carried the *unscaled* ion under a scaled label (independent review,
+    Major 3). Now it is an error naming both files.
+    """
+    included = tmp_path / "structure" / "CL.itp"
+    included.parent.mkdir()
+    included.write_text(_ION.format(name="CL", charge="-1.000000"))
+    scaled = tmp_path / "out" / "CL.itp"
+    scaled.parent.mkdir()
+    scaled.write_text(_ION.format(name="CL", charge="-0.800000"))
+    includes = [str(included)]
+    with pytest.raises(DuplicateDeclaration, match="DIFFERENT content"):
+        _admit_added_itp(str(scaled), includes)
+    assert includes == [str(included)]
+
+
+def test_a_new_moleculetype_name_is_admitted(tmp_path) -> None:
+    included = tmp_path / "CL.itp"
+    included.write_text(_ION.format(name="CL", charge="-1.000000"))
+    variant = tmp_path / "CL_f080.itp"
+    variant.write_text(_ION.format(name="CL_f080", charge="-0.800000"))
+    includes = [str(included)]
+    assert _admit_added_itp(str(variant), includes) is True
+    assert includes == [str(included), str(variant)]

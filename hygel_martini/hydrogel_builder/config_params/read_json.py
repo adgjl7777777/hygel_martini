@@ -22,6 +22,8 @@ import sys
 import numpy as np
 
 from hygel_martini.hydrogel_builder.add_series import add_small_ion
+import hashlib
+
 from hygel_martini.hydrogel_builder.core_utils.common.collisions import DuplicateDeclaration
 from hygel_martini.hydrogel_builder.core_utils.io.martini_parser import read_atom_types, read_itp_definitions
 from hygel_martini.hydrogel_builder.core_utils.io.writer import write_to_gro, write_combined_itp
@@ -519,6 +521,53 @@ def _itp_moleculetypes(path):
     except OSError:
         return set()
     return names
+
+
+def _file_digest(path):
+    """sha256 of a file's bytes, or None if unreadable."""
+    try:
+        with open(path, "rb") as handle:
+            return hashlib.sha256(handle.read()).hexdigest()
+    except OSError:
+        return None
+
+
+def _admit_added_itp(itp_dest, itp_files_to_include):
+    """Decide whether an ``add_molecule`` ITP joins the include list.
+
+    Returns True when appended, False when it is a byte-identical copy of a
+    file already included (deduplicated, with a note). Raises
+    :class:`DuplicateDeclaration` when it declares a moleculetype an included
+    file already declares **with different content** -- the case where
+    silently skipping it would let the wrong parameters win. A charge-scaled
+    ion accidentally kept under the original's name is exactly that case:
+    the run would carry unscaled ions under a scaled label.
+    """
+    declared = _itp_moleculetypes(itp_dest)
+    dest_digest = _file_digest(itp_dest)
+    for existing in itp_files_to_include:
+        if os.path.abspath(existing) == os.path.abspath(itp_dest):
+            return False
+        clash = declared & _itp_moleculetypes(existing)
+        if not clash:
+            continue
+        if _file_digest(existing) == dest_digest:
+            print(
+                f"분자 ITP '{os.path.basename(itp_dest)}'는 이미 포함된 "
+                f"'{os.path.basename(existing)}'와 바이트 단위로 동일하므로 "
+                "다시 include하지 않습니다. / Identical to an included file; "
+                "deduplicated."
+            )
+            return False
+        raise DuplicateDeclaration(
+            f"Molecule type(s) {sorted(clash)} are declared by both "
+            f"'{existing}' (already included) and '{itp_dest}' (add_molecule) "
+            "with DIFFERENT content. Skipping the second would silently run "
+            "with the first's parameters; give the variant its own "
+            "moleculetype name (e.g. ACC_f080) or remove the stale file."
+        )
+    itp_files_to_include.append(itp_dest)
+    return True
 
 
 def _normalize_add_molecule_specs(add_series_params, sim_params):
@@ -1809,23 +1858,11 @@ def _execute_all_mode():
                 # typically by living in gromacs_include_path, whose ITPs are
                 # collected automatically -- must not be included twice: one
                 # moleculetype defined in two files makes the later one
-                # silently win. The charge audit catches that later; catching
-                # it here says which file and why.
-                declared = _itp_moleculetypes(itp_dest)
-                already = set()
-                for existing in itp_files_to_include:
-                    if os.path.abspath(existing) != os.path.abspath(itp_dest):
-                        already |= _itp_moleculetypes(existing)
-                clash = declared & already
-                if clash:
-                    print(
-                        f"분자 ITP '{os.path.basename(itp_dest)}'는 이미 포함된 "
-                        f"토폴로지가 moleculetype {sorted(clash)}를 정의하므로 "
-                        "include하지 않습니다. / Already declared by an included "
-                        "topology; not including this copy."
-                    )
-                elif itp_dest not in itp_files_to_include:
-                    itp_files_to_include.append(itp_dest)
+                # silently win. Byte-identical copies are deduplicated; a
+                # same-name file with different content is refused, because
+                # skipping it would run with the wrong parameters unnoticed
+                # (independent review 2026-09-05, Major 3).
+                if _admit_added_itp(itp_dest, itp_files_to_include):
                     print(f"분자 ITP 파일 추가: {itp_dest}")
                 prev_merged = Config.get_runtime("merged_itp_path")
                 if prev_merged and os.path.isfile(prev_merged):
