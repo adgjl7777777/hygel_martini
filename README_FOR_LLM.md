@@ -23,8 +23,16 @@ bug — fix it.
 | know what is finished | §10 (current state) |
 | quote a number | §11. Do not invent numbers; every number worth citing is in a file |
 
-Do not read `docs/archive/` unless tracing history: it is pre-branch and
-describes behaviour that has since changed.
+One archive file is worth knowing about rather than avoiding:
+`docs/archive/README_detailed_for_llm_series01.md` is a 4,500-line
+**per-function reference** written for an LLM at Series-01. Use it to look up
+what an existing function does in `param_opt`, `property_extract` and the
+older `hydrogel_builder` surface — but it contains **zero** mentions of
+`net_layout`, `nets`, `rewire`, `local_matching`, `strand_loader`,
+`aa_bonded` or `hard_em_shrink`, i.e. none of this branch's machinery, and it
+was generated from a dirty tree. Treat it as a map of the old country: good
+for what has not moved, silent about everything added since, and never
+authoritative over the source. The rest of `docs/archive/` is history only.
 
 ---
 
@@ -324,7 +332,15 @@ on the command line, so a token inside an included file resolves against the
 *maker's* directory, not its own. This is why §5 insists generated makers stay
 beside the hand-written ones.
 
-**7.12 Do not confuse a crash with a verdict.** An audit that raises is not an
+**7.12 This checkout lives on a NAS that reports every file as `777`.** With
+git's default `core.fileMode=true` that surfaces as hundreds of phantom
+`100644 => 100755` modifications with zero content change, and mode flips leak
+into commits (209 files in HEAD carry the exec bit; 177 of them are not
+scripts). `core.fileMode false` is set locally in this checkout to stop it.
+If `git status` ever shows the whole tree modified, check
+`git diff --stat` for `0 insertions(+), 0 deletions(-)` before believing it.
+
+**7.13 Do not confuse a crash with a verdict.** An audit that raises is not an
 audit that failed the science — it is an audit that could not judge. Both stop
 the pipeline (correct), but they need different fixes.
 
@@ -414,6 +430,7 @@ Never invent a number. If you need one, it is in a file:
 | measured run costs | `example/08_des_thiourethane_aa/sizing/run_ledger.tsv` |
 | which force-field version a checkout matches | `parameterization/release.py current` |
 | human run order | `START_HERE_ko.md` |
+| what an *older* function does, signature by signature | `docs/archive/README_detailed_for_llm_series01.md` (Series-01 vintage; see §0) |
 
 Numbers that appear in a manuscript are cited from a commit hash. Do not amend
 a commit whose hash has been recorded in `docs/DEFECTS_FOUND_AND_FIXED.md` or a
