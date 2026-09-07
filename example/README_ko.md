@@ -26,11 +26,20 @@
 - `04_1_example_system`
 - `05_hydrogel_relaxation`
 - `06_physical_property`
-- `07_hexafunctional` — f=6 crosslinker를 `pcu` net에 배치. GROMACS
+- `07_hexafunctional`
+- `08_des_thiourethane_aa` — f=6 crosslinker를 `pcu` net에 배치. GROMACS
   end-to-end 빌드·EM 수렴·topology 감사까지 통과했습니다.
   설정 설명은 `docs/GENERAL_FUNCTIONALITY_NETWORKS.md`.
+- `08_des_thiourethane_aa` — **all-atom(OPLS-AA)** thiourethane 네트워크.
+  Hexakis-SH(f=6) + PPG–TDI whole-strand 템플릿, per-arm thiol cap으로 부분전환,
+  AcChCl 용매, guarded shrink. 이 예제만 하위 디렉터리가 넷입니다:
+  `parameterization/`(템플릿 제작·전하 파이프라인·force field release 동결),
+  `sizing/`(셀 크기를 입력으로 빼는 도구·조성 감사·run manifest·fail-closed 드라이버),
+  `project/config_npt/`(가열→NPT→production과 수렴 게이트),
+  `validation/`(현재 force field가 DFT 순서를 재현하는지 — **재현하지 않습니다**).
+  자세한 내용은 `08_des_thiourethane_aa/README.md`.
 
-현재 바로 실행 가능한 example은 `03`, `04`, `04_1`, `05`, `06`입니다.
+현재 바로 실행 가능한 example은 `03`, `04`, `04_1`, `05`, `06`, `07`, `08`입니다.
 `02`는 이미 존재하는 OPLS/GROMACS trajectory와 Bartender input을 넣어 쓰는 template-ready example입니다. 저장소에는 실제 production trajectory가 들어 있지 않으므로 `config/opls_existing_data.yaml`의 `data/...` 경로를 사용자 데이터로 채운 뒤 실행합니다.
 `00`, `01`은 placeholder로만 남겨뒀습니다.
 

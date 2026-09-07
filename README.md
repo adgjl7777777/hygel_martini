@@ -37,8 +37,14 @@ ORCID [0009-0007-1647-9270](https://orcid.org/0009-0007-1647-9270)
   를 requirement/manifest gate와 함께.
 
 조용히 틀리는 대신 시끄럽게 실패하도록 설계되어 있습니다. 이 브랜치에서
-발견·수정된 결함의 전체 기록은
+발견·수정된 결함 32건의 전체 기록은
 [`docs/DEFECTS_FOUND_AND_FIXED.md`](docs/DEFECTS_FOUND_AND_FIXED.md)에 있습니다.
+
+> **LLM/에이전트로 이 패키지를 다루는 경우**
+> [`README_FOR_LLM.md`](README_FOR_LLM.md)를 먼저 읽으십시오. 전체 구조, 설정
+> 시스템(`maker.yaml` include/merge/`${CONFIG_DIR}`), 시리즈 00–08 적용법,
+> 조용히 깨지는 불변식, 검증 방법, 그리고 **출력으로 무엇을 주장할 수
+> 있고 무엇을 주장할 수 없는지**를 한 파일에 모아 두었습니다.
 
 ## 설치
 
@@ -97,7 +103,7 @@ PY
 | `05_hydrogel_relaxation` | staged minimization / settling MD / guarded shrink | 바로 실행 가능 |
 | `06_physical_property` | manifest 기반 물성 추출 | 바로 실행 가능 |
 | `07_hexafunctional` | **f=6 crosslinker + `pcu` net + rewiring** | GROMACS end-to-end 빌드·EM 수렴·감사 통과 |
-| `08_des_thiourethane_aa` | **All-atom (OPLS-AA) thiourethane 네트워크** — Hexakis-SH(f=6) + TDI-PPG-TDI whole-strand 템플릿, LigParGen 파라미터, 전환율 1/6 변형 포함 | GROMACS end-to-end 빌드·EM 수렴·감사 통과 |
+| `08_des_thiourethane_aa` | **All-atom (OPLS-AA) thiourethane 네트워크** — Hexakis-SH(f=6) + TDI-PPG-TDI whole-strand 템플릿, LigParGen 파라미터, 전환율 1/6 변형, AcChCl 용매. 하위에 `parameterization/`(전하 파이프라인·release 동결), `sizing/`(크기 파라미터화·조성 감사·run manifest), `project/config_npt/`(가열→NPT→production 게이트), `validation/`(force field vs DFT) | 빌드·guarded shrink·가열·짧은 NPT 실행 |
 
 자세한 구성은 [`example/README_ko.md`](example/README_ko.md).
 
@@ -141,7 +147,8 @@ tests/                  pytest suite
 
 | 문서 | 내용 |
 |---|---|
-| [`START_HERE_ko.md`](START_HERE_ko.md) | 처음 실행하는 순서 |
+| [`README_FOR_LLM.md`](README_FOR_LLM.md) | **LLM/에이전트용 단일 진입 문서**: 구조·설정 시스템·시리즈 적용법·불변식·claim boundary |
+| [`START_HERE_ko.md`](START_HERE_ko.md) | 처음 실행하는 순서 (사람용) |
 | [`docs/GENERAL_FUNCTIONALITY_NETWORKS.md`](docs/GENERAL_FUNCTIONALITY_NETWORKS.md) | f-일반 네트워크: `network_layout` 설정, net별 제약, rewiring, 감사 |
 | [`docs/DEFECTS_FOUND_AND_FIXED.md`](docs/DEFECTS_FOUND_AND_FIXED.md) | 이 브랜치에서 발견·수정한 결함 기록 |
 | [`docs/PARAMETERIZATION_PROTOCOL.md`](docs/PARAMETERIZATION_PROTOCOL.md) | E0–E6 파라미터 결정 protocol |
@@ -156,10 +163,20 @@ construction claim을 지지할 뿐, force-field 정확도·equilibrium swelling
 유일한 pore/mesh 길이·experimental rheology를 자동으로 증명하지 않습니다.
 물성 claim은 `property_extract`의 requirement/observable/numerical/promotion
 gate를 별도로 통과해야 합니다. loop-order 분포를 맞춘 것 역시 topology
-statement이며 역학적 물성의 재현이 아닙니다. 이 브랜치의 f=6 경로(예제 07)와 all-atom 경로(예제 08, OPLS-AA thiourethane)는
-GROMACS end-to-end로 빌드·수렴·감사까지 통과했습니다. **NPT/production MD,
-용매화, relaxation(05) 워크플로는 아직 미실행이며, 예제 08의 전하는
-1.14*CM1A-LBCC 수준의 근사입니다.**
+statement이며 역학적 물성의 재현이 아닙니다. 이 브랜치의 f=6 경로(예제 07)와
+all-atom 경로(예제 08, OPLS-AA thiourethane)는 GROMACS end-to-end로 빌드·수렴·
+감사까지 통과했고, 예제 08은 guarded shrink와 가열·짧은 NPT까지 실행했습니다.
+
+**아직 아닌 것**: production MD, 수송·전도도, PEO/물, 실험 조성 확정,
+relaxation(05) 워크플로의 f=6·all-atom 적용.
+
+**특히**: 예제 08의 전하는 1.14*CM1A-LBCC 초안이며, 측정해 보니 **DFT의
+chloride donor 순서를 뒤집습니다**(thiourethane N–H를 urethane N–H보다 약하게
+계산). 따라서 이 force field 위의 MD로 "Cl⁻이 어느 donor에 붙는가"를 주장할 수
+없습니다. 근거·수치·범위는
+[`example/08_des_thiourethane_aa/validation/README.md`](example/08_des_thiourethane_aa/validation/README.md).
+구축·topology·압축·안정성·비용 결과는 이 순서에 의존하지 않으므로 영향받지
+않습니다.
 
 ## 인용, 연구비, 라이선스
 

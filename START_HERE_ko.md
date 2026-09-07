@@ -1,6 +1,7 @@
 # 시작 가이드
 
 처음 보는 사람 기준으로는 아래 순서가 가장 쉽습니다.
+(LLM/에이전트라면 [`README_FOR_LLM.md`](README_FOR_LLM.md)를 먼저 읽으십시오.)
 
 ## 0. 설치
 
@@ -55,6 +56,29 @@ SNIP
 `docs/GENERAL_FUNCTIONALITY_NETWORKS.md`에 있습니다. f=6 경로는 GROMACS
 end-to-end 빌드·EM 수렴·감사까지 통과했습니다. GROMACS/Packmol이 있으면
 `hygel-builder maker.yaml`로 전체 빌드가 실행됩니다.
+
+## 2-2. all-atom(OPLS-AA) 네트워크를 볼 때
+
+`08_des_thiourethane_aa`를 봅니다. 이 예제는 coarse-grained가 아니라 전원자
+모델이고, strand 한 가닥을 통째 분자 템플릿으로 받습니다.
+
+```bash
+cd /path/to/hygel_martini/example/08_des_thiourethane_aa/project
+PYTHONPATH=$REPO python3 -m hygel_martini.hydrogel_builder maker.yaml
+```
+
+크기를 입력으로 두고 조성 감사까지 함께 돌리려면 (권장):
+
+```bash
+cd ../sizing
+python3 cell_sizes.py table --strand n33 --des --max-atoms 400000   # 크기 사다리 미리보기
+./run_size.sh --profile target_molar --recipe ../project/recipes/target_molar_r4.yaml
+```
+
+빌드 뒤 압축·가열·NPT는 `project/config_npt/run_equilibration.sh`입니다.
+**주의**: 이 예제의 전하는 초안이며 DFT의 chloride donor 순서를 뒤집습니다
+(`validation/README.md`). 구축·압축 결과는 유효하지만 어느 donor가 이온을
+잡는지는 이 force field로 주장할 수 없습니다.
 
 ## 3. build 뒤 추가 완화가 필요할 때
 
@@ -157,8 +181,9 @@ sbatch run_slurm.sh config_common/common.yaml
 - `04_1`  예시 시스템 builder
 - `05`  Post-build relaxation
 - `07`  f=6 hexafunctional (pcu net) — 2-1 참조
+- `08`  all-atom(OPLS-AA) thiourethane 네트워크 — 2-2 참조
 
-지금 `example/00`, `01`은 placeholder입니다. `02`는 기존 OPLS/GROMACS data를 연결해야 하는 template-ready workflow이고, 실제 ready-to-run example은 `03`, `04`, `04_1`, `05`입니다.
+지금 `example/00`, `01`은 placeholder입니다. `02`는 기존 OPLS/GROMACS data를 연결해야 하는 template-ready workflow이고, 실제 ready-to-run example은 `03`, `04`, `04_1`, `05`, `06`, `07`, `08`입니다.
 
 ## 8. 환경 설정 방법
 
