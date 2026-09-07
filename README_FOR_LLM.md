@@ -17,22 +17,23 @@ bug — fix it.
 | You were asked to… | Read |
 |---|---|
 | understand the package at all | §1–§4 of this file |
+| find a specific function | `docs/FUNCTION_REFERENCE.md` (generated, kept current by a test) |
+| work out where a problem lives | §12 |
 | build a network | §5 (config system), §6 (series), the target example's own README |
 | change builder behaviour | §7 (invariants) **before** editing, then §8 (how to verify) |
 | interpret a build's output | §9 (claim boundary) — this is the part most easily got wrong |
 | know what is finished | §10 (current state) |
-| quote a number | §11. Do not invent numbers; every number worth citing is in a file |
+| quote a number | §13. Do not invent numbers; every number worth citing is in a file |
 
-One archive file is worth knowing about rather than avoiding:
-`docs/archive/README_detailed_for_llm_series01.md` is a 4,500-line
-**per-function reference** written for an LLM at Series-01. Use it to look up
-what an existing function does in `param_opt`, `property_extract` and the
-older `hydrogel_builder` surface — but it contains **zero** mentions of
-`net_layout`, `nets`, `rewire`, `local_matching`, `strand_loader`,
-`aa_bonded` or `hard_em_shrink`, i.e. none of this branch's machinery, and it
-was generated from a dirty tree. Treat it as a map of the old country: good
-for what has not moved, silent about everything added since, and never
-authoritative over the source. The rest of `docs/archive/` is history only.
+**To look up what a specific function does**, use
+[`docs/FUNCTION_REFERENCE.md`](docs/FUNCTION_REFERENCE.md) — 164 modules, 77
+classes, 950 functions and methods, with signature, docstring summary,
+returns, raises, side-effect hints and call list for each. It is **generated
+from source** (`tools/gen_function_reference.py --write`) and a test fails when
+it drifts, so it is safe to trust in a way its predecessor was not: the
+Series-01 version, `docs/archive/README_detailed_for_llm_series01.md`, was
+generated once and ended up with zero mentions of every module this branch
+added. That file is now history only, as is the rest of `docs/archive/`.
 
 ---
 
@@ -413,7 +414,77 @@ Tests 288, defects recorded 32, branch `omni/general-ff-and-f6`.
 
 ---
 
-## 11. Where the authoritative numbers live
+## 11. Workflow call chains
+
+What actually runs, for the four workflows that have one. Every name below
+exists in `docs/FUNCTION_REFERENCE.md`; follow it there for the signature.
+
+**Hydrogel build (examples 04, 04_1, 07, 08)**
+
+```
+cli.main
+  → config_params.config.Config.load_config      YAML includes, ${...} tokens
+  → config_params.read_json.execute_mode → _execute_all_mode
+      → build_hydrogel.build_backbone_only       proto plan → layout → blueprint → World
+           (net path) core_utils.layout.net_layout.generate_net_layout_plan
+                        → nets.build_periodic_net        the periodic net
+                        → rewire.span_constrained_rewire optional, span-limited
+                        → local_matching.plan_single_circuit  f-general transition system
+           (all-atom)  core_utils.templates.strand_loader.load_strand_template
+      → _perform_dynamic_crosslinking            router joins linker stubs to strand ends
+      → main_components.Hydrogel.construct_chemical_detail
+                        / construct_angles / construct_dihedrals
+           (all-atom)  core_utils.runtime.aa_bonded.generate_junction_bonded_terms
+      → runtime: geo_opt (GROMACS EM) · packer (Packmol) · add_series · writer
+```
+
+**Post-build relaxation (example 05)**
+
+```
+relax.cli.main → relax.config.load_relax_config → relax.generator.run_relax_workflow
+  → soft_em.run_soft_em | soft_md.run_soft_md | hard_em_shrink.run_hard_em_shrink
+```
+
+**Parameter preparation (examples 02, 03)**
+
+```
+param_opt.opls_to_martini.cli.main → generator.run_opls_to_martini
+                                   → fitting.run_existing_data_fit   (existing trajectory)
+param_opt.qm_to_martini.cli.main   → generator.run_qm_to_martini → pipeline.run_pipeline
+                                   → run_screening_postprocess       (screened ITP)
+```
+
+**Property extraction and audit (example 06)**
+
+```
+property_extract.__main__.main → requirements / analysis_jobs gates → extractors/*
+property_extract.cyclic_topology.cyclic_topology_report   vertex symbol, loop orders
+tools.audit_hydrogel_topology.main                        bonded-graph audit
+```
+
+---
+
+## 12. Where a problem probably lives
+
+| Symptom | Look at, in this order |
+|---|---|
+| config key ignored or a path unresolved | `config_params/config.py` (`Config.load_config`, `_looks_like_path_key`), then §5 and §7.11 |
+| "unknown key(s)" at load | the validator in `config_params/read_json.py` / `build_hydrogel.py` — the key must be registered |
+| wrong loop-order spectrum, unexpected component count | plan layer: `layout/nets.py`, `layout/net_layout.py`, `layout/rewire.py`; audit with `property_extract/cyclic_topology.py`. Check §7.6 before treating fragments as a bug |
+| a build refuses a supercell | `layout/nets.py::validate_repeats` and the table in §6 |
+| missing angle/dihedral/pair, grompp complains about a bonded term | materialization: `layout/proto_populator.py`, `main_components/Hydrogel.py`, and for all-atom `runtime/aa_bonded.py` |
+| template not loading, atom names rejected | `core_utils/templates/{monomer,linker,strand}_loader.py`, `core_utils/io/martini_parser.py` |
+| net charge non-integer, charge drift | `core_utils/io/writer.py` (precision + drift check), then `example/08.../parameterization/apply_charges.py`; §7.5 |
+| duplicate moleculetype, an ITP silently not included | `config_params/read_json.py::_admit_added_itp`, `_itp_moleculetypes`; §7.3 |
+| GROMACS/Packmol invocation failing | `core_utils/runtime/{geo_opt,packer,topology_updater}.py`, `add_series/add_small_ion.py` |
+| shrink stalls or a molecule breaks during it | `relax/hard_em_shrink.py`, the run's `history.jsonl`, and §7.7–7.8 |
+| coordinates look wrong across the boundary | `core/pbc.py` — every distance must go through minimum image |
+| results change between runs that should match | seeds: `network_layout.conversion.seed`, `rewire_seed`, `random_seed`; and §7.1 (wrong copy imported) |
+| the whole tree looks modified in git | §7.12 — check `git diff --stat` for zero insertions first |
+
+---
+
+## 13. Where the authoritative numbers live
 
 Never invent a number. If you need one, it is in a file:
 
@@ -430,7 +501,7 @@ Never invent a number. If you need one, it is in a file:
 | measured run costs | `example/08_des_thiourethane_aa/sizing/run_ledger.tsv` |
 | which force-field version a checkout matches | `parameterization/release.py current` |
 | human run order | `START_HERE_ko.md` |
-| what an *older* function does, signature by signature | `docs/archive/README_detailed_for_llm_series01.md` (Series-01 vintage; see §0) |
+| what a function does, signature by signature | `docs/FUNCTION_REFERENCE.md` (generated; regenerate with `tools/gen_function_reference.py --write`) |
 
 Numbers that appear in a manuscript are cited from a commit hash. Do not amend
 a commit whose hash has been recorded in `docs/DEFECTS_FOUND_AND_FIXED.md` or a

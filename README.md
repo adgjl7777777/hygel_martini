@@ -153,6 +153,7 @@ tests/                  pytest suite
 | [`docs/DEFECTS_FOUND_AND_FIXED.md`](docs/DEFECTS_FOUND_AND_FIXED.md) | 이 브랜치에서 발견·수정한 결함 기록 |
 | [`docs/PARAMETERIZATION_PROTOCOL.md`](docs/PARAMETERIZATION_PROTOCOL.md) | E0–E6 파라미터 결정 protocol |
 | [`docs/VALIDATION_HISTORY_AND_DESIGN_RATIONALE.md`](docs/VALIDATION_HISTORY_AND_DESIGN_RATIONALE.md) | Series-01 validation 실패·교정 이력 |
+| [`docs/FUNCTION_REFERENCE.md`](docs/FUNCTION_REFERENCE.md) | 함수 reference (164 모듈·950 함수/메서드). source에서 생성 — `tools/gen_function_reference.py --write` |
 | 모듈 README | `hydrogel_builder/`, `hydrogel_builder/relax/`, `param_opt/`, `property_extract/`, `param_opt/qm_to_martini/analysis/` |
 | `docs/archive/` | 구버전 스냅샷 (Series-01 기준 상세 기술서 등) |
 

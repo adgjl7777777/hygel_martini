@@ -7,6 +7,15 @@
 
 # README detailed for LLM
 
+> **Superseded (2026-09-07).** This is the Series-01 vintage of the
+> LLM-facing documentation, kept for history. It has **zero** coverage of
+> the current branch's machinery (`net_layout`, `nets`, `rewire`,
+> `local_matching`, `strand_loader`, `aa_bonded`, `hard_em_shrink`) and was
+> generated from a dirty tree. Use instead:
+> [`../../README_FOR_LLM.md`](../../README_FOR_LLM.md) for orientation and
+> [`../FUNCTION_REFERENCE.md`](../FUNCTION_REFERENCE.md) for the per-function
+> reference, which is generated from source and held current by a test.
+
 이 문서는 `/nas_0/software_backup/hygel_martini` 저장소를 나중에 LLM이 빠르게 다시 파악하도록 만든 상세 코드 지도입니다.
 코드 원문을 복붙한 문서가 아니라, 함수/메서드별 역할, 위치, 입출력 단서, 부작용, 주요 호출 관계를 정리한 참조 문서입니다.
 
