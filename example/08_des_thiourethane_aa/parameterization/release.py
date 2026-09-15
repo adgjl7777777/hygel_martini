@@ -49,6 +49,7 @@ TRACKED = (
     "structure/STR_n33.itp",
     "structure/ACC.itp",
     "structure/CL.itp",
+    "structure/PEG.itp",
     "structure/hydrogel_stubs_snippet.yaml",
     "config/hydrogel.yaml",
 )

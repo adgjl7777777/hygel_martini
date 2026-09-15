@@ -1,0 +1,14 @@
+# target_molar_r4 plus the plasticizer. PEG 200 (n=4, 194.23 g/mol) at 1 wt%:
+# of the cell's total dry mass (192,927 g/mol) that is 9.9 -> 10 molecules;
+# of the DES alone it would be ~6. The experimental denominator is unconfirmed,
+# so 10 is PROVISIONAL and the whole recipe stays provisional with it.
+name: target_molar_peg_r4
+provisional: true
+network:
+  HEXU: 64
+  STR_n33: 32
+  reacted_arms: 64
+species:
+  ACC: {count: 384, charge: 1}
+  CL:  {count: 384, charge: -1}
+  PEG: {count: 10, charge: 0}
