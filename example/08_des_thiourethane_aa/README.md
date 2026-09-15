@@ -298,7 +298,11 @@ integrated report's hand-over conditions (§18B.5, §18C.4, §18C.5):
   the second and third heating stages from the previous checkpoint (one
   heating, stepwise restraint release), and writes each stage's
   include-resolved topology (`grompp -pp`) and drawn seed to
-  `stage_manifest.tsv`. Nothing in it declares equilibrium:
+  `stage_manifest.tsv`. When the screen says NOT YET because a term is still
+  drifting, the `extend` stage continues the same NPT by `EXTEND_NS`
+  nanoseconds (`convert-tpr -extend` plus `mdrun -cpi -append`), so the
+  record stays one continuous energy file and the blocks cover the whole
+  trajectory rather than two short runs. Nothing in it declares equilibrium:
   `check_convergence.py` requires a complete, finite record with enough
   frames after the skip, tests both the last block and the last half against
   earlier windows, and writes a `<edr>.plateau.json` bound to the energy
@@ -306,8 +310,11 @@ integrated report's hand-over conditions (§18B.5, §18C.4, §18C.5):
   PLATEAU artifact. That artifact screens thermodynamic plateaus only --
   structural equilibrium is listed in it as not assessed. The mdps carry
   **300 K as a provisional temperature**; the experimental temperature has
-  not been supplied. grompp-tested warning-free on the v1 `count:32` cell; no
-  NPT has been run.
+  not been supplied. Exercised end to end on the v1b PEG pilot cell
+  (28,502 atoms): heating 3 x 100 ps, then NPT at 41.7 ns/day on 8 threads.
+  The first 10 ns came back **NOT YET** -- density, volume and potential were
+  all still monotonic at the 0.5% tolerance -- so that cell is being extended
+  rather than read. Treat 10 ns as too short for this system.
 
 ## Any size, on whatever node is free (`sizing/`)
 

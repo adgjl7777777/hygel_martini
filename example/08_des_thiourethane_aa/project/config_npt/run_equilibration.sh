@@ -3,7 +3,12 @@
 #
 # Usage:
 #   ./run_equilibration.sh <shrink_workdir> <system.top> <outdir> [stage]
-#     stage: heat | npt | production | all (default all)
+#     stage: heat | npt | extend | production | all (default all)
+#
+# "extend" continues the existing npt_equil by EXTEND_NS nanoseconds (default
+# 10) from its checkpoint, appending to the same edr/log/xtc so the plateau
+# screen sees one continuous record instead of two short ones. Use it when
+# check_convergence.py says NOT YET because a term is still drifting.
 #
 # The shrink hands over last_valid.gro (or final.gro) and the build's
 # system.top. Heavy-atom position restraints are generated here from the
@@ -127,6 +132,30 @@ fi
 if [[ "$stage" == "npt" || "$stage" == "all" ]]; then
   run npt_equil "$HERE/npt_equil.mdp" "$out/heat_free/heat_free.gro" -t "$out/heat_free/heat_free.cpt" || exit 1
   echo "now: python3 $HERE/check_convergence.py $out/npt_equil/npt_equil.edr"
+fi
+if [[ "$stage" == "extend" ]]; then
+  # Continue the existing NPT rather than starting a second one: convert-tpr
+  # pushes nsteps out and mdrun -cpi -append writes into the same edr/log/xtc.
+  # One record means check_convergence.py blocks over the whole trajectory,
+  # and the plateau artifact stays bound to that single energy file.
+  d="$out/npt_equil"
+  [[ -f "$d/npt_equil.cpt" ]] || { echo "no checkpoint in $d; run the npt stage first" >&2; exit 1; }
+  ns="${EXTEND_NS:-10}"
+  ps=$(python3 -c "print(float('$ns') * 1000.0)")
+  ( cd "$d" && "$gmx" convert-tpr -s npt_equil.tpr -extend "$ps" -o npt_equil.tpr > convert_tpr.log 2>&1 ) \
+        || { echo "[npt_equil extend] convert-tpr failed, see $d/convert_tpr.log" >&2; exit 1; }
+  python3 - "$d" "$ns" >> "$out/stage_manifest.tsv" <<'PY'
+import datetime, hashlib, sys
+d, ns = sys.argv[1], sys.argv[2]
+h = lambda p: hashlib.sha256(open(p, "rb").read()).hexdigest()[:16]
+print("\t".join([datetime.datetime.now().isoformat(timespec="seconds"),
+                 "npt_equil_extend", f"extend_ns={ns}",
+                 f"tpr={h(d + '/npt_equil.tpr')}", f"cpt={h(d + '/npt_equil.cpt')}"]))
+PY
+  ( cd "$d" && "$gmx" mdrun -deffnm npt_equil -cpi npt_equil.cpt -append "${ntomp[@]}" >> mdrun.log 2>&1 ) \
+        || { echo "[npt_equil extend] mdrun failed, see $d/mdrun.log" >&2; exit 1; }
+  echo "[npt_equil] extended by $ns ns"
+  echo "now: python3 $HERE/check_convergence.py $d/npt_equil.edr"
 fi
 if [[ "$stage" == "production" ]]; then
   # Production is gated on a PLATEAU artifact that belongs to *this* NPT
