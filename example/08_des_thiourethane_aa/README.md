@@ -289,9 +289,7 @@ integrated report's hand-over conditions (§18B.5, §18C.4, §18C.5):
   junction's charges.
 * **`parameterization/release.py`** freezes the force-field files with
   sha256s and a status (`draft` / `candidate` / `production-approved`) under
-  `parameterization/releases/`. The tree now matches `v1_ligpargen_neutral`
-  (v0 charges, neutralized); `v0_ligpargen_draft` is what every build above
-  was made with. `release.py current` says which one a checkout is.
+  `parameterization/releases/`. Releases so far: `v0_ligpargen_draft` (what every build above was made with), `v1_ligpargen_neutral` (the same charges neutralized), and `v1b_ligpargen_neutral_peg` (v1 plus the PEG 200 plasticizer from `build_peg_component.py`), which the tree now matches.py current` says which one a checkout is.
 * **`project/config_npt/`** is the protocol after the shrink: restrained
   heating (`heat_posres.mdp`, POSRES_FC 1000 → 200 → 0, X–H constrained),
   NPT equilibration (`npt_equil.mdp`, C-rescale, PME) and production
@@ -381,5 +379,7 @@ stands between this example and a production run; composition is.
   (min 76 deg, 10-13% below 110), and the guarded shrink removes it entirely
   (min 118.3, mean 123.5, none below 110). So `output_partial`'s geometry is a
   construction artifact; read geometry only after the shrink. Defect #32.
-* AcChCl (the DES electrolyte) and the PEO plasticizer belong to the
-  solvation stage, not the network build.
+* AcChCl (the DES electrolyte) and the PEG 200 plasticizer belong to the
+  solvation stage, not the network build. PEG 200 (Sigma P3015, Mn 200; the
+  experimental team's "PEO") is HO(CH2CH2O)4H treated as unreacted; its OH
+  ends can react with isocyanate -- a stated caveat, not a model.

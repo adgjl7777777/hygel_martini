@@ -404,10 +404,11 @@ numbers the trajectory would give.
 | f=6 / net-driven layout (07) | GROMACS end-to-end build, EM convergence, audits pass |
 | all-atom OPLS-AA route (08) | end-to-end build, guarded shrink to melt density, heating + short NPT run |
 | exact-count conversion, size profiles, run manifests, composition audit | implemented, tested |
-| charges | **draft** (1.14\*CM1A-LBCC), and known to invert the DFT ranking (§9) |
+| charges | **draft** (1.14\*CM1A-LBCC); does not resolve the thiourethane/urethane Cl⁻ preference (§9). RESP swap alone does not fix it; F3 RESP conformer refit requested from the DFT side |
 | thiourethane torsions, carbonyl improper | provisional, from a model compound |
 | NPT / production MD / transport / conductivity | **not done** |
-| PEO, water | not parameterized — blocked on experimental Mn and water uptake |
+| PEG 200 ("PEO") | parameterized as a free plasticizer (`PEG.itp`, release `v1b`); 1 wt% denominator still provisional |
+| water | not in the base recipe; a separate comparison series once the experimental team quantifies it |
 | exact experimental composition | unconfirmed — `1:0.5` basis, %NCO, conversion all pending |
 
 Tests 288, defects recorded 32, branch `omni/general-ff-and-f6`.
