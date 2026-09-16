@@ -1,0 +1,29 @@
+{
+  "fragment": "F4_ppg1",
+  "n_atoms": 19,
+  "n_conformers_in_fit": 5,
+  "conformer_rel_energy_kcal": [
+    0.0,
+    0.267,
+    0.299,
+    0.363,
+    0.408
+  ],
+  "boltzmann_population_300K": [
+    0.3036798588562069,
+    0.194048597462313,
+    0.18390730905593547,
+    0.16518703320334177,
+    0.1531772014222028
+  ],
+  "temperature_K": 300.0,
+  "effective_conformers": 4.663130244898938,
+  "rrms_shipped_on_training": 0.2287512905169713,
+  "rrms_refit_training": 0.2243376856922291,
+  "rrms_unweighted_control": 0.22456351389233026,
+  "reproduces_shipped": true,
+  "max_abs_dev_control_vs_shipped": 1.768339428172283e-06,
+  "rrms_shipped_heldout": 0.22905813877171424,
+  "rrms_refit_heldout": 0.22729501436100377,
+  "heldout_rrms_change": -0.0017631244107104704
+}

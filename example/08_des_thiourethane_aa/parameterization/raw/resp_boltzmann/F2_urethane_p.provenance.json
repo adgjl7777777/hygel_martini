@@ -1,0 +1,41 @@
+{
+  "fragment": "F2_urethane_p",
+  "n_atoms": 29,
+  "n_conformers_in_fit": 5,
+  "conformer_rel_energy_kcal": [
+    0.0,
+    0.08,
+    1.153,
+    1.191,
+    1.359
+  ],
+  "boltzmann_population_300K": [
+    0.44307628642121916,
+    0.3874357672114728,
+    0.06405239356190895,
+    0.06009701973378586,
+    0.04533853307161328
+  ],
+  "temperature_K": 300.0,
+  "effective_conformers": 2.807466637755985,
+  "rrms_shipped_on_training": 0.14392924172622498,
+  "rrms_refit_training": 0.14649854227094355,
+  "rrms_unweighted_control": 0.1598425417518326,
+  "reproduces_shipped": true,
+  "max_abs_dev_control_vs_shipped": 1.6402416282923493e-05,
+  "rrms_shipped_heldout": 0.1972051148250811,
+  "rrms_refit_heldout": 0.19075913735289993,
+  "heldout_rrms_change": -0.006445977472181175,
+  "axial_qm_kcal": -14.589905819850769,
+  "axial_shipped_kcal": -12.480816264884877,
+  "axial_shipped_error_kcal": 2.109089554965891,
+  "axial_n_points": 37,
+  "axial_refit_kcal": -12.929148224701564,
+  "axial_refit_error_kcal": 1.6607575951492048,
+  "cl_at_dft_shipped_kcal": -8.642659434400601,
+  "cl_own_min_r_shipped_nm": 2.457659773710651,
+  "cl_own_min_shipped_kcal": -11.155305950936176,
+  "cl_at_dft_refit_kcal": -9.111753996711675,
+  "cl_own_min_r_refit_nm": 2.442659773710651,
+  "cl_own_min_refit_kcal": -11.458107377252736
+}

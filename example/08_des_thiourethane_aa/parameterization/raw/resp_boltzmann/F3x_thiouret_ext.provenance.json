@@ -1,0 +1,35 @@
+{
+  "fragment": "F3x_thiouret_ext",
+  "n_atoms": 32,
+  "n_conformers_in_fit": 5,
+  "conformer_rel_energy_kcal": [
+    0.0,
+    0.985,
+    1.004,
+    0.996,
+    1.981
+  ],
+  "boltzmann_population_300K": [
+    0.6244554977382208,
+    0.11965857344785863,
+    0.11590511626729394,
+    0.11747095150784391,
+    0.022509861038782605
+  ],
+  "temperature_K": 300.0,
+  "effective_conformers": 2.314798969564996,
+  "rrms_shipped_on_training": 0.20967510978316753,
+  "rrms_refit_training": 0.192863234189722,
+  "rrms_unweighted_control": 0.18683307717731426,
+  "reproduces_shipped": true,
+  "max_abs_dev_control_vs_shipped": 2.3390879749785043e-06,
+  "rrms_shipped_heldout": 0.20889040170119155,
+  "rrms_refit_heldout": 0.2013713097999114,
+  "heldout_rrms_change": -0.007519091901280139,
+  "axial_qm_kcal": -14.580784138620116,
+  "axial_shipped_kcal": -11.721855182110344,
+  "axial_shipped_error_kcal": 2.8589289565097715,
+  "axial_n_points": 37,
+  "axial_refit_kcal": -12.499474589201675,
+  "axial_refit_error_kcal": 2.0813095494184406
+}

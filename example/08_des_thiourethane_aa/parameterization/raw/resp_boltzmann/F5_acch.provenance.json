@@ -1,0 +1,41 @@
+{
+  "fragment": "F5_acch",
+  "n_atoms": 26,
+  "n_conformers_in_fit": 8,
+  "conformer_rel_energy_kcal": [
+    0.0,
+    0.024,
+    0.144,
+    0.458,
+    0.491,
+    0.53,
+    0.696,
+    0.812
+  ],
+  "boltzmann_population_300K": [
+    0.21612394257751188,
+    0.2075961250083937,
+    0.16974658628498518,
+    0.10024362791386786,
+    0.09484550921730182,
+    0.0888394496825684,
+    0.06724768811580048,
+    0.05535707119957078
+  ],
+  "temperature_K": 300.0,
+  "effective_conformers": 6.529837257424525,
+  "rrms_shipped_on_training": 0.015181668126459701,
+  "rrms_refit_training": 0.01540877469138397,
+  "rrms_unweighted_control": 0.01570374517040092,
+  "reproduces_shipped": true,
+  "max_abs_dev_control_vs_shipped": 1.9491101281299272e-06,
+  "rrms_shipped_heldout": 0.0154598947638098,
+  "rrms_refit_heldout": 0.015056842944489977,
+  "heldout_rrms_change": -0.00040305181931982355,
+  "axial_qm_kcal": -81.13773099450037,
+  "axial_shipped_kcal": -81.18666548581257,
+  "axial_shipped_error_kcal": -0.048934491312195405,
+  "axial_n_points": 44,
+  "axial_refit_kcal": -81.16296617743383,
+  "axial_refit_error_kcal": -0.025235182933457168
+}
