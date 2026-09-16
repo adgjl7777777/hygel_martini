@@ -1,0 +1,79 @@
+; Annealing: erase the builder's lattice, then come back to the target state.
+;
+; The PEG pilot cell showed why this stage exists. At 300 K that system is
+; kinetically arrested: chloride moved 0.15 nm over 15 ns, its mean square
+; displacement grew as t^0.38 rather than t^1, and the cubic lattice the
+; builder seeds the junctions on still held 84-96% of its ordering after
+; 30 ns of NPT. Running longer does not fix either. It ages the glass and
+; keeps the initial arrangement, so every structural average would describe
+; the builder rather than the material.
+;
+; The schedule below takes the cell above that arrest, holds it there long
+; enough for junctions to lose their lattice registry, then cools it back.
+; Whether it worked is not assumed: check_structure.py measures the lattice
+; structure factor before and after and the mobility during the hold.
+;
+; The hold temperature is a setting, not a claim about the material. 600 K is
+; chosen to be well above any plausible glass transition for this chemistry
+; while staying below thermal decomposition, which a classical force field
+; cannot represent anyway -- bonds here cannot break, so the run will not warn
+; you if the real material would have degraded. Treat the high-temperature
+; segment as a sampling device and read no physics from it.
+;
+; Cooling is deliberately slow relative to the heating ramp. A quench freezes
+; in whatever configuration the hot state happened to be in; a slow cool lets
+; the network settle. It is still far faster than any experiment, so the
+; result is a plausible dense amorphous state, not an annealed sample.
+;
+; NPT throughout, so the box follows the density at each temperature instead
+; of building pressure. The barostat time constant is long enough that volume
+; tracks the temperature ramp rather than fighting it.
+
+integrator              = md
+dt                      = 0.002
+nsteps                  = 2500000       ; 5 ns total, see the schedule below
+continuation            = yes
+gen_vel                 = no
+
+nstxout-compressed      = 5000          ; 10 ps: the lattice decay is the point
+nstenergy               = 500
+nstlog                  = 5000
+nstcalcenergy           = 100
+
+constraints             = h-bonds
+constraint-algorithm    = lincs
+lincs-order             = 4
+lincs-iter              = 1
+
+cutoff-scheme           = Verlet
+nstlist                 = 20
+coulombtype             = PME
+rcoulomb                = 1.1
+vdwtype                 = cutoff
+vdw-modifier            = Potential-shift
+rvdw                    = 1.1
+DispCorr                = EnerPres
+
+tcoupl                  = v-rescale
+tc-grps                 = System
+tau-t                   = 0.5           ; shorter than NPT's: the ramp must be followed
+ref-t                   = 300
+
+; 300 K -> 600 K over 250 ps, hold 2 ns, cool to 300 K over 2 ns, settle 750 ps.
+; Copy this file and edit the schedule rather than editing it in place, so the
+; temperatures a given run actually used stay attached to that run.
+annealing               = single
+annealing-npoints       = 5
+annealing-time          = 0    250   2250   4250   5000
+annealing-temp          = 300  600   600    300    300
+
+pcoupl                  = C-rescale
+pcoupltype              = isotropic
+tau-p                   = 2.0
+ref-p                   = 1.0
+compressibility         = 4.5e-5
+
+pbc                     = xyz
+periodic-molecules      = yes
+comm-mode               = Linear
+nstcomm                 = 100
