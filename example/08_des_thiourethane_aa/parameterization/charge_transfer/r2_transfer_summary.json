@@ -1,0 +1,82 @@
+{
+  "radius": 2,
+  "targets": {
+    "HYDROGEL": {
+      "n_atoms": 19584,
+      "counts": {
+        "ambiguous": 13120,
+        "orphan": 1984,
+        "unique": 4480
+      },
+      "net_before": -0.025600000000016943,
+      "net_after": -96.40712320000011,
+      "residual_to_redistribute_e": -96.40712320000011,
+      "abs_charge_moved_e": 2016.4236351999998,
+      "per_atom_uniform_e": -0.004922749346405235,
+      "per_atom_heavy_e": -0.009185129878048792,
+      "n_heavy": 10496,
+      "donors": {
+        "thiourethane": {
+          "n": 384,
+          "qN_before": -0.9307000000000002,
+          "qN_after": -0.5571229999999999,
+          "qHN_before": 0.5134,
+          "qHN_after": 0.3483779999999999,
+          "status_N": "ambiguous",
+          "status_H": "ambiguous"
+        },
+        "urethane": {
+          "n": 384,
+          "qN_before": -0.8915500000000002,
+          "qN_after": -0.7368040000000001,
+          "qHN_before": 0.48540000000000005,
+          "qHN_after": 0.3483779999999999,
+          "status_N": "unique",
+          "status_H": "ambiguous"
+        }
+      }
+    },
+    "ACC": {
+      "n_atoms": 26,
+      "counts": {
+        "unique": 21,
+        "ambiguous": 5
+      },
+      "net_before": 0.9999999999999998,
+      "net_after": 0.8050199999999997,
+      "residual_to_redistribute_e": -0.19498000000000026,
+      "abs_charge_moved_e": 3.6098766666666666,
+      "per_atom_uniform_e": -0.00749923076923078,
+      "per_atom_heavy_e": -0.019498000000000026,
+      "n_heavy": 10
+    },
+    "CL": {
+      "n_atoms": 1,
+      "counts": {
+        "orphan": 1
+      },
+      "net_before": -1.0,
+      "net_after": -1.0,
+      "residual_to_redistribute_e": 0.0,
+      "abs_charge_moved_e": 0.0,
+      "per_atom_uniform_e": 0.0,
+      "per_atom_heavy_e": 0.0,
+      "n_heavy": 1
+    },
+    "PEG": {
+      "n_atoms": 31,
+      "counts": {
+        "orphan": 12,
+        "unique": 3,
+        "ambiguous": 16
+      },
+      "net_before": 0.0,
+      "net_after": -0.2007395000000003,
+      "residual_to_redistribute_e": -0.2007395000000003,
+      "abs_charge_moved_e": 0.21839550000000002,
+      "per_atom_uniform_e": -0.0064754677419354935,
+      "per_atom_heavy_e": -0.015441500000000023,
+      "n_heavy": 13
+    }
+  }
+}
