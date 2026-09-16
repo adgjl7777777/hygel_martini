@@ -30,6 +30,16 @@ is adequate and only the joins need a rule. An orphan pile that reaches into
 the chemistry the project is measuring means the fragment set is not adequate,
 and that is worth knowing before anyone fits anything.
 
+Read the radius column carefully rather than the orphan count alone. What broke
+this analysis's first reading was exactly that: the network's thiourethane
+nitrogen diverges from its fragment at radius 3, which looked like a missing
+aromatic ring. Ring detection says otherwise -- every relevant fragment has one.
+The real difference is the ring's substitution: the fragments carry one nitrogen
+on a tolyl ring, while the polymer's 2,4-TDI ring carries a urethane nitrogen
+and a thiourethane nitrogen at once. A fingerprint tells you *that* two
+environments differ and at what distance; it does not tell you *what* differs.
+Look at the structure before concluding.
+
 Usage
 -----
     PYTHONPATH=<package> python3 fragment_coverage.py [--radius 3]
