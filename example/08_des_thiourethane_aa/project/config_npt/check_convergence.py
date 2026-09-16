@@ -389,6 +389,15 @@ def main(argv=None) -> int:
             print("  A longer run does not fix this by itself: discarding more of the record "
                   "only shortens the window the trend has to hide in.")
 
+    # The block tests and the trend scan are two views of one question. When
+    # the scan could not find any window without a trend, a block test that
+    # happens to pass on the shortest candidate is not a plateau -- it is the
+    # drift hiding inside a window too short to show it. The scan wins.
+    if scan is not None and not scan["found_trend_free_window"] and report["plateau"]:
+        report["plateau"] = False
+        report["plateau_overridden_by_trend_scan"] = True
+        print("  block tests passed on this short window, but no trend-free window "
+              "exists in the record; verdict is NOT YET.")
     verdict = "PLATEAU" if report["plateau"] else "NOT YET"
     print(f"\nverdict: {verdict} ({report['frames']} frames after {skip_ps:.0f} ps, "
           f"{args.blocks} blocks, tol {args.tol:.1%} / {args.tol_sigma:.2g} sigma); "

@@ -1,0 +1,38 @@
+{
+  "trajectory": "/tmp/claude-1214/-home-transcendence/5aef5a06-1d06-4700-82e7-41c2ed176034/scratchpad/anneal_test/anneal.xtc",
+  "xtc_sha256": "5aec0d2cbc0b1aa916d36ca65def170055bb5d9862a7fd14f044394ff7f949a1",
+  "verdict": "MOBILE",
+  "checked_at": "2026-09-16T14:39:57+09:00",
+  "not_assessed_here": [
+    "thermodynamic plateau (check_convergence.py)",
+    "chain relaxation time",
+    "ion pair lifetime"
+  ],
+  "checks": {
+    "lattice_memory": {
+      "selection": "resname HEX",
+      "repeats_per_axis": 4,
+      "n_scatterers": 5504,
+      "perfect_order_value": 5504,
+      "random_arrangement_value": 1.0,
+      "structure_factor_first": [
+        14.029131928186816,
+        10.394200840361068,
+        5.413533168748089
+      ],
+      "structure_factor_last": [
+        0.5444552129996508,
+        1.4088835496746133,
+        0.6115001438496639
+      ],
+      "fraction_retained_per_axis": [
+        0.0,
+        0.043525101988228065,
+        0.0
+      ],
+      "worst_fraction_retained": 0.043525101988228065,
+      "max_order_retained": 0.25,
+      "ok": true
+    }
+  }
+}
