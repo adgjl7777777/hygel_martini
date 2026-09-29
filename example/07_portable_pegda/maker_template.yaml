@@ -1,0 +1,90 @@
+# Small dry construction and GROMACS preprocessing only; no minimization or MD.
+monomer_definitions:
+  MONOMERS: []
+  SEQUENCE_STRATEGY:
+    strategy: random
+hydrogel_components:
+  backbone_definitions:
+    BACKBONES:
+    - id: PEO110
+      ratio: 1
+      definition:
+        atom_type: SN3r
+        residue_name: PEO
+        atom_name: EO
+        charge_group_number: 1
+        mass: 45
+        charge: 0.0
+    BONDS: []
+    SEQUENCE_STRATEGY:
+      strategy: random
+  linker_definitions:
+    LINKERS:
+    - id: LNK_BCKBCK
+      ratio: 1
+      gro: ${CONFIG_DIR}/structure/LNK.gro
+      itp: ${CONFIG_DIR}/structure/LNK.itp
+      molecule_name: LNK
+      linker_residue_name: LNK
+      backbone_residue_name: BCK
+      backbone_1:
+      - between: PEO110
+        bond_funct: 1
+        bond_c0: 0.36
+        bond_c1: 7000
+      backbone_2:
+      - between: PEO110
+        bond_funct: 1
+        bond_c0: 0.36
+        bond_c1: 7000
+    SEQUENCE_STRATEGY:
+      strategy: random
+simulation_parameters:
+  gromacs_executable_path: gmx
+  gromacs_include_path: REQUIRED_AT_RUN_TIME
+  base_itp_file: REQUIRED_AT_RUN_TIME
+  output_dir: ${CONFIG_DIR}/output
+  bonded_topology_patch_file: ${CONFIG_DIR}/bonded_parameters.yaml
+  number_of_cells: 1
+  segment_length: 12
+  pbc_true_or_false: true
+  mean_sep: 0.36
+  default_bond:
+    bond_funct: 1
+    bond_c0: 0.36
+    bond_c1: 7000
+  default_dynamic_crosslink_bond:
+    bond_funct: 1
+    bond_c0: 0.36
+    bond_c1: 7000
+  dynamic_crosslink_targets_per_stub: 2
+  dynamic_crosslink_candidate_limit: 64
+  linker_orientation_strategy: connectivity_aware
+  require_explicit_crosslink_plan: true
+  dynamic_crosslink_relax_enabled: false
+  test_mode: true
+  random_seed: 101
+  gpu_id: null
+  omp_threads: 1
+  anisotropy: false
+  debug_mode: true
+  grompp_maxwarn: 0
+  emit_rich_itp_sections: true
+  neutral_em_coulombtype: Cut-off
+  geo_opt:
+    mdp:
+      integrator: steep
+      nsteps: 0
+hydrogel_topology_connectivity_audit:
+  enabled: true
+  min_largest_component_fraction: 1.0
+  max_components: 1
+  fail_on_violation: true
+add_series_parameters:
+  add_water:
+    enabled: false
+  add_small_ion:
+    enabled: false
+  add_molecule:
+    enabled: false
+    molecules: []

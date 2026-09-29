@@ -1,0 +1,93 @@
+# config/backbone.yaml
+bonds:
+  # Internal PEO bonds
+  - residue_name: [PEO, PEO]
+    bead_type: [SN3r, SN3r]
+    funct: 1
+    c0: 0.36
+    c1: 7000
+
+  # External BCK-PEO dynamic junction bonds. BCK is the LNK stub residue, but
+  # in this PEG L110 validation it represents a PEO-like terminal bead.
+  - residue_name: [BCK, PEO]
+    bead_type: [SN3r, SN3r]
+    funct: 1
+    c0: 0.36
+    c1: 7000
+  - residue_name: [PEO, BCK]
+    bead_type: [SN3r, SN3r]
+    funct: 1
+    c0: 0.36
+    c1: 7000
+
+angles:
+  # Martini 3 PEO angles from polyply/JCTC 2018
+  - residue_name: [PEO, PEO, PEO]
+    bead_type: [SN3r, SN3r, SN3r]
+    funct: 2
+    c0: 123.0
+    c1: 80.0
+
+  # Linker-backbone junction angles. "*" intentionally means a non-backbone
+  # residue such as BCK, so these rules cover PEO-PEO-BCK and BCK-PEO-PEO.
+  - residue_name: [PEO, PEO, "*"]
+    bead_type: [SN3r, SN3r, "*"]
+    funct: 2
+    c0: 123.0
+    c1: 80.0
+  - residue_name: ["*", PEO, PEO]
+    bead_type: ["*", SN3r, SN3r]
+    funct: 2
+    c0: 123.0
+    c1: 80.0
+  - residue_name: [PEO, "*", "*"]
+    bead_type: [SN3r, "*", "*"]
+    funct: 2
+    c0: 123.0
+    c1: 80.0
+  - residue_name: ["*", "*", PEO]
+    bead_type: ["*", "*", SN3r]
+    funct: 2
+    c0: 123.0
+    c1: 80.0
+
+dihedrals:
+  # Martini 3 PEO CBT dihedrals (Type 11)
+  - residue_name: [PEO, PEO, PEO, PEO]
+    bead_type: [SN3r, SN3r, SN3r, SN3r]
+    funct: 11
+    # Coefficients from PEO.martini3.ff
+    # coefficients: 8 0.6570 -1.3278 -0.43661278 1.0808704 0.680055
+    # Note: These will be passed as a list to the Dihedral object
+    params: [8, 0.6570, -1.3278, -0.43661278, 1.0808704, 0.680055]
+
+  # Linker-backbone junction dihedrals. These ensure BCK-adjacent paths are
+  # actually emitted instead of leaving the linker junction without torsions.
+  - residue_name: [PEO, PEO, PEO, "*"]
+    bead_type: [SN3r, SN3r, SN3r, "*"]
+    funct: 11
+    params: [8, 0.6570, -1.3278, -0.43661278, 1.0808704, 0.680055]
+  - residue_name: ["*", PEO, PEO, PEO]
+    bead_type: ["*", SN3r, SN3r, SN3r]
+    funct: 11
+    params: [8, 0.6570, -1.3278, -0.43661278, 1.0808704, 0.680055]
+  - residue_name: [PEO, PEO, "*", "*"]
+    bead_type: [SN3r, SN3r, "*", "*"]
+    funct: 11
+    params: [8, 0.6570, -1.3278, -0.43661278, 1.0808704, 0.680055]
+  - residue_name: ["*", "*", PEO, PEO]
+    bead_type: ["*", "*", SN3r, SN3r]
+    funct: 11
+    params: [8, 0.6570, -1.3278, -0.43661278, 1.0808704, 0.680055]
+  - residue_name: [PEO, "*", "*", PEO]
+    bead_type: [SN3r, "*", "*", SN3r]
+    funct: 11
+    params: [8, 0.6570, -1.3278, -0.43661278, 1.0808704, 0.680055]
+  - residue_name: [PEO, PEO, "*", PEO]
+    bead_type: [SN3r, SN3r, "*", SN3r]
+    funct: 11
+    params: [8, 0.6570, -1.3278, -0.43661278, 1.0808704, 0.680055]
+  - residue_name: [PEO, "*", PEO, PEO]
+    bead_type: [SN3r, "*", SN3r, SN3r]
+    funct: 11
+    params: [8, 0.6570, -1.3278, -0.43661278, 1.0808704, 0.680055]

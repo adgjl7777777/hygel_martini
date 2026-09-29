@@ -6,6 +6,9 @@ include LICENSING.md
 include pyproject.toml
 include docs/VALIDATION_HISTORY_AND_DESIGN_RATIONALE.md
 include docs/PARAMETERIZATION_PROTOCOL.md
+recursive-include example/07_portable_pegda *.py *.yaml *.md *.itp *.gro *.txt
+include docs/EXPLICIT_PLAN_RELIABILITY.md
+recursive-include docs/figures *.py *.json *.svg *.pdf *.png
 
 # Local trajectories, external force fields, and bundled third-party tools are
 # not package sources.  Pruning them also prevents editable/sdist metadata

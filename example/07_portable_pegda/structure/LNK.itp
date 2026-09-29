@@ -1,0 +1,12 @@
+[ moleculetype ]
+; name  nexcl
+  LNK     2
+
+[ atoms ]
+; id type resnr residue atom cgnr charge mass
+ 1  SN3r   1   BCK     BCK1  1    0.000  45
+ 2  SN3r   2   BCK     BCK2  2    0.000  45
+
+[ bonds ]
+; i j funct length force.c.
+ 1 2 1 0.36 7000

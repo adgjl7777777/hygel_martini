@@ -1,0 +1,49 @@
+{
+  "scope": "illustrative routing fixture, not a physical benchmark",
+  "package_version": "0.1.1.dev0",
+  "requested": [
+    [
+      "a",
+      "b"
+    ],
+    [
+      "c",
+      "d"
+    ]
+  ],
+  "geometry_only": {
+    "pairs": [
+      [
+        "a",
+        "c"
+      ],
+      [
+        "b",
+        "d"
+      ]
+    ],
+    "notes": [
+      "targets_per_stub=2 over 1 linkers and 4 true backbone ends; target filtering disabled.",
+      "Backtracking search prepared 6 candidate linker states; budget=100000."
+    ],
+    "total_stub_endpoint_distance": 2.0
+  },
+  "explicit_plan": {
+    "pairs": [
+      [
+        "a",
+        "b"
+      ],
+      [
+        "c",
+        "d"
+      ]
+    ],
+    "notes": [
+      "Using explicit layout-planner endpoint edges; nearest search may only choose the two-stub edge permutation.",
+      "Materialized 4 unique planned backbone endpoints.",
+      "planned_edge_sha256=971003bd2cd9856644adda773af25dd47821962dc6a4a114f990d2a2205bd9e6 materialized_edge_sha256=971003bd2cd9856644adda773af25dd47821962dc6a4a114f990d2a2205bd9e6 exact_match=true"
+    ],
+    "total_stub_endpoint_distance": 18.0
+  }
+}

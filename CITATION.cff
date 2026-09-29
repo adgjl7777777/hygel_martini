@@ -4,7 +4,7 @@ message: >-
   associated methodology paper when its final bibliographic record is available.
 title: hygel_martini
 type: software
-version: 0.1.0
+version: 0.1.1.dev0
 authors:
   - family-names: Kim
     given-names: Daehong
@@ -17,4 +17,3 @@ abstract: >-
   Research software for graph-first construction, evidence-gated bonded
   parameter decisions, simulation preparation, and analysis of coarse-grained
   Martini hydrogel systems.
-
