@@ -886,6 +886,21 @@ class Hydrogel():
             else:
                 continue
 
+            # Decide whether anything attaches here BEFORE scanning every atom
+            # in the world for clashes. An exhausted or empty monomer iterator
+            # (a PEG-only backbone, a whole-strand template) attaches nothing,
+            # and the scan below is O(N) per backbone atom, so on a large cell
+            # most of the stage's time went into neighbour lists that were
+            # then discarded. Moving the selection up changes no output: the
+            # iterator does not touch World, and the skipped scan draws no
+            # random numbers, so the RNG sequence seen by random_normal_vector
+            # is identical. Ported from the Series-01 reliability copy
+            # (0.1.1.dev1): PEG N2/L56 65.2 s -> 17.1 s with byte-identical
+            # GRO/ITP there.
+            chosen_template = iterator.next()
+            if chosen_template is None:
+                continue
+
             # --- 최적의 곁사슬 배치 방향 탐색 ---
             best_vector = None
             best_positions = None
@@ -914,9 +929,6 @@ class Hydrogel():
                 idxs = np.argpartition(np.array(nearby_distances), NEARBY_ATOM_LIMIT)[:NEARBY_ATOM_LIMIT]
                 nearby_atoms = [nearby_atoms[i] for i in idxs]
 
-            chosen_template = iterator.next()
-            if chosen_template is None:
-                continue
             tangent_vec = rij(p1, p3, World.box_length)
             if np.linalg.norm(tangent_vec) < 1e-8:
                 tangent_vec = np.array([0.0, 0.0, 1.0])
