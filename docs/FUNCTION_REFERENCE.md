@@ -4,7 +4,7 @@
 `tools/gen_function_reference.py --write`; `tests/test_function_reference.py`
 fails when this file and the source disagree.
 
-Covers 164 modules, 77 classes, 950 functions and methods under `hygel_martini`.
+Covers 164 modules, 77 classes, 951 functions and methods under `hygel_martini`.
 
 For orientation — architecture, the config system, how to apply each
 example series, the invariants that break silently, and what a build does
@@ -455,91 +455,91 @@ Command-line entry point for the hydrogel_builder workflow.
 
 Backbone planning and materialization utilities for hydrogel generation.
 
-#### `_debug_stage(message)` — line 43
+#### `_debug_stage(message)` — line 46
 - Emit a stage marker to the optional debug log.
 - kind: function, internal
 - calls: `Config.debug_log`
 
-#### `_print_build_banner()` — line 51
+#### `_print_build_banner()` — line 54
 - Print the standard banner used by backbone-construction stages.
 - kind: function, internal
 - effects: stdout
 - calls: `print`
 
-#### `_seed_random_generators(seed)` — line 58
-- Seed Python and NumPy RNGs when a deterministic run is requested.
+#### `_seed_random_generators(seed)` — line 61
+- Seed Python, NumPy and the serial compiled-geometry RNG for this run.
 - kind: function, internal
 - returns: `None` (bare return)
-- calls: `random.seed`, `np.random.seed`
+- calls: `random.seed`, `np.random.seed`, `seed_numba_random`
 
-#### `_compute_max_linker_span()` — line 70
+#### `_compute_max_linker_span()` — line 79
 - Return the largest linker span declared in the configuration.
 - kind: function, internal
 - returns: `max_span`; `0.0`
 - effects: Config/runtime state
 - calls: `Config.get_param`, `linker.get`, `definition.get`, `bond.get`, `ext.get`
 
-#### `_gather_sorted_atoms()` — line 97
+#### `_gather_sorted_atoms()` — line 106
 - Collect the current ``World`` atoms in deterministic atom-id order.
 - kind: function, internal
 - returns: `(atom_ids, atoms)`
 - effects: global registry
 - calls: `World.Atoms.keys`, `atoms.append`
 
-#### `_log_min_distance_report(label)` — line 108
+#### `_log_min_distance_report(label)` — line 117
 - Write a compact minimum-distance report for debugging.
 - kind: function, internal
 - returns: `None` (bare return)
 - effects: filesystem, Config/runtime state, stdout
 - calls: `Config.get_param`, `os.makedirs`, `_gather_sorted_atoms`, `np.array`, `find_minimum_distances`, `os.path.join`, `print`, `_debug_stage`, `open`, `log_f.write`
 
-#### `apply_coordinates_from_gro(world, gro_path)` — line 151
+#### `apply_coordinates_from_gro(world, gro_path)` — line 160
 - Project coordinates from a GRO file back into the current ``World``.
 - kind: function
 - returns: `None` (bare return)
 - effects: filesystem, stdout
 - calls: `_gather_sorted_atoms`, `os.path.exists`, `print`, `np.array`, `open`, `gro_f.readline`, `strip`, `coords.append`
 
-#### `_reset_world_for_backbone(sim_params)` — line 185
+#### `_reset_world_for_backbone(sim_params)` — line 194
 - Reset the global world state and initialize box-scale parameters.
 - kind: function, internal
 - effects: global registry, stdout
 - calls: `World.reset`, `Attributes.initialize`, `_seed_random_generators`, `print`, `initialize_world`, `sim_params.get`, `_compute_max_linker_span`
 
-#### `_load_strand_templates(backbone_defs)` — line 198
+#### `_load_strand_templates(backbone_defs)` — line 207
 - Attach whole-strand templates to backbone entries declaring one.
 - kind: function, internal
 - raises: `ValueError`
 - effects: stdout
 - calls: `entry.get`, `load_strand_template`, `print`, `ValueError`, `type`
 
-#### `_load_backbone_context()` — line 237
+#### `_load_backbone_context()` — line 246
 - Load template libraries and sequence strategies for backbone planning.
 - kind: function, internal
 - returns: `{'backbone_cfg': backbone_cfg, 'backbone_defs': backbone_defs, 'backbone_strategy': backbone_strategy, 'linker_cfg': linker_cfg, 'linker_defs': linker_defs, 'linker_strategy': linker_strategy, 'linker_library': linker_library}`
 - effects: Config/runtime state
 - calls: `Config.get_param`, `_load_strand_templates`, `backbone_cfg.get`, `linker_cfg.get`, `Config.get_runtime`, `load_monomer_templates`, `Config.set_runtime`, `load_linker_templates`, `linker_definitions_from_library`
 
-#### `_resolve_network_layout(sim_params)` — line 276
+#### `_resolve_network_layout(sim_params)` — line 285
 - Read the optional ``network_layout`` block.
 - kind: function, internal
 - returns: `{'net': str(net), 'repeats': repeats, 'cell_parameter': float(cell_parameter), 'max_span': None if max_span is None else float(max_span), 'rewire_seed': rewiring.get('seed'), 'rewire_kwargs': rewire_kwargs, 'conversion_fraction': fraction, 'conversion_count': count, 'conversion_seed': conversion.get('seed')}`; `None`
 - raises: `ValueError`
 - calls: `sim_params.get`, `raw.get`, `rewiring.get`, `conversion.get`, `ValueError`, `type`
 
-#### `_resolve_isotropy_mode(sim_params)` — line 407
+#### `_resolve_isotropy_mode(sim_params)` — line 416
 - Resolve whether the special isotropic builder path should be used.
 - kind: function, internal
 - returns: `bool(isotropy_cfg)`; `not anisotropy`; `anisotropy is None` (+3 more)
 - calls: `sim_params.get`, `lower`, `isotropy_cfg.get`, `strip`
 
-#### `_build_blueprint_summary(layout_plan, blueprint)` — line 428
+#### `_build_blueprint_summary(layout_plan, blueprint)` — line 437
 - Print a compact summary of the generated layout and blueprint.
 - kind: function, internal
 - effects: stdout
 - calls: `print`
 
-#### `_plan_backbone_blueprint(sim_params, output_dir)` — line 439
+#### `_plan_backbone_blueprint(sim_params, output_dir)` — line 448
 - Build the proto plan and atom blueprint for the hydrogel backbone.
 - kind: function, internal
 - returns: `{**context, 'proto_plan': proto_plan, 'layout_plan': layout_plan, 'blueprint': blueprint, 'num_cells': num_cells, 'repeats': repeats, 'isotropy_mode': isotropy_mode, 'net_cell': net_cell, 'net_repeats': net_repeats}`
@@ -547,14 +547,14 @@ Backbone planning and materialization utilities for hydrogel generation.
 - effects: stdout
 - calls: `_load_backbone_context`, `prepare_proto_plan`, `print`, `_resolve_network_layout`, `_resolve_isotropy_mode`, `_build_blueprint_summary`, `sim_params.get`, `ValueError`, `AssertionError`, `generate_net_layout_plan`, `items`, `build_atom_blueprint`, +5 more
 
-#### `_apply_materialization_box_settings(plan_context)` — line 563
+#### `_apply_materialization_box_settings(plan_context)` — line 572
 - Copy proto-plan box data into ``World`` before object creation.
 - kind: function, internal
 - raises: `ValueError`
 - effects: stdout
 - calls: `plan_context.get`, `np.asarray`, `copy`, `print`, `is_orthorhombic`, `ValueError`, `np.max`, `np.maximum`, `np.array`, `proto_plan.box_vector`, `np.diag`
 
-#### `build_backbone_only()` — line 603
+#### `build_backbone_only()` — line 612
 - Construct only the backbone and linker skeleton of the hydrogel.
 - kind: function
 - returns: `(world, hd)`
@@ -562,14 +562,14 @@ Backbone planning and materialization utilities for hydrogel generation.
 - effects: Config/runtime state, global registry, stdout
 - calls: `Config.get_param`, `sim_params.get`, `_print_build_banner`, `_reset_world_for_backbone`, `_apply_materialization_box_settings`, `World`, `world.make_hydrogel`, `print`, `_debug_stage`, `populate_hydrogel_from_blueprint`, `_resolve_close_contacts`, `hd.construct_bonds`, +5 more
 
-#### `finalize_hydrogel(world, hd)` — line 679
+#### `finalize_hydrogel(world, hd)` — line 688
 - Expand the backbone-only graph into a chemically detailed hydrogel.
 - kind: function
 - returns: `world`
 - effects: stdout
 - calls: `print`, `_debug_stage`, `hd.construct_chemical_detail`, `hd.construct_angles`, `hd.construct_dihedrals`, `hd.construct_impropers`, `world.update_hydrogel_attributes`, `_log_min_distance_report`
 
-#### `main()` — line 705
+#### `main()` — line 714
 - Run the standalone hydrogel builder entry point.
 - kind: function, CLI entry
 - returns: `world`
@@ -1027,20 +1027,25 @@ Numerical helpers, geometry utilities, and text-normalization helpers.
 - returns: `True`; `False`
 - calls: `numba.jit`, `dij_sq`
 
-#### `random_normal_vector(A, B, C, r, L)` — line 195
+#### `seed_numba_random(seed)` — line 195
+- Seed the calling thread's Numba RNG without consuming Python/NumPy draws.
+- kind: function
+- calls: `numba.njit`, `np.random.seed`
+
+#### `random_normal_vector(A, B, C, r, L)` — line 211
 - A-B-C로 연결된 구조에서 중심 원자 B에 대해, 두 결합(A-B, C-B)이 이루는 평면에 거의 수직인 방향으로 길이가 r인 무작위 벡터를 생성합니다. 곁사슬(side chain)을 생성할 때 사용됩니다.
 - kind: function
 - returns: `np.array([x1, y1, z1])`
 - calls: `numba.jit`, `rij`, `np.linalg.norm`, `np.sqrt`, `np.array`, `np.random.random`
 
-#### `find_minimum_distances(positions, box_length, top_n=10, cell_size=None)` — line 236
+#### `find_minimum_distances(positions, box_length, top_n=10, cell_size=None)` — line 252
 - Return the smallest inter-particle distances using a simple cell list search.
 - kind: function
 - returns: `results`; `[]`
 - effects: Config/runtime state
 - calls: `np.asarray`, `np.mod`, `astype`, `np.clip`, `defaultdict`, `cells.items`, `results.sort`, `append`, `dij_sq`, `Config.get_runtime`, `heapq.heappop`, `results.append`, +11 more
 
-#### `run_dos2unix_on_inputs(config_data)` — line 340
+#### `run_dos2unix_on_inputs(config_data)` — line 356
 - Normalize line endings for all configured input structure files.
 - kind: function
 - effects: subprocess, filesystem, stdout
