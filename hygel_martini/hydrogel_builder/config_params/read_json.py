@@ -14,6 +14,7 @@ read as the execution plan for a complete run.
 """
 
 import glob
+import json
 import os
 import random
 import shutil
@@ -953,6 +954,10 @@ def _perform_dynamic_crosslinking(output_dir):
     """
     print("\n--- 동적 가교 결합 생성 시작 (Backbone-End Matching) ---")
     debug_log_path = os.path.join(output_dir, "dynamic_bonding_debug.log")
+    # Never let a preceding build's plan stand in for this one when Config
+    # and World are reused in-process (tests, notebooks): the written-ITP
+    # guard would then compare against the wrong pairs and could pass.
+    Config.set_runtime("expected_crosslink_pairs", None)
 
     with open(debug_log_path, "w") as debug_f:
         try:
@@ -964,12 +969,19 @@ def _perform_dynamic_crosslinking(output_dir):
             return
 
         all_atoms = [atom[0] for atom in World.Atoms.values()]
+        require_plan = sim_params.get("require_explicit_crosslink_plan", False)
+        if not isinstance(require_plan, bool):
+            raise ValueError("require_explicit_crosslink_plan must be a YAML boolean")
         linkers = group_linker_stubs(all_atoms)
         backbone_ends = collect_backbone_ends(all_atoms)
 
         debug_f.write(f"Found {len(linkers)} linkers, {len(backbone_ends)} backbone chains.\n")
 
         if not linkers or not backbone_ends:
+            if require_plan:
+                raise ValueError(
+                    "Explicit crosslink plan required, but linkers or backbone ends are missing"
+                )
             print("[WARNING] 링커 또는 백본 끝단이 없습니다.")
             return
 
@@ -1003,9 +1015,28 @@ def _perform_dynamic_crosslinking(output_dir):
             candidate_limit=candidate_limit,
             targets_per_stub=targets_per_stub,
             respect_target_backbone_policy=block_settings["respect_target_backbone"],
+            require_explicit_plan=require_plan,
         )
         for note in notes:
             debug_f.write(f"{note}\n")
+
+        if require_plan:
+            # The pairs the written ITP must contain, as one-based ITP indices
+            # (stub first). The writer emits atom_id + 1 for atoms and bonds
+            # alike, and per-stub cap atoms are dropped at layout time before
+            # ids exist, so ids fixed here are the ids that reach the file.
+            # Partial conversion is covered: an unreacted arm has no
+            # assignment and therefore no pair, and the guard only polices
+            # bonds between the stubs and endpoints listed here.
+            pairs = sorted(
+                [int(a.stub_atom.atom_id) + 1, int(a.backbone_atom.atom_id) + 1]
+                for chosen in assignments.values() for a in chosen
+            )
+            Config.set_runtime("expected_crosslink_pairs", pairs)
+            with open(os.path.join(output_dir, "planned_crosslinks.json"), "w") as handle:
+                json.dump({"schema": 1,
+                           "indexing": "one-based ITP, stub then endpoint",
+                           "pairs": pairs, "routing_notes": notes}, handle, indent=2)
 
         targets_per_stub = max(int(targets_per_stub), 1)
         assignment_issues = []
@@ -1200,6 +1231,53 @@ def _perform_dynamic_crosslinking(output_dir):
                 )
 
     print(f"[INFO] 동적 가교 결합 완료. 생성된 결합 수: {bonds_created}")
+
+
+def _guard_written_crosslinks(itp_path, output_dir):
+    """Re-read a just-written ITP and check its crosslink bonds against the plan.
+
+    Only active under ``require_explicit_crosslink_plan: true``. Raises before
+    the next external step (EM, chemistry, packing) when a planned stub to
+    endpoint bond is missing, duplicated or rewired, and leaves a
+    ``<itp>.plan_audit.json`` next to the output either way.
+    """
+    if not Config.get_param("simulation_parameters").get("require_explicit_crosslink_plan", False):
+        return None
+    from hygel_martini.hydrogel_builder.core_utils.runtime.persisted_plan import guard_persisted_plan
+    return guard_persisted_plan(
+        itp_path,
+        Config.get_runtime("expected_crosslink_pairs"),
+        os.path.join(output_dir, os.path.basename(itp_path) + ".plan_audit.json"),
+    )
+
+
+def _enabled_formulation_stages(stages):
+    """Drop packing stages whose block says ``enabled: false``.
+
+    A block that exists used to be a block that runs: ``add_water: {enabled:
+    false, number_of_water: 10000}`` still added water, because the stage
+    selection below looks for the key, not the switch. The switch now wins.
+    Omitting ``enabled`` keeps the legacy key-presence behaviour, so no
+    existing input changes meaning; a non-boolean value is an error rather
+    than a truthy string.
+
+    omni's ``add_molecule`` may be a list of species rather than one mapping;
+    a list has no switch and passes through untouched.
+    """
+    active = {}
+    for name, params in stages.items():
+        if name in {"add_water", "add_small_ion", "add_molecule", "add_polymer"} \
+                and isinstance(params, dict) and "enabled" in params:
+            enabled = params["enabled"]
+            if not isinstance(enabled, bool):
+                raise ValueError(f"{name}.enabled must be a YAML boolean")
+            if not enabled:
+                continue
+            # The switch is consumed here. The stage code downstream never
+            # asked for it, so it must not see it either.
+            params = {k: v for k, v in params.items() if k != "enabled"}
+        active[name] = params
+    return active
 
 
 def _get_hydrogel_topology_connectivity_audit_config():
@@ -1459,6 +1537,7 @@ def _execute_all_mode():
     except Exception:
         pass
     write_combined_itp(hydrogel_world, filename=backbone_itp, moleculetype_name="HYDROGEL")
+    _guard_written_crosslinks(backbone_itp, output_dir)
 
     print(f"백본 단계 파일 생성: {backbone_gro}, {backbone_itp}")
 
@@ -1620,6 +1699,7 @@ def _execute_all_mode():
         pass
 
     write_combined_itp(hydrogel_world, filename=initial_itp, moleculetype_name="HYDROGEL")
+    _guard_written_crosslinks(initial_itp, output_dir)
 
     print(f"성공적으로 초기 하이드로젤 파일 생성: {current_gro_file}, {initial_itp}")
 
@@ -1675,10 +1755,12 @@ def _execute_all_mode():
 
     try:
 
-        add_series_params = Config.get_param('add_series_parameters')
+        add_series_params = _enabled_formulation_stages(Config.get_param('add_series_parameters'))
 
-    except Exception:
-
+    except KeyError:
+        # No add_series_parameters block at all: a dry build. Anything else
+        # (a non-boolean `enabled`, a malformed block) must surface, not be
+        # swallowed into "no packing".
         add_series_params = {}
 
     watername = None

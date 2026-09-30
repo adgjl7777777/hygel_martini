@@ -4,7 +4,7 @@
 `tools/gen_function_reference.py --write`; `tests/test_function_reference.py`
 fails when this file and the source disagree.
 
-Covers 164 modules, 77 classes, 951 functions and methods under `hygel_martini`.
+Covers 165 modules, 77 classes, 954 functions and methods under `hygel_martini`.
 
 For orientation — architecture, the config system, how to apply each
 example series, the invariants that break silently, and what a build does
@@ -706,73 +706,73 @@ Batch driver for the standalone-polymer ("polymer only") build mode.
 
 Top-level workflow orchestration for hydrogel generation.
 
-#### class `ProgressTracker` — line 64
+#### class `ProgressTracker` — line 65
 Emit coarse percent-based progress updates into the debug log.
 
-##### `__init__(self, total=100.0, run_id=None)` — line 73
+##### `__init__(self, total=100.0, run_id=None)` — line 74
 - *(no docstring)*
 - kind: method
 
-##### `_emit(self, label=None)` — line 82
+##### `_emit(self, label=None)` — line 83
 - Log every whole-percent step crossed since the last emission.
 - kind: method, internal
 - calls: `Config.debug_log`
 
-##### `advance(self, delta, label=None)` — line 94
+##### `advance(self, delta, label=None)` — line 95
 - Move the bar forward by ``delta`` percent (clamped to total).
 - kind: method
 - calls: `self._emit`
 
-##### `start_stage(self, label, weight)` — line 99
+##### `start_stage(self, label, weight)` — line 100
 - Open a named stage worth ``weight`` percent of the whole run.
 - kind: method
 - calls: `self._emit`
 
-##### `stage_tick(self, fraction, label=None)` — line 106
+##### `stage_tick(self, fraction, label=None)` — line 107
 - Set progress within the open stage to ``fraction`` (never backwards).
 - kind: method
 - returns: `None` (bare return)
 - calls: `self._emit`
 
-##### `end_stage(self, label=None)` — line 116
+##### `end_stage(self, label=None)` — line 117
 - Close the open stage, snapping progress to its full weight.
 - kind: method
 - returns: `None` (bare return)
 - calls: `self._emit`
 
-#### `_seed_all(sim_params)` — line 44
+#### `_seed_all(sim_params)` — line 45
 - Seed all RNGs used by the orchestration layer.
 - kind: function, internal
 - returns: `None` (bare return)
 - calls: `sim_params.get`, `random.seed`, `np.random.seed`, `Config.debug_log`
 
-#### `_coerce_bool(value, default=False)` — line 143
+#### `_coerce_bool(value, default=False)` — line 144
 - Lenient bool from YAML-ish input ('true'/'1'/'yes'... else default).
 - kind: function, internal
 - returns: `default`; `value`; `bool(value)` (+2 more)
 - calls: `lower`, `value.strip`
 
-#### `resolve_block_copolymer_settings(sim_params)` — line 160
+#### `resolve_block_copolymer_settings(sim_params)` — line 161
 - Resolve generic block-copolymer controls with legacy alias support.
 - kind: function
 - returns: `{'respect_target_backbone': bool(respect_target_backbone), 'linker_terminal_compensation': terminal_comp, 'terminal_compensation_enabled': bool(terminal_enabled), 'chain_orientation_policy': chain_orientation_policy, 'legacy_policy': legacy_policy, 'warnings': warnings}`
 - calls: `strip`, `_coerce_bool`, `sim_params.get`, `replace`, `legacy_policy.lower`, `warnings.append`, `terminal_comp.get`, `lower`
 
-#### `_get_bonded_topology_patch_path(sim_params=None)` — line 239
+#### `_get_bonded_topology_patch_path(sim_params=None)` — line 240
 - Return the configured bonded-topology patch YAML path.
 - kind: function, internal
 - returns: `os.path.join(os.path.dirname(Config._file_path), 'config', 'backbone.yaml')`; `patch_path`; `None`
 - effects: Config/runtime state
 - calls: `os.path.join`, `Config.get_param`, `sim_params.get`, `os.path.dirname`
 
-#### `_load_base_parameters()` — line 261
+#### `_load_base_parameters()` — line 262
 - Loads base parameters like atom masses from the main ITP file. Also prepares a deduplicated list of ITP files for the topology.
 - kind: function, internal
 - raises: `FileNotFoundError`, `ValueError`
 - effects: Config/runtime state, stdout
 - calls: `print`, `Config.get_param`, `sim_params.get`, `read_atom_types`, `Config.set_runtime`, `final_itp_list.append`, `FileNotFoundError`, `ValueError`, `os.path.abspath`, `os.path.isdir`, `glob.glob`, `os.path.isfile`, +1 more
 
-#### `_validate_config()` — line 307
+#### `_validate_config()` — line 308
 - Validate the merged configuration before anything is built.
 - kind: function, internal
 - returns: `True`; `False`
@@ -780,61 +780,61 @@ Emit coarse percent-based progress updates into the debug log.
 - effects: Config/runtime state, stdout
 - calls: `print`, `Config.get_param`, `_load_strand_templates`, `ValueError`, `load_monomer_templates`, `Config.set_runtime`, `load_linker_templates`
 
-#### `execute_mode()` — line 360
+#### `execute_mode()` — line 361
 - Dispatch the configured top-level execution mode.
 - kind: function
 - returns: `None` (bare return)
 - effects: filesystem, Config/runtime state, stdout
 - calls: `print`, `strftime`, `Config.set_runtime`, `Config.debug_log`, `ProgressTracker`, `progress.advance`, `Config.get_param`, `sim_params_for_debug.get`, `_execute_pack_polymer_then_water_mode`, `_load_base_parameters`, `_validate_config`, `sys.exit`, +6 more
 
-#### `_run_packing_step(step_name, base_structure_gro, molecules_to_add, final_output_gro, sim_params)` — line 413
+#### `_run_packing_step(step_name, base_structure_gro, molecules_to_add, final_output_gro, sim_params)` — line 414
 - Run one Packmol stage and return the resulting GRO path.
 - kind: function, internal
 - returns: `(result_gro, success)`
 - effects: stdout
 - calls: `print`, `packer.pack_system_with_molecules`, `sim_params.get`
 
-#### `_get_optional_config_section(*names)` — line 433
+#### `_get_optional_config_section(*names)` — line 434
 - First existing Config section among ``names``, else an empty dict.
 - kind: function, internal
 - returns: `{}`; `Config.get_param(name)`
 - effects: Config/runtime state
 - calls: `Config.get_param`
 
-#### `_as_box_lengths_nm(job)` — line 443
+#### `_as_box_lengths_nm(job)` — line 444
 - Normalize a two-stage-packmol job's box spec to [x, y, z] in nm.
 - kind: function, internal
 - returns: `[float(value)] * 3`; `[float(value[0])] * 3`; `[float(value[0]), float(value[1]), float(value[2])]`
 - raises: `ValueError`
 - calls: `ValueError`
 
-#### `_has_packmol_route_md_outputs(output_dir)` — line 470
+#### `_has_packmol_route_md_outputs(output_dir)` — line 471
 - Whether a previous packmol-route run left EM/NVT/NPT outputs here.
 - kind: function, internal
 - returns: `any((os.path.exists(os.path.join(output_dir, name)) for name in md_names))`
 - calls: `os.path.exists`, `os.path.join`
 
-#### `_merge_two_stage_job_defaults(defaults, job)` — line 490
+#### `_merge_two_stage_job_defaults(defaults, job)` — line 491
 - Job dict = shared two-stage defaults (minus 'jobs') overlaid by the job.
 - kind: function, internal
 - returns: `merged`
 - calls: `merged.update`, `defaults.items`
 
-#### `_itp_moleculetypes(path)` — line 501
+#### `_itp_moleculetypes(path)` — line 502
 - Names declared by ``[ moleculetype ]`` blocks in an ITP, or an empty set.
 - kind: function, internal
 - returns: `names`; `set()`
 - effects: filesystem
 - calls: `open`, `strip`, `stripped.startswith`, `names.add`, `line.split`, `stripped.split`
 
-#### `_file_digest(path)` — line 526
+#### `_file_digest(path)` — line 527
 - sha256 of a file's bytes, or None if unreadable.
 - kind: function, internal
 - returns: `hashlib.sha256(handle.read()).hexdigest()`; `None`
 - effects: filesystem
 - calls: `open`, `hexdigest`, `hashlib.sha256`, `handle.read`
 
-#### `_admit_added_itp(itp_dest, itp_files_to_include)` — line 535
+#### `_admit_added_itp(itp_dest, itp_files_to_include)` — line 536
 - Decide whether an ``add_molecule`` ITP joins the include list.
 - kind: function, internal
 - returns: `True`; `False`
@@ -842,7 +842,7 @@ Emit coarse percent-based progress updates into the debug log.
 - effects: stdout
 - calls: `_itp_moleculetypes`, `_file_digest`, `itp_files_to_include.append`, `DuplicateDeclaration`, `os.path.abspath`, `print`, `os.path.basename`
 
-#### `_normalize_add_molecule_specs(add_series_params, sim_params)` — line 573
+#### `_normalize_add_molecule_specs(add_series_params, sim_params)` — line 574
 - Normalize ``add_series_parameters.add_molecule`` to a list of specs.
 - kind: function, internal
 - returns: `specs`; `[]`
@@ -850,14 +850,14 @@ Emit coarse percent-based progress updates into the debug log.
 - effects: stdout
 - calls: `add_series_params.get`, `entry.get`, `specs.append`, `ValueError`, `os.path.exists`, `sim_params.get`, `print`, `os.path.splitext`, `os.path.basename`, `type`
 
-#### `_execute_pack_polymer_then_water_mode()` — line 638
+#### `_execute_pack_polymer_then_water_mode()` — line 639
 - YAML-accessible route for polymer-first, fixed-polymer water packing.
 - kind: function, internal
 - raises: `KeyError`, `ValueError`, `RuntimeError`, `FileNotFoundError`
 - effects: filesystem, Config/runtime state, stdout
 - calls: `print`, `_get_optional_config_section`, `cfg.get`, `KeyError`, `Config.get_param`, `ValueError`, `sim_params.get`, `_merge_two_stage_job_defaults`, `os.makedirs`, `_as_box_lengths_nm`, `packer.pack_polymer_then_water_two_stage`, `results.append`, +7 more
 
-#### `_compute_total_charge(itp_files_list, molecule_counts_dict)` — line 740
+#### `_compute_total_charge(itp_files_list, molecule_counts_dict)` — line 741
 - Estimate the system charge from ITP definitions and molecule counts.
 - kind: function, internal
 - returns: `total_charge if found else None`; `None`
@@ -865,42 +865,56 @@ Emit coarse percent-based progress updates into the debug log.
 - effects: Config/runtime state, stdout
 - calls: `Config.get_runtime`, `molecule_counts_dict.items`, `definitions.update`, `definitions.get`, `read_itp_definitions`, `DuplicateDeclaration`, `print`, `bead.get`, `definition.get`
 
-#### `_make_soft_bonds_itp(src_itp: str, soft_fc: float, dst_itp: str)` — line 783
+#### `_make_soft_bonds_itp(src_itp: str, soft_fc: float, dst_itp: str)` — line 784
 - Write src_itp with ALL bond force constants replaced by soft_fc.
 - kind: function, internal
 - effects: filesystem
 - calls: `open`, `fh.writelines`, `line.strip`, `stripped.startswith`, `out_lines.append`, `lower`, `stripped.split`, `strip`, `join`, `split`, `stripped.strip`
 
-#### `_perform_geo_opt_step(step_name, base_gro_file, output_dir, itp_files_list, molecule_counts_dict, sim_params)` — line 814
+#### `_perform_geo_opt_step(step_name, base_gro_file, output_dir, itp_files_list, molecule_counts_dict, sim_params)` — line 815
 - Run one GROMACS energy-minimization stage.
 - kind: function, internal
 - returns: `optimized_gro if optimized_gro else base_gro_file`; `base_gro_file`
 - effects: filesystem, Config/runtime state, stdout
 - calls: `print`, `sim_params.get`, `geo_opt_cfg.get`, `os.path.join`, `os.makedirs`, `topology_updater.create_system_topology`, `topology_updater.update_topology_molecules`, `_compute_total_charge`, `mdp_overrides.get`, `run_geo_opt`, `Config.get_param`, `final_itp_list.append`, +3 more
 
-#### `_merge_world_and_itps(world, extra_itps, merged_itp_path, moleculetype_name='MERGED')` — line 921
+#### `_merge_world_and_itps(world, extra_itps, merged_itp_path, moleculetype_name='MERGED')` — line 922
 - World 기반 구조와 추가 ITP 파일을 단일 ITP로 병합합니다. - World는 write_combined_itp로 기록 - 외부 ITP는 moleculetype 단위로 독립적이므로 인덱스 재배치 없이 그대로 이어붙임 (하나의 파일에 여러 moleculetype을 담는 목적)
 - kind: function, internal
 - returns: `merged_itp_path`
 - effects: filesystem
 - calls: `write_combined_itp`, `open`, `fout.write`, `os.remove`, `format`, `os.path.isfile`, `rstrip`, `f.read`
 
-#### `_perform_dynamic_crosslinking(output_dir)` — line 950
+#### `_perform_dynamic_crosslinking(output_dir)` — line 951
 - Connect linker stubs to true backbone ends rather than arbitrary beads.
 - kind: function, internal
 - returns: `default_params`; `merged`
-- raises: `RuntimeError`
+- raises: `ValueError`, `RuntimeError`
 - effects: filesystem, Config/runtime state, global registry, stdout
-- calls: `print`, `os.path.join`, `open`, `group_linker_stubs`, `collect_backbone_ends`, `debug_f.write`, `sim_params.get`, `lower`, `resolve_block_copolymer_settings`, `plan_dynamic_crosslinks`, `Config.get_param`, `format`, +21 more
+- calls: `print`, `os.path.join`, `Config.set_runtime`, `open`, `sim_params.get`, `group_linker_stubs`, `collect_backbone_ends`, `debug_f.write`, `lower`, `resolve_block_copolymer_settings`, `plan_dynamic_crosslinks`, `Config.get_param`, +25 more
 
-#### `_get_hydrogel_topology_connectivity_audit_config()` — line 1205
+#### `_guard_written_crosslinks(itp_path, output_dir)` — line 1236
+- Re-read a just-written ITP and check its crosslink bonds against the plan.
+- kind: function, internal
+- returns: `guard_persisted_plan(itp_path, Config.get_runtime('expected_crosslink_pairs'), os.path.join(output_dir, os.path.basename(itp_path) + '.plan_audit.json'))`; `None`
+- effects: Config/runtime state
+- calls: `guard_persisted_plan`, `get`, `Config.get_runtime`, `os.path.join`, `Config.get_param`, `os.path.basename`
+
+#### `_enabled_formulation_stages(stages)` — line 1254
+- Drop packing stages whose block says ``enabled: false``.
+- kind: function, internal
+- returns: `active`
+- raises: `ValueError`
+- calls: `stages.items`, `ValueError`, `params.items`
+
+#### `_get_hydrogel_topology_connectivity_audit_config()` — line 1283
 - Return the post-build hydrogel topology audit config.
 - kind: function, internal
 - returns: `Config.get_param('hydrogel_topology_connectivity_audit')`; `legacy_cfg`; `None`
 - effects: Config/runtime state, stdout
 - calls: `Config.get_param`, `print`
 
-#### `_audit_and_guard_connectivity(gro_path, itp_path, output_dir)` — line 1228
+#### `_audit_and_guard_connectivity(gro_path, itp_path, output_dir)` — line 1306
 - Audit the generated hydrogel bonded topology and apply the optional guard.
 - kind: function, internal
 - returns: `x`
@@ -908,12 +922,12 @@ Emit coarse percent-based progress updates into the debug log.
 - effects: filesystem, stdout
 - calls: `print`, `_get_hydrogel_topology_connectivity_audit_config`, `UnionFind`, `defaultdict`, `os.path.join`, `get`, `os.path.exists`, `_handle_audit_error`, `append`, `components.values`, `audit_cfg.get`, `RuntimeError`, +19 more
 
-#### `_execute_all_mode()` — line 1385
+#### `_execute_all_mode()` — line 1463
 - Executes the full workflow with sequential packing and genion.
 - kind: function, internal
 - raises: `ValueError`
 - effects: filesystem, Config/runtime state, stdout
-- calls: `print`, `Config.get_runtime`, `Config.get_param`, `_seed_all`, `os.makedirs`, `build_hydrogel.build_backbone_only`, `_perform_dynamic_crosslinking`, `_get_bonded_topology_patch_path`, `os.path.join`, `write_to_gro`, `write_combined_itp`, `_perform_geo_opt_step`, +66 more
+- calls: `print`, `Config.get_runtime`, `Config.get_param`, `_seed_all`, `os.makedirs`, `build_hydrogel.build_backbone_only`, `_perform_dynamic_crosslinking`, `_get_bonded_topology_patch_path`, `os.path.join`, `write_to_gro`, `write_combined_itp`, `_guard_written_crosslinks`, +68 more
 
 ### `hygel_martini/hydrogel_builder/core_utils/__init__.py`
 
@@ -2044,12 +2058,12 @@ Chosen backbone end for a single linker stub.
 - raises: `ValueError`
 - calls: `backbone_ends.values`, `assignments.items`, `_edge_plan_sha256`, `notes.append`, `linker_stubs.items`, `ValueError`, `unpaired_planned.items`, `format`, `permutations`, `edge_regime_linkers.add`, `resolved_edges.append`, `planned_edges_by_linker.items`, +10 more
 
-#### `plan_dynamic_crosslinks(linker_stubs: Dict[int, List[object]], backbone_ends: Dict[int, List[object]], box_vec, candidate_limit: int=8, targets_per_stub: int=1, respect_target_backbone_policy: bool=False)` — line 470
+#### `plan_dynamic_crosslinks(linker_stubs: Dict[int, List[object]], backbone_ends: Dict[int, List[object]], box_vec, candidate_limit: int=8, targets_per_stub: int=1, respect_target_backbone_policy: bool=False, require_explicit_plan: bool=False)` — line 470
 - Assign compatible backbone ends to each placed linker stub.
 - kind: function
 - returns: `(assignments, notes)`; `_plan_explicit_graph_crosslinks(linker_stubs, backbone_ends, box_size)`; `False` (+1 more)
 - raises: `ValueError`
-- calls: `normalize_box_vector`, `_plan_explicit_graph_crosslinks`, `notes.append`, `linker_stubs.items`, `_candidate_end_options`, `pairings.sort`, `pairing_options.append`, `used_end_atoms.add`, `ValueError`, `format`, `product`, `states.sort`, +18 more
+- calls: `normalize_box_vector`, `ValueError`, `_plan_explicit_graph_crosslinks`, `notes.append`, `linker_stubs.items`, `_candidate_end_options`, `pairings.sort`, `pairing_options.append`, `used_end_atoms.add`, `format`, `product`, `states.sort`, +18 more
 
 ### `hygel_martini/hydrogel_builder/core_utils/runtime/geo_opt.py`
 
@@ -2212,6 +2226,18 @@ Packmol wrappers and GRO/PDB/XYZ round-trip conversion helpers.
 - raises: `ValueError`
 - effects: filesystem, stdout
 - calls: `print`, `_normalize_box_lengths`, `convert_gro_to_pdb`, `os.path.join`, `join`, `run_packmol`, `convert_pdb_to_gro`, `_restore_atom_names_from_sources`, `sim_params.get`, `ValueError`, `molecules_pdb_to_add.append`, `open`, +6 more
+
+### `hygel_martini/hydrogel_builder/core_utils/runtime/persisted_plan.py`
+
+Check planned crosslink attachments in a written (unprocessed) builder ITP.
+
+#### `guard_persisted_plan(itp_path, expected_pairs, report_path)` — line 29
+- Require each planned stub-to-endpoint bond exactly once; raise on failure.
+- kind: function
+- returns: `report`
+- raises: `ValueError`, `RuntimeError`
+- effects: filesystem
+- calls: `report_path.write_text`, `Path`, `Counter`, `itp_path.read_bytes`, `splitlines`, `report.update`, `ValueError`, `strip`, `line.startswith`, `line.split`, `elements`, `RuntimeError`, +10 more
 
 ### `hygel_martini/hydrogel_builder/core_utils/runtime/topology_updater.py`
 

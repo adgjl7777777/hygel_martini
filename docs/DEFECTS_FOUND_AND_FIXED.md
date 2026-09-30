@@ -750,6 +750,91 @@ removes every distortion.
   restrained NVT of its own, or a minimization that guards polar-hydrogen
   contacts the way `min_distance_report` guards overlaps.
 
+### 33. The run seed never reached the compiled geometry RNG
+
+**Symptom.** Two CLI runs of example 04_1 with the same `random_seed: 2020`
+produced the same 375-atom backbone and then different side chains: 1,363 of
+1,746 coordinate lines in `initial_hydrogel.gro` differed, and everything
+downstream (packed water, final EM) with them.
+
+**Cause.** `random_normal_vector` is Numba-compiled. Numba keeps its own
+per-thread random state, and `np.random.seed()` called from Python seeds NumPy,
+not that. `_seed_random_generators` seeded `random` and `np.random` and
+stopped. Measured directly: an unseeded compiled draw differed between two
+fresh processes, and a Python-side `np.random.seed(2020)` left it different.
+
+**Fix.** `seed_numba_random(seed)`, an `njit` wrapper around `np.random.seed`,
+called from `_seed_random_generators` after the two existing seeds. It draws
+nothing from Python or NumPy, so the first draws of every already-seeded run
+are unchanged (pinned by `tests/test_rng_seeding.py`). After the fix the same
+two-process comparison is byte-identical for all nine GRO and ITP files.
+
+**Scope.** The serial geometry path the builder uses. Parallel worker streams
+are not seeded. Ported from the Series-01 reliability copy 0.1.1.dev2.
+
+### 34. The side-chain stage scanned the whole world before asking whether anything attaches
+
+**Symptom.** `construct_chemical_detail` is O(N) per backbone atom, and on a
+backbone with nothing to attach (PEG-only, or a whole-strand template that
+already carries its atoms) the neighbour list it built was discarded unused.
+The reliability copy measured a PEG N2/L56 build at 65.2 s falling to 17.1 s
+once the order was fixed, with byte-identical outputs.
+
+**Fix.** `iterator.next()` and its `None` check now precede the scan. This is
+output-neutral by construction: the iterator does not touch `World`, and the
+skipped scan draws no random numbers, so `random_normal_vector` sees the same
+sequence. Checked here on example 04_1 (which does attach side chains):
+the reordered build is byte-identical to the previous commit's build under the
+same seed, nine of nine GRO/ITP files. Ported from 0.1.1.dev1.
+
+### 35. `enabled: false` on a packing stage did not disable it
+
+**Symptom.** Stage selection in all-mode tested for the presence of the
+`add_water` / `add_small_ion` / `add_molecule` / `add_polymer` block, not for a
+switch inside it. `add_water: {enabled: false, number_of_water: 10000}` added
+ten thousand waters to a build that asked for none.
+
+**Fix.** `_enabled_formulation_stages` drops a stage whose block says
+`enabled: false`, refuses a non-boolean (`"false"` is a truthy string, not a
+switch), and consumes the key so stage code never sees it. A block without the
+key keeps the legacy presence semantics, so no existing input changes meaning;
+no committed example carries the key. omni's list-valued `add_molecule` has no
+switch and passes through. The `except Exception` that used to turn *any* error
+in that block into "no packing" is now `except KeyError`. Ported from 0.1.1.dev0.
+
+### 36. A lost crosslink plan fell back to distance, and nobody re-read the written ITP
+
+**Symptom.** Two separate gaps. (a) When planner endpoint metadata was
+partially present the run refused, but when it was entirely absent the same
+call routed every stub to its nearest compatible end and finished. A build
+whose plan had evaporated looked identical to one that honoured it. (b) The
+memory bond registry was trusted as proof of the file: nothing re-read
+`initial_backbone.itp` or `initial_hydrogel.itp` to check that the planned
+stub-to-endpoint bonds were the ones written. The connectivity audit cannot
+catch this class: a plan of a-b, c-d written as a-c, b-d stays one component,
+and so does a ring with one bond deleted.
+
+**Fix.** Opt-in `simulation_parameters.require_explicit_crosslink_plan: true`.
+The planner then raises on total metadata loss instead of falling through;
+`_perform_dynamic_crosslinking` records the expected one-based ITP pairs
+(`planned_crosslinks.json`) and clears any pairs left by a previous in-process
+build; and `_guard_written_crosslinks` re-reads each written ITP with an
+independent parser and requires every planned pair exactly once with no other
+bond between the listed stubs and endpoints, writing `<itp>.plan_audit.json`
+and raising before the next external step. Default off; makers written before
+the option behave as before.
+
+**Why the indices are safe in omni.** The writer emits `atom.atom_id + 1` for
+atoms and bonds alike, and per-stub cap atoms are removed at layout time,
+before ids exist, so ids fixed at planning time are the ids in the file.
+Exercised end to end: example 07 (pcu net, 384 crosslinks) and the DES
+diagnostic cell (partial conversion, per-stub caps, 64 reacted arms across 32
+components) both write `PASS` audits with planned == observed at both stages.
+`tests/test_explicit_plan_guard.py` injects a rewire, a duplicate, a deleted
+ring bond, a missing atom and a missing file, and checks that a corrupted
+backbone write stops before any EM while a corrupted hydrogel write stops after
+exactly the backbone EM. Ported from 0.1.1.dev0 (commit 50192af).
+
 ## Still open
 
 - The f=6 path now builds end to end under GROMACS (example 07): all EM

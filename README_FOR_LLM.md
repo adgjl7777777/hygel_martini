@@ -206,6 +206,24 @@ network live *inside* `simulation_parameters`:
 `network_layout` (net, repeats, cell_parameter, rewiring, conversion) and
 `junction_bonded_generation` (all-atom crossing terms).
 
+Two reliability switches (ported from the Series-01 reliability copy on
+2026-09-30, see `docs/DEFECTS_FOUND_AND_FIXED.md` #35–#36):
+
+* `simulation_parameters.require_explicit_crosslink_plan: true` makes total
+  loss of planner metadata an error instead of a silent nearest-end fallback,
+  writes `planned_crosslinks.json` (one-based ITP pairs, stub first), re-reads
+  each written HYDROGEL ITP and stops before the next external step unless
+  every planned bond is present exactly once (`<itp>.plan_audit.json`). Off by
+  default. Turn it on for any build whose connectivity you intend to report.
+* `add_series_parameters.<stage>.enabled: false` actually skips `add_water`,
+  `add_small_ion`, `add_molecule` (mapping form) or `add_polymer`. A block
+  without the key keeps its old presence-means-run meaning; a string like
+  `"false"` is refused.
+
+Adding a `simulation_parameters` key is one line of YAML; adding a key to a
+*validated* block (`network_layout`, `junction_bonded_generation`) also needs
+the validator.
+
 ### Entry points
 
 | Command | Module |
@@ -480,7 +498,8 @@ tools.audit_hydrogel_topology.main                        bonded-graph audit
 | GROMACS/Packmol invocation failing | `core_utils/runtime/{geo_opt,packer,topology_updater}.py`, `add_series/add_small_ion.py` |
 | shrink stalls or a molecule breaks during it | `relax/hard_em_shrink.py`, the run's `history.jsonl`, and §7.7–7.8 |
 | coordinates look wrong across the boundary | `core/pbc.py` — every distance must go through minimum image |
-| results change between runs that should match | seeds: `network_layout.conversion.seed`, `rewire_seed`, `random_seed`; and §7.1 (wrong copy imported) |
+| results change between runs that should match | seeds: `network_layout.conversion.seed`, `rewire_seed`, `random_seed` (since 2026-09-30 it also seeds the compiled side-chain RNG, #33); and §7.1 (wrong copy imported) |
+| did the written topology honour the crosslink plan? | `require_explicit_crosslink_plan: true`, then read `<itp>.plan_audit.json` (#36); the connectivity audit alone cannot tell a rewired pair from a planned one |
 | the whole tree looks modified in git | §7.12 — check `git diff --stat` for zero insertions first |
 
 ---

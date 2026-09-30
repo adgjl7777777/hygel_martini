@@ -474,6 +474,7 @@ def plan_dynamic_crosslinks(
     candidate_limit: int = 8,
     targets_per_stub: int = 1,
     respect_target_backbone_policy: bool = False,
+    require_explicit_plan: bool = False,
 ):
     """Assign compatible backbone ends to each placed linker stub.
 
@@ -481,7 +482,15 @@ def plan_dynamic_crosslinks(
     ``targets_per_stub=2`` means each BCK stub creates one local two-chain
     junction, so one two-BCK linker creates two polymer junctions and four
     BCK-backbone bonds in total.
+
+    ``require_explicit_plan=True`` refuses to fall through to the geometric
+    assignment below when no planner endpoint metadata is present. Partial
+    metadata was always rejected; total loss used to be silently accepted and
+    routed by distance, which finishes a build nobody can trust. The default
+    keeps the behaviour of configurations written before this option.
     """
+    if not isinstance(require_explicit_plan, bool):
+        raise ValueError("require_explicit_plan must be a boolean")
     box_size = normalize_box_vector(box_vec)
     candidate_limit = max(int(candidate_limit), 1)
     targets_per_stub = max(int(targets_per_stub), 1)
@@ -499,6 +508,10 @@ def plan_dynamic_crosslinks(
         for stubs in linker_stubs.values()
         for stub in stubs
     )
+    if require_explicit_plan and not planned_stub_count:
+        raise ValueError(
+            "Explicit crosslink plan required, but no planned endpoint edges were found"
+        )
     if planned_stub_count:
         expected_stub_count = sum(len(stubs) for stubs in linker_stubs.values())
         if planned_stub_count != expected_stub_count:
