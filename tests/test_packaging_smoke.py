@@ -8,7 +8,7 @@ import hygel_martini
 
 
 def test_version_is_exposed() -> None:
-    assert hygel_martini.__version__ == "0.1.1.dev0"
+    assert hygel_martini.__version__ == "0.1.1.dev2"
 
 
 def test_builder_resources_are_packaged() -> None:

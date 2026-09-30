@@ -1,10 +1,11 @@
 cff-version: 1.2.0
 message: >-
-  If you use this software, cite the archived software release and the
-  associated methodology paper when its final bibliographic record is available.
+  If you use this development snapshot, record its version and exact source
+  hashes. Cite an archived release and the associated methodology paper when
+  their final bibliographic records are available.
 title: hygel_martini
 type: software
-version: 0.1.1.dev0
+version: 0.1.1.dev2
 authors:
   - family-names: Kim
     given-names: Daehong

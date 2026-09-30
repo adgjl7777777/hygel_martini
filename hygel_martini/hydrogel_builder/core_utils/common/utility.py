@@ -178,6 +178,16 @@ def is_overlap(A, B, d, L):
         return False # 겹치지 않음
 
 
+@numba.njit(cache=True)
+def seed_numba_random(seed):
+    """Seed the calling thread's Numba RNG without consuming Python RNG draws.
+
+    Builder side-chain construction calls compiled geometry serially on the
+    same thread. Parallel worker streams are outside this helper's scope.
+    """
+    np.random.seed(seed)
+
+
 @numba.jit(fastmath=True, cache=True, nogil=True)
 def random_normal_vector(A, B, C, r, L):
     '''

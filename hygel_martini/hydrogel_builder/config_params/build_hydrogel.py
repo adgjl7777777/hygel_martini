@@ -55,7 +55,7 @@ def _print_build_banner():
 
 
 def _seed_random_generators(seed):
-    """Seed Python and NumPy RNGs when a deterministic run is requested."""
+    """Seed Python, NumPy and serial compiled geometry RNGs for this run."""
     if seed is None:
         return
     try:
@@ -64,6 +64,8 @@ def _seed_random_generators(seed):
         return
     random.seed(seed_val)
     np.random.seed(seed_val)
+    from hygel_martini.hydrogel_builder.core_utils.common.utility import seed_numba_random
+    seed_numba_random(seed_val)
 
 
 def _compute_max_linker_span():

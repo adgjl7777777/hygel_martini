@@ -5,7 +5,7 @@
 QM/OPLS 기반 파라미터 준비, post-build relaxation, topology audit,
 물성 추출까지 하나의 재현 가능한 workflow로 연결합니다.
 
-이 작업본은 `0.1.1.dev0` 개발 버전입니다. Series-01 논문의 기존 소프트웨어
+이 작업본은 `0.1.1.dev2` 개발 버전입니다. Series-01 논문의 기존 소프트웨어
 스냅샷은 `0.1.0` (`d02a8217e2f9`)이며, 아래 개선은 이후 버전에 해당합니다.
 
 - [작은 PEGDA 설치·재현 예제](example/07_portable_pegda/README.md): 배포 wheel을
@@ -13,6 +13,9 @@ QM/OPLS 기반 파라미터 준비, post-build relaxation, topology audit,
 - [계획 기반 연결의 필수 설정과 파일 검증](docs/EXPLICIT_PLAN_RELIABILITY.md):
   계획 정보의 완전 소실과 저장된 결합의 손상을 다음 준비 단계 전에 차단합니다.
 - CI는 소스 밖의 새 환경에서 설치된 wheel을 시험합니다.
+- [누적 Builder 개선 내역](docs/BUILDER_IMPROVEMENTS_20260930_KO.md): 연결·설정 검사,
+  출력이 동일한 연산 개선, 직렬 Numba 난수 초기화와 실제 CLI 재현성 검증을 설명합니다.
+  `0.1.1.dev2`는 개발 snapshot이며 공개 release·archival DOI를 뜻하지 않습니다.
 
 **Author:** Daehong Kim
 

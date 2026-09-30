@@ -847,6 +847,13 @@ class Hydrogel():
             else:
                 continue
 
+            # Empty monomer iterators attach no chemical detail. Resolve that
+            # case before the all-atom neighborhood scan; selection performs
+            # no world mutation, and the skipped geometric work uses no RNG.
+            chosen_template = iterator.next()
+            if chosen_template is None:
+                continue
+
             # --- 최적의 곁사슬 배치 방향 탐색 ---
             best_vector = None
             best_positions = None
@@ -875,9 +882,6 @@ class Hydrogel():
                 idxs = np.argpartition(np.array(nearby_distances), NEARBY_ATOM_LIMIT)[:NEARBY_ATOM_LIMIT]
                 nearby_atoms = [nearby_atoms[i] for i in idxs]
 
-            chosen_template = iterator.next()
-            if chosen_template is None:
-                continue
             tangent_vec = rij(p1, p3, World.box_length)
             if np.linalg.norm(tangent_vec) < 1e-8:
                 tangent_vec = np.array([0.0, 0.0, 1.0])
