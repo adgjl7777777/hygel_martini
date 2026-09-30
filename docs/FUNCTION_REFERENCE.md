@@ -2542,19 +2542,19 @@ Construct and enrich a hydrogel network stored in ``World``.
 - effects: Config/runtime state, stdout
 - calls: `print`, `resolve_sidechain_placement_tuning`, `tqdm`, `monomer_counts.items`, `Config.debug_log`, `p.Config.get_param`, `load_monomer_templates`, `monomer_config.get`, `Config.get_runtime`, `sequence_generators.get`, `iterator.next`, `rij`, +39 more
 
-##### `construct_angles(self)` — line 1077
+##### `construct_angles(self)` — line 1089
 - Generate angle terms from template metadata and fallback rules.
 - kind: method
 - effects: Config/runtime state, global registry, stdout
 - calls: `World.Bonds.values`, `bonds_by_atom.items`, `print`, `p.Config.get_param`, `existing_angles.add`, `append`, `_atom.keys`, `get`, `Attributes.Angle`, `hasattr`, `reversed`
 
-##### `construct_dihedrals(self)` — line 1230
+##### `construct_dihedrals(self)` — line 1242
 - Generate internal dihedrals directly from template definitions.
 - kind: method
 - effects: global registry, stdout
 - calls: `print`, `processed_templates.add`, `World.Atoms.values`, `id`, `Attributes.Dihedral`, `dihedral_def.get`
 
-##### `construct_impropers(self)` — line 1284
+##### `construct_impropers(self)` — line 1296
 - Placeholder for explicit improper handling.
 - kind: method
 
