@@ -18,7 +18,7 @@ old behaviour was load-bearing it was kept and labelled.
 These reproduce at `d02a821`. All are fixed on this working branch only: the
 frozen tree is submission provenance and is left untouched by standing
 instruction. (#1 was briefly applied there and then reverted for that reason;
-the fix remains available as `5dc494d` to cherry-pick at submission time.)
+the fix remains available as `87a8c30` to cherry-pick at submission time.)
 
 ### 1. The first example in the start guide cannot load
 
@@ -45,13 +45,13 @@ well-defined stub mass only when their masses agree. `_stub_mass_for_targets()`
 now requires that and names the conflicting masses, instead of silently taking
 whichever target sorted first.
 
-*Fixed in `5dc494d` (this branch only).* The frozen Series-01 tree still
+*Fixed in `87a8c30` (this branch only).* The frozen Series-01 tree still
 carries the defect, deliberately: it is submission provenance and stays at
 `d02a821` by standing instruction. A fix was briefly committed there and
 reverted; nothing was ever pushed.
 
 > **Release note for Series-01.** The tracked example 04 cannot load at
-> `d02a821`. If this is to be fixed before submission, cherry-pick `5dc494d`
+> `d02a821`. If this is to be fixed before submission, cherry-pick `87a8c30`
 > from this branch and then update the `d02a821` references in
 > `submission_manifest.json` (5 places) and `main.tex:100,761` /
 > `si.tex:96,97`. `linker_loader.py` is not in the manifest's hash records,
@@ -69,7 +69,7 @@ X could not be determined"* on some other molecule.
 **Fix.** The layout mismatch is named where it happens. Replacing this with a
 layout-aware reader is the first step of the force-field work.
 
-*Fixed in `ca8bfc8`.*
+*Fixed in `6663390`.*
 
 ### 3. A requested water fraction can produce a dry system
 
@@ -80,7 +80,7 @@ every exception with a bare `pass`.
 
 **Fix.** Zero dry mass now raises; the fallback warns.
 
-*Fixed in `ca8bfc8`.*
+*Fixed in `6663390`.*
 
 ### 4. A duplicate bond with different parameters is dropped in silence
 
@@ -92,7 +92,7 @@ can both reach the same atom pair.
 **Fix.** The first definition still wins; the conflict is now reported with
 both values.
 
-*Fixed in `ca8bfc8`.*
+*Fixed in `6663390`.*
 
 ### 5. The system-charge estimate skips files it cannot read
 
@@ -104,7 +104,7 @@ so the charge estimate silently becomes `None`.
 
 **Fix.** Warns per skipped file.
 
-*Fixed in `ca8bfc8`.*
+*Fixed in `6663390`.*
 
 ### 6. Dead code in the crosslink router
 
@@ -113,7 +113,7 @@ assignment path.
 
 **Fix.** Removed.
 
-*Fixed in `ca8bfc8`.*
+*Fixed in `6663390`.*
 
 ### 7. Configuration declarations that silently overwrite one another
 
@@ -137,7 +137,7 @@ repeat only if they agree. All five sites now refuse by name.
 The shipped Martini force-field files were checked for pre-existing duplicates
 before enforcing; there are none.
 
-*Fixed in `8dd4667`.*
+*Fixed in `9f8abcb`.*
 
 ### 8. The minimum-image convention was written seven times, six of them wrong
 
@@ -169,7 +169,7 @@ hand-rolled for the inner overlap loop and are now labelled cubic-only.
 This is not hypothetical: the `dia` seed added in this work uses FCC primitive
 vectors, which are neither orthogonal nor lower-triangular.
 
-*Fixed in `4188f10`.*
+*Fixed in `cd875e7`.*
 
 ### 9. The GRO reader splits a fixed-column format on whitespace
 
@@ -197,7 +197,7 @@ whitespace alone rejects valid GROMACS output. The reader therefore tries the
 format first and the observed deviation second — both exact where they apply,
 neither guessing.
 
-*Fixed in `fb7e479`.*
+*Fixed in `5f3ed72`.*
 
 ### 10. The ITP parser discards bonded entries that omit their parameters
 
@@ -216,7 +216,7 @@ format is** — which is the argument for having one.
 
 **Fix.** Correct minimum field counts; `params` is simply empty.
 
-*Fixed in `c9f0609`.*
+*Fixed in `0659238`.*
 
 ### 11. Connectivity could not be read without a mass table
 
@@ -226,7 +226,7 @@ topology unless an atom-type table was supplied.
 
 **Fix.** `require_mass=False`.
 
-*Fixed in `c9f0609`.*
+*Fixed in `0659238`.*
 
 ---
 
@@ -246,7 +246,7 @@ case the DES system requires — are full of such nodes.
 continuations first, and a `loop_order_histogram_is_weighted_valid` flag makes
 an unreduced graph fail loudly instead of returning an empty distribution.
 
-*In `69addbd`.*
+*In `2b119bf`.*
 
 ### 13. Girth read off a weighted histogram
 
@@ -256,7 +256,7 @@ having cycles.
 
 **Fix.** Girth comes from the raw shortest rings.
 
-*In `69addbd`.*
+*In `2b119bf`.*
 
 ### 14. A fixed convergence tolerance cannot work
 
@@ -280,7 +280,7 @@ reported spurious non-convergence. The floor is finite-size:
 and drift is tested against it. Every cutoff then converges, and faster at high
 acceptance — the correct direction.
 
-*In `1b3c2e9`.*
+*In `bad0494`.*
 
 ### 15. A guard inside a broad exception handler is not a guard
 
@@ -289,7 +289,7 @@ The atom-type collision check (#7) was first written inside the
 subclasses `ValueError`, so it was swallowed by the very clause it was meant to
 escape. The test caught it.
 
-*In `8dd4667`.*
+*In `9f8abcb`.*
 
 ### 16. A validity gate that assumed one convention rejected valid input
 
@@ -301,7 +301,7 @@ the `dia` seed outright, because its diagonal contains zeros.
 interior, which assumes nothing about cell convention. A cell too skewed for
 that is refused with a message saying to reduce the basis.
 
-*In `4188f10`.*
+*In `cd875e7`.*
 
 ---
 
@@ -364,7 +364,7 @@ geometric pairwise fallback genuinely pairs two stubs and now raises for a
 multi-arm junction instead of skipping it, which would have left its arms
 unbonded without a word.
 
-*Fixed in `9830385`.*
+*Fixed in `31b4ea4`.*
 
 ### 18. A cross-project include silently re-pointed another example's paths
 
@@ -385,7 +385,7 @@ stated in it and in `maker.yaml`. The audit also confirmed: 0 syntax errors,
 and no configuration key that the code never reads (`example_metadata` is
 intentional self-description).
 
-*Fixed in `a4396ce`.*
+*Fixed in `962a4ec`.*
 
 ### 19. Integration defects found by the first f=6 end-to-end build
 
@@ -424,7 +424,7 @@ as one component with all 64 junctions at degree exactly 6, planned and
 materialized endpoint sets match exactly, and the loop spectrum is
 non-bipartite with peak loop order 5 -- inside the provisional f=6 target.
 
-*Fixed in `aa3fee6`.*
+*Fixed in `1d14c86`.*
 
 ### 20. Two latent defects exposed by the first partial-conversion build
 
@@ -453,7 +453,7 @@ mechanism live: a primary loop appears after contraction (girth 1) although
 the coordinate layout placed none, because contracting degree-2 continuations
 changes what a loop looks like.
 
-*Fixed in `6d0aa34`.*
+*Fixed in `3690cb8`.*
 
 ### 21. The net layout's periodic cell never reached the World box
 
@@ -476,7 +476,7 @@ FCC primitive cell does not). After the fix, pre-EM crosslink lengths max
 1.24 nm, post-EM mean 0.555 / max 0.93 / none above 1 nm, and the converged
 potential energy is negative rather than +8.8e5 kJ/mol.
 
-*Fixed in `2662d1c`.*
+*Fixed in `63a8ce3`.*
 
 ### 22. The all-atom ownership rationale was contradicted by the pipeline
 
@@ -506,7 +506,7 @@ partial-conversion docs; and "byte-compatible" writer output is
 value-identical, not byte-identical (integer force constants print as `1250`,
 not `1250.000000`).
 
-*Fixed in `2662d1c`.*
+*Fixed in `63a8ce3`.*
 
 ### 23. The writer's nrexcl lookup referenced a name that was never imported
 
@@ -567,7 +567,7 @@ templates carry. Parameter lists longer than three are now stored whole via
 
 *All four found (or made findable) by building example 08 -- the first
 system to exercise the all-atom path end to end, which is precisely what the
-example exists for. Fixed in `3dc09e5`.*
+example exists for. Fixed in `5a2bc4e`.*
 
 ### 27. The atomtypes layout fix could still hand back an atomic number as a mass
 
@@ -591,9 +591,9 @@ The same round also caught the example README quoting Epot ≈ −1.4e5 for the
 full build -- a number copied from the angle-less failed build one defect
 earlier (entry 24), lower than the true −8.9e4 precisely because a missing
 angle term costs nothing. Corrected in place; the commit message of
-`3dc09e5` carries the wrong number permanently, which this entry supersedes.
+`5a2bc4e` carries the wrong number permanently, which this entry supersedes.
 
-*Fixed in `21d469f`.*
+*Fixed in `152c5c2`.*
 
 ### 28. Linker body bonds were indexed positionally, not by bead map
 
@@ -613,7 +613,7 @@ duplicated any stub with two body bonds, exactly what an unreacted thiol
 sulfur (CH2 and H) is -- with one atom per stub carrying all its attachment
 rows. Regression tests pin both; Martini example 07 rebuilds bit-for-bit.
 
-*Fixed in `1820be2`.*
+*Fixed in `c587bed`.*
 
 ### 29. The side-chain stage searched for hours with nothing to place
 
@@ -632,7 +632,7 @@ library holds no records. Verified behaviour-preserving rather than argued:
 example 08's n = 3 build drops from minutes to 40 s and its
 ``initial_hydrogel.itp`` is **bit-identical** to the pre-fix file.
 
-*Fixed in `02c8f17`.*
+*Fixed in `4e2bcbe`.*
 
 ### 30. The topology writer rounded charges away, four decimals at a time
 
@@ -657,7 +657,7 @@ from a strange energy. Rebuilt: the n = 33 network now writes -0.0256 e,
 matching the prediction to the last digit; example 07 (Martini) is unchanged
 in value, and now prints charges as ``0.000000`` rather than ``0.0000``.
 
-*Fixed in `02c8f17`.*
+*Fixed in `4e2bcbe`.*
 
 ### 31. The shrink's NVT recovery had never run, and broke a molecule when it did
 
@@ -699,7 +699,7 @@ Validated by re-running the same shrink: the compression that previously died
 at step 11 (box 14.8 nm, `Fmax = 3.3e4`) now reaches the 4.819 nm target in 65
 accepted steps, using the recovery three times along the way.
 
-*Fixed in `734ac0e`.*
+*Fixed in `8a90075`.*
 
 ### 32. Energy minimization folds a urethane N-H onto its own carbonyl in sparse cells
 
