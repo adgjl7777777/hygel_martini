@@ -24,7 +24,10 @@ import traceback
 import numpy as np
 
 from hygel_martini.hydrogel_builder.config_params.config import Config
-from hygel_martini.hydrogel_builder.core_utils.common.utility import find_minimum_distances
+from hygel_martini.hydrogel_builder.core_utils.common.utility import (
+    find_minimum_distances,
+    seed_numba_random,
+)
 from hygel_martini.hydrogel_builder.core_utils.layout.isotropic_builder import build_isotropic_blueprint
 from hygel_martini.hydrogel_builder.core_utils.layout.layout_executor import build_atom_blueprint
 from hygel_martini.hydrogel_builder.core_utils.layout.proto_builder import prepare_proto_plan
@@ -56,7 +59,12 @@ def _print_build_banner():
 
 
 def _seed_random_generators(seed):
-    """Seed Python and NumPy RNGs when a deterministic run is requested."""
+    """Seed Python, NumPy and the serial compiled-geometry RNG for this run.
+
+    Order matters and is deliberate: the Numba stream is seeded last and its
+    seeding does not draw from the Python or NumPy generators, so the first
+    Python/NumPy draws of a run are the same as before this call existed.
+    """
     if seed is None:
         return
     try:
@@ -65,6 +73,7 @@ def _seed_random_generators(seed):
         return
     random.seed(seed_val)
     np.random.seed(seed_val)
+    seed_numba_random(seed_val)
 
 
 def _compute_max_linker_span():

@@ -191,6 +191,22 @@ def is_overlap(A, B, d, L):
         return False # 겹치지 않음
 
 
+@numba.njit(cache=True)
+def seed_numba_random(seed):
+    """Seed the calling thread's Numba RNG without consuming Python/NumPy draws.
+
+    ``random_normal_vector`` below is compiled, and Numba keeps its own RNG
+    state per thread: ``np.random.seed`` called from Python does not touch it.
+    So two CLI runs with the same ``random_seed`` used to agree on the backbone
+    and then disagree on every side-chain direction. Calling this from
+    ``_seed_random_generators`` closes that gap for the serial geometry path.
+    Parallel worker streams are outside its scope.
+
+    Ported from the Series-01 reliability copy (0.1.1.dev2, 2026-09-30).
+    """
+    np.random.seed(seed)
+
+
 @numba.jit(fastmath=True, cache=True, nogil=True)
 def random_normal_vector(A, B, C, r, L):
     '''
