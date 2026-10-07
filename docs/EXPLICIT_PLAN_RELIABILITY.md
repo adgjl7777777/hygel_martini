@@ -1,7 +1,7 @@
 # Explicit-plan construction and written-attachment guard
 
-Development version: **0.1.1.dev0**. The Series-01 manuscript snapshot remains
-`d02a8217e2f9567874bd1958eb06fbf8c4a7a84b` (0.1.0); the following behavior
+Introduced in **0.1.1.dev0** and included in release **0.1.1**. The Series-01 manuscript snapshot remains
+`2472810c94303dfd447d17c5ccba6296ade08ece` (0.1.0); the following behavior
 belongs to the subsequent development version.
 
 ```yaml
@@ -46,3 +46,19 @@ See [the portable PEGDA example](../example/07_portable_pegda/README.md) for a
 small complete construction/preprocessing run. CI builds a wheel and runs the
 test suite against that wheel from outside the checkout. Installing the wheel
 cannot silently borrow unbundled files from the working tree in that test.
+
+## Template exclusion policy
+
+From 0.1.1 the template contract rejects linker or monomer templates whose
+`nrexcl` differs from 1, because per-instance exclusion transfer is not
+implemented. A two-bead, one-bond, angle-free junction template (such as the
+PEGDA `LNK` linker) may declare
+
+```yaml
+template_exclusion_policy: network_nrexcl_one
+```
+
+in its `linker_definitions` entry. The assembled network then uses the
+network-wide `nrexcl = 1` convention. Templates outside that scope are
+rejected before building. The historical examples `example/04_full_builder`
+and `example/04_1_example_system` have not been migrated to this contract.

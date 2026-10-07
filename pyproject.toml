@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=69", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,8 +8,13 @@ dynamic = ["version"]
 description = "Graph-first construction and analysis workflows for coarse-grained Martini hydrogel systems."
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.9"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
   { name = "Daehong Kim" },
+  { name = "Nayeon Jung" },
+  { name = "Bomin Kim" },
+  { name = "Won Bo Lee" },
 ]
 keywords = [
   "coarse-grained molecular dynamics",

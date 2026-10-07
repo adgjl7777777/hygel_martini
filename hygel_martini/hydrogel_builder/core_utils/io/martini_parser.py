@@ -102,6 +102,7 @@ def read_itp_definitions(itp_file_path, atom_type_masses=None, prefer_explicit_m
                     molecule_name = parts[0]
                     current_molecule = {
                         'name': molecule_name,
+                        'nrexcl': int(parts[1]) if len(parts) > 1 else 1,
                         'beads': [],
                         'bonds': [],
                         'angles': [],

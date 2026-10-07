@@ -161,6 +161,8 @@ def _load_single(entry: Dict, backbone_defs: List[Dict]) -> MonomerTemplate:
 
     molecule_name = entry.get("molecule_name")
     definition = _extract_single_definition(itp_path, molecule_name)
+    from .template_contract import require_supported_template
+    require_supported_template(definition)
     beads = definition.get("beads", [])
     if not beads:
         raise ValueError(f"ITP '{itp_path}'에 bead 정보가 없습니다.")
@@ -207,6 +209,7 @@ def _load_single(entry: Dict, backbone_defs: List[Dict]) -> MonomerTemplate:
     coords = np.array(coords_list, dtype=np.float64)
     internal_bonds: List[Tuple[int, int, Dict[str, float]]] = []
     backbone_bonds: List[Tuple[int, Dict[str, float]]] = []
+    require_supported_template(definition, (bck_index,))
     constraints = definition.get("constraints", [])
     pairs = definition.get("pairs", [])
     exclusions = definition.get("exclusions", [])

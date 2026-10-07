@@ -21,6 +21,7 @@ hydrogel_components:
   linker_definitions:
     LINKERS:
     - id: LNK_BCKBCK
+      template_exclusion_policy: network_nrexcl_one
       ratio: 1
       gro: ${CONFIG_DIR}/structure/LNK.gro
       itp: ${CONFIG_DIR}/structure/LNK.itp

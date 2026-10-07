@@ -8,9 +8,9 @@
 후보 wheel은 63개 기존 테스트와 17개 실제 CLI process를 통과했다. 같은 seed의 random/alternating/block 구성과 PEG·Pluronic 출력이 일치했고, random 구성의 다른 seed는 다른 GRO를 생성했다. 현재 코드의 변경 파일 5개는 검증된 후보와 hash가 동일하다. 물리 매개변수 파일은 변경하지 않았다.
 
 코드 백업 및 적용 검증:
-`/nas_0/software_backup/hygel_builder_reliability_runs_20260930_all/builder_performance_followup/adoption_20260930/`
+`<run_archive_20260930>/builder_performance_followup/adoption_20260930/`
 
 설치 후보 wheel·패치·실행 검증:
-`/nas_0/software_backup/hygel_builder_reliability_runs_20260930_all/builder_performance_followup/rng_seed_followup/si_ready/`
+`<run_archive_20260930>/builder_performance_followup/rng_seed_followup/si_ready/`
 
 기존 논문 결과는 원래 frozen 버전과 입력을 사용한 기록이다. 이번 변경을 과거 계산에 소급 적용하지 않는다. 현재 N4는 의미 보존을 확인한 별도 dev1 설치 환경에서 진행하고, Q8/Q9는 각각 고정한 기존 MD 입력으로 진행한다. 라이선스·권리자·공개 release 상태는 기존 draft 조건을 유지한다.

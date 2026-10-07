@@ -73,9 +73,9 @@
 
 ## 위치와 사용
 
-- 개발 작업본: `/nas_0/software_backup/hygel_builder_reliability_20260929`
+- 개발 작업본: `<development_workspace>`
 - 브랜치: `improve/builder-repro-20260929`
-- 독립 설치 시험과 실행 기록: `/nas_0/software_backup/hygel_builder_reliability_runs_20260929`
-- 기존 논문 및 공개 코드 스냅샷: `/nas_0/software_backup/hygel_martini`의 `d02a8217e2f9567874bd1958eb06fbf8c4a7a84b`
+- 독립 설치 시험과 실행 기록: `<run_archive_20260929>`
+- 기존 논문 및 공개 코드 스냅샷: `<repo_root>`의 `2472810c94303dfd447d17c5ccba6296ade08ece`
 
 새 계산 캠페인이나 물성 분석은 시작하지 않았다. GitHub push, 공개 릴리스, 라이선스 결정, 학술지 제출도 수행하지 않았다. 재현 예제를 위한 Martini 파일은 재배포하지 않으며, 사용자가 별도로 제공한다. 현재 결과는 이번에 선택한 소프트웨어 보강과 논문 그림 추가를 마친 상태다.

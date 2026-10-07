@@ -5,8 +5,8 @@
 QM/OPLS 기반 파라미터 준비, post-build relaxation, topology audit,
 물성 추출까지 하나의 재현 가능한 workflow로 연결합니다.
 
-이 작업본은 `0.1.1.dev2` 개발 버전입니다. Series-01 논문의 기존 소프트웨어
-스냅샷은 `0.1.0` (`d02a8217e2f9`)이며, 아래 개선은 이후 버전에 해당합니다.
+이 문서는 `0.1.1` release 기준입니다. Series-01 논문의 이전 소프트웨어
+스냅샷은 `0.1.0` (`2472810c9430`)이며, 아래 개선은 그 이후 버전에 해당합니다.
 
 - [작은 PEGDA 설치·재현 예제](example/07_portable_pegda/README.md): 배포 wheel을
   설치해 구조 생성, 저장된 결합 검사, GROMACS 전처리까지 확인합니다.
@@ -15,14 +15,12 @@ QM/OPLS 기반 파라미터 준비, post-build relaxation, topology audit,
 - CI는 소스 밖의 새 환경에서 설치된 wheel을 시험합니다.
 - [누적 Builder 개선 내역](docs/BUILDER_IMPROVEMENTS_20260930_KO.md): 연결·설정 검사,
   출력이 동일한 연산 개선, 직렬 Numba 난수 초기화와 실제 CLI 재현성 검증을 설명합니다.
-  `0.1.1.dev2`는 개발 snapshot이며 공개 release·archival DOI를 뜻하지 않습니다.
+  `0.1.1`은 JCC 방법론 논문에 대응하는 첫 공개 release입니다(Zenodo DOI는 release 후 추가).
 
-**Author:** Daehong Kim
+**Authors:** Daehong Kim ([ORCID 0009-0007-1647-9270](https://orcid.org/0009-0007-1647-9270)),
+Nayeon Jung, Bomin Kim, Won Bo Lee
 
-**Affiliation:** School of Chemical and Biological Engineering, Seoul National
-University, 1 Gwanak-ro, Gwanak-gu, Seoul 08826, Republic of Korea
-
-**ORCID:** [0009-0007-1647-9270](https://orcid.org/0009-0007-1647-9270)
+**Affiliations:** Department of Chemical and Biological Engineering, Institute of Chemical Processes, Seoul National University, 1 Gwanak-ro, Gwanak-gu, Seoul 08826, Republic of Korea (all authors); School of Transdisciplinary Innovations, Seoul National University, 1 Gwanak-ro, Gwanak-gu, Seoul 08826, Republic of Korea (W. B. Lee)
 
 - `param_opt`: QM, OPLS, xTB 입력과 Martini 파라미터 준비
 - `hydrogel_builder`: hydrogel network 생성과 post-build relaxation
@@ -265,13 +263,21 @@ mechanics의 경계를 먼저 확인하는 것을 권장합니다.
 방법론 논문의 최종 서지정보가 확정되면 software release와 논문을 함께
 인용하도록 갱신합니다.
 
-This work supported by the National Research Foundation of Korea (NRF) grant
-funded by the Korea government (MSIT) (RS-2025-25424498).
+This work was supported by the National Research Foundation of Korea (NRF) grant funded by the Korea government (MSIT) (RS-2025-25424498).
 
-현재 저장소에는 임의의 오픈소스 라이선스를 붙이지 않았습니다. 연구과제
-계약 및 서울대학교 산학협력단 적용 여부를 확인한 뒤 승인된 라이선스를
-선택해야 합니다. 그 전의 정확한 사용 경계는
-[`LICENSING.md`](LICENSING.md)를 따릅니다.
+이 소프트웨어를 사용한 결과에는 워크플로에서 실제로 쓴 제3자 도구도 함께 인용해 주십시오:
+GROMACS (Abraham et al., 2015), Martini 3 (Souza et al., 2021) 또는 Martini 2 (Marrink et al., 2007),
+Packmol (Martínez et al., 2009), MDAnalysis (Michaud-Agrawal et al., 2011; Gowers et al., 2016),
+NumPy (Harris et al., 2020), SciPy (Virtanen et al., 2020), pandas (McKinney, 2010),
+Numba (Lam et al., 2015), Matplotlib (Hunter, 2007), ASE (Hjorth Larsen et al., 2017),
+CoolProp (Bell et al., 2014), pymbar/MBAR (Shirts and Chodera, 2008),
+PoreBlazer (Sarkisov et al., 2020). DOI 목록은 `CITATION.cff`의 `references`에 있습니다.
+
+Parts of the code, tests, and documentation were drafted or revised with the assistance of AI coding assistants (OpenAI Codex and Anthropic Claude). All changes were reviewed by the authors, who take responsibility for the software.
+
+소스 코드는 MIT License로 배포합니다([`LICENSE`](LICENSE)). Martini
+force-field 파일과 제3자 의존성의 라이선스는 [`LICENSING.md`](LICENSING.md)를
+참고하십시오.
 
 ## 공용 서버에서의 주의사항
 

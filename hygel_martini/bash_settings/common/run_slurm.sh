@@ -6,7 +6,7 @@
 #SBATCH -N 1
 #SBATCH -n 1
 #SBATCH -c 32
-##SBATCH --nodelist=nanode04
+##SBATCH --nodelist=<node>
 #SBATCH -t 100000:00:00
 
 set -euo pipefail

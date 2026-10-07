@@ -206,8 +206,8 @@ Alias 시험은 같은 화학 입력으로 sequence 선택 경로를 구분한 �
 
 | 대상 | 상태 |
 |---|---|
-| 기존 Series-01 frozen 저장소 | `/nas_0/software_backup/hygel_martini`, 기존 `0.1.0` 보존 |
-| 개발 작업본 | `/nas_0/software_backup/hygel_builder_reliability_20260929`, 현재 `0.1.1.dev2` |
+| 기존 Series-01 frozen 저장소 | `<repo_root>`, 기존 `0.1.0` 보존 |
+| 개발 작업본 | `<development_workspace>`, 현재 `0.1.1.dev2` |
 | dev0 연결·설정·패키징 보강 | commit `50192afbd656dfce72b84ad66c3bfedec7796230`에 기록 |
 | 최근 성능·난수·버전 수정 | 위 commit 이후 작업 트리의 tracked 파일 5개, 아직 미커밋 |
 | 코드 채택 검증 | 변경 파일 5개의 hash가 검증된 dev2 후보와 일치 |
@@ -233,13 +233,13 @@ Alias 시험은 같은 화학 입력으로 sequence 선택 경로를 구분한 �
 
 - [dev0의 정확한 동작 범위](EXPLICIT_PLAN_RELIABILITY.md)
 - [dev0 설치·예제 검증 기록](../validation_20260929/VERIFICATION.json)
-- [실제 ITP 오류 주입 예제](/nas_0/software_backup/hygel_builder_reliability_20260929/validation_20260930_orientation_repair/paper_revision/si_files/all_review_20260930/)
-- [성능 개선 후보 기록](/nas_0/software_backup/hygel_builder_reliability_runs_20260930_all/builder_performance_followup/HANDOFF_KO.md)
-- [성능 수정 patch](/nas_0/software_backup/hygel_builder_reliability_runs_20260930_all/builder_performance_followup/algorithm.patch)
-- [난수 재현성 결과](/nas_0/software_backup/hygel_builder_reliability_runs_20260930_all/builder_performance_followup/rng_seed_followup/si_ready/RESULT.json)
-- [Numba·Python·NumPy stream 확인](/nas_0/software_backup/hygel_builder_reliability_runs_20260930_all/builder_performance_followup/rng_seed_followup/si_ready/RNG_STREAM_CHECK.json)
-- [개발 작업본 채택 hash 검증](/nas_0/software_backup/hygel_builder_reliability_runs_20260930_all/builder_performance_followup/adoption_20260930/ADOPTION_VERIFICATION.json)
-- [배향 보정 근거](/nas_0/software_backup/hygel_builder_reliability_20260929/validation_20260930_orientation_repair/paper_revision/si_files/orientation_bond_correction/README_KO.md)
-- [최신 원고와 계산 인계](/nas_0/software_backup/hygel_builder_reliability_20260929/validation_20260930_orientation_repair/HANDOFF_KO.md)
+- [실제 ITP 오류 주입 예제](<development_workspace>/validation_20260930_orientation_repair/paper_revision/si_files/all_review_20260930/)
+- [성능 개선 후보 기록](<run_archive_20260930>/builder_performance_followup/HANDOFF_KO.md)
+- [성능 수정 patch](<run_archive_20260930>/builder_performance_followup/algorithm.patch)
+- [난수 재현성 결과](<run_archive_20260930>/builder_performance_followup/rng_seed_followup/si_ready/RESULT.json)
+- [Numba·Python·NumPy stream 확인](<run_archive_20260930>/builder_performance_followup/rng_seed_followup/si_ready/RNG_STREAM_CHECK.json)
+- [개발 작업본 채택 hash 검증](<run_archive_20260930>/builder_performance_followup/adoption_20260930/ADOPTION_VERIFICATION.json)
+- [배향 보정 근거](<development_workspace>/validation_20260930_orientation_repair/paper_revision/si_files/orientation_bond_correction/README_KO.md)
+- [최신 원고와 계산 인계](<development_workspace>/validation_20260930_orientation_repair/HANDOFF_KO.md)
 
 과거 인계 문서의 “후보를 별도 복사본에서 검증했고 개발 작업본을 변경하지 않았다”는 설명은 그 검증 시점의 기록이다. 이후 개발 작업본에 채택한 단계는 `ADOPTION_VERIFICATION.json`에 따로 기록했다. 시점이 다른 두 기록을 혼동하지 않아야 한다.

@@ -765,6 +765,8 @@ def _perform_dynamic_crosslinking(output_dir):
     debug_log_path = os.path.join(output_dir, "dynamic_bonding_debug.log")
     # Never reuse a preceding build's plan when Config/World are reused.
     Config.set_runtime("expected_crosslink_pairs", None)
+    Config.set_runtime("planner_input_contract", None)
+    Config.set_runtime("planner_input_required", False)
 
     with open(debug_log_path, "w") as debug_f:
         try:
@@ -813,6 +815,14 @@ def _perform_dynamic_crosslinking(output_dir):
                 block_settings["terminal_compensation_enabled"],
             )
         )
+        if require_plan:
+            from hygel_martini.hydrogel_builder.core_utils.runtime.planner_witness import capture_planner_input
+            Config.set_runtime("planner_input_required", True)
+            contract = capture_planner_input(linkers, backbone_ends)
+            Config.set_runtime("planner_input_contract", contract)
+            with open(os.path.join(output_dir, "planner_input.json"), "w") as handle:
+                json.dump(contract, handle, indent=2)
+
         assignments, notes = plan_dynamic_crosslinks(
             linkers,
             backbone_ends,
@@ -987,6 +997,13 @@ def _guard_written_crosslinks(itp_path, output_dir):
     if not Config.get_param("simulation_parameters").get("require_explicit_crosslink_plan", False):
         return
     from hygel_martini.hydrogel_builder.core_utils.runtime.persisted_plan import guard_persisted_plan
+    contract = Config.get_runtime("planner_input_contract")
+    if contract is not None or Config.get_runtime("planner_input_required"):
+        from hygel_martini.hydrogel_builder.core_utils.runtime.planner_witness import guard_written_planner_input
+        guard_written_planner_input(
+            itp_path, contract,
+            os.path.join(output_dir, os.path.basename(itp_path) + ".planner_input_audit.json"),
+        )
     return guard_persisted_plan(
         itp_path, Config.get_runtime("expected_crosslink_pairs"),
         os.path.join(output_dir, os.path.basename(itp_path) + ".plan_audit.json"),

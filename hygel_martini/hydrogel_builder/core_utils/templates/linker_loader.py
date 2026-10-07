@@ -257,6 +257,8 @@ def _load_single_linker(entry: Dict, backbone_defs: List[Dict]) -> LinkerTemplat
 
     molecule_name = entry.get("molecule_name")
     definition = _extract_definition(itp_path, molecule_name)
+    from .template_contract import require_supported_template
+    require_supported_template(definition, exclusion_policy=entry.get("template_exclusion_policy"))
     beads = definition.get("beads", [])
     if not beads:
         raise ValueError(f"링커 '{linker_id}'의 ITP에 bead 정보가 없습니다.")
@@ -401,6 +403,7 @@ def _load_single_linker(entry: Dict, backbone_defs: List[Dict]) -> LinkerTemplat
                 continue
             internal_bonds.append((idx_i, idx_j, params))
 
+    require_supported_template(definition, backbone_map, exclusion_policy=entry.get("template_exclusion_policy"))
     internal_angles = []
     for angle_def in definition.get("angles", []):
         atoms = [angle_def.get('from'), angle_def.get('center'), angle_def.get('to')]

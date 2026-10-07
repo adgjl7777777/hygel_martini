@@ -1,10 +1,10 @@
 # README detailed for LLM
 
-이 문서는 `/nas_0/software_backup/hygel_martini` 저장소를 나중에 LLM이 빠르게 다시 파악하도록 만든 상세 코드 지도입니다.
+이 문서는 `<repo_root>` 저장소를 나중에 LLM이 빠르게 다시 파악하도록 만든 상세 코드 지도입니다.
 코드 원문을 복붙한 문서가 아니라, 함수/메서드별 역할, 위치, 입출력 단서, 부작용, 주요 호출 관계를 정리한 참조 문서입니다.
 
 - 생성일: 2026-04-17 17:03:14 (local time)
-- 분석 루트: `/nas_0/software_backup/hygel_martini`
+- 분석 루트: `<repo_root>`
 - Python 분석 파일: 92개, class: 46개, function/method/nested helper: 448개
 - Shell function 분석: 8개
 
