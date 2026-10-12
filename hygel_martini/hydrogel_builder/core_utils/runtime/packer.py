@@ -341,6 +341,18 @@ def _read_pdb_atoms_nm(pdb_path):
     return atoms
 
 
+def _require_inside_box(atoms, box_lengths_nm, source):
+    """Raise if any fixed-base atom lies outside [0, L] on any axis."""
+    for index, atom in enumerate(atoms, start=1):
+        coords = (atom["x_nm"], atom["y_nm"], atom["z_nm"])
+        for axis, (value, length) in enumerate(zip(coords, box_lengths_nm)):
+            if value < 0.0 or value > length:
+                raise ValueError(
+                    f"packmol_pbc requires the fixed base inside the box: atom {index} "
+                    f"of {source} has {'xyz'[axis]} = {value:.4f} nm outside [0, {length:.4f}]"
+                )
+
+
 def _normalize_pdb_atoms_to_box(atoms, box_lengths_nm):
     lengths = _normalize_box_lengths(box_lengths_nm, None)
     if not atoms:
@@ -596,6 +608,14 @@ def pack_system_with_molecules(step_name, base_structure_gro, molecules_to_add, 
         "end structure",
         ""
     ]
+    # Opt-in orthorhombic PBC (Packmol >= 20.15). Without it, Packmol measures
+    # distances only inside the box, so added molecules can sit close to a
+    # periodic image of the fixed base; the default route leaves that to the
+    # following minimization checkpoint. Packmol does not wrap fixed molecules,
+    # so the base must already lie inside the box.
+    if sim_params.get('packmol_pbc', False):
+        _require_inside_box(_read_pdb_atoms_nm(base_structure_pdb), resolved_lengths_nm, base_structure_gro)
+        lines.insert(3, "pbc " + " ".join(f"{v:.4f}" for v in box_lengths_angstrom))
     for mol in molecules_pdb_to_add:
         if mol['number'] > 0:
             lines.extend([

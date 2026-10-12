@@ -5,9 +5,9 @@ message: >-
   under references that your workflow used.
 title: hygel_martini
 type: software
-version: 0.1.1
+version: 0.1.2
 license: MIT
-# date-released: YYYY-MM-DD  (fill in on tagging v0.1.1)
+# date-released: YYYY-MM-DD  (fill in on tagging v0.1.2)
 # doi: 10.5281/zenodo.XXXXXXX  (fill in after Zenodo archives the release)
 authors:
   - family-names: Kim

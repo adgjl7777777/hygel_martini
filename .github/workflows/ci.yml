@@ -45,7 +45,8 @@ jobs:
           python -m venv "$RUNNER_TEMP/hygel-wheel-env"
           "$RUNNER_TEMP/hygel-wheel-env/bin/python" -m pip install dist/*.whl pytest
           mkdir "$RUNNER_TEMP/hygel-wheel-tests"
-          cp -r tests "$RUNNER_TEMP/hygel-wheel-tests/"
+          # The example contract tests read the shipped example inputs.
+          cp -r tests example "$RUNNER_TEMP/hygel-wheel-tests/"
           cd "$RUNNER_TEMP/hygel-wheel-tests"
           unset PYTHONPATH
           export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1

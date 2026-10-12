@@ -576,7 +576,7 @@ class Polymer():
         SEARCH_RADIUS_FACTOR = 10.0
 
         all_atoms = [World.Atoms[_id][0] for _id in World.Atoms]
-        for backbone_atom in all_atoms:
+        for backbone_atom in list(all_atoms):
             backbone_type = getattr(backbone_atom, 'backbone_type', None)
             if backbone_type is None:
                 continue
@@ -638,9 +638,15 @@ class Polymer():
                     best_positions = positions
 
             if best_positions is None:
-                continue
+                raise RuntimeError(
+                    f"No clash-free placement for side chain {getattr(template, 'id', template)} on "
+                    f"backbone atom {backbone_atom.atom_id} after {NUM_CANDIDATE_VECTORS} trial frames; "
+                    "construction stopped before initial_hydrogel.gro/.itp were written"
+                )
             created_atoms = self._create_template_atoms(template, best_positions)
             self._connect_template_bonds(template, created_atoms, backbone_atom.atom_id)
+            # Later side chains must also avoid the ones placed here.
+            all_atoms.extend(World.Atoms[_id][0] for _id in created_atoms)
 
     def construct_chemical_detail(self):
         """Expand the polymer backbone into a chemically detailed topology.

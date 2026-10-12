@@ -8,7 +8,7 @@ calculations; the topology generator, writers, and guards execute normally.
 
 ## Run from a new environment
 
-Use a built HyGel **0.1.1** wheel and this entire example directory. The
+Use a built HyGel **0.1.2** wheel and this entire example directory. The
 example also ships in the source distribution. Obtain `martini_v3.0.0.itp`
 separately from the Martini distribution under its applicable terms; it is
 not included here. Install GROMACS and provide the executable name or path.
@@ -17,7 +17,7 @@ mount, source checkout, Packmol, GPU, or research trajectory is needed.
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install /path/to/hygel_martini-0.1.1-py3-none-any.whl
+.venv/bin/python -m pip install /path/to/hygel_martini-0.1.2-py3-none-any.whl
 .venv/bin/python run.py --gmx gmx --martini-dir /path/to/martini_v300 --output ./result
 ```
 

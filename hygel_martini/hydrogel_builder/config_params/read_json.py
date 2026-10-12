@@ -243,6 +243,10 @@ def _get_bonded_topology_patch_path(sim_params=None):
         or sim_params.get('backbone_patch_file')
     )
     if patch_path:
+        # An explicitly configured selector file must exist: skipping it would
+        # leave generic bonded terms in place without any error.
+        if not os.path.exists(patch_path):
+            raise FileNotFoundError(f"bonded_topology_patch_file not found: {patch_path}")
         return patch_path
 
     if not Config._file_path:

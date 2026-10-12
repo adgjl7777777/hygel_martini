@@ -21,7 +21,7 @@ bonds:
     c1: 7000
 
 angles:
-  # Martini 3 PEO angles from polyply/JCTC 2018
+  # Martini 3 PEO angles (polyply library, PEO.martini3.ff)
   - residue_name: [PEO, PEO, PEO]
     bead_type: [SN3r, SN3r, SN3r]
     funct: 2
@@ -50,6 +50,15 @@ angles:
     funct: 2
     c0: 123.0
     c1: 80.0
+
+  # PEO-BCK-PEO junction angle: the original structural rule (function 1,
+  # 180 deg, 5 kJ/mol/rad^2), registered explicitly so it does not depend on
+  # the builder's generic angle default. Output is unchanged.
+  - residue_name: [PEO, BCK, PEO]
+    bead_type: [SN3r, SN3r, SN3r]
+    funct: 1
+    c0: 180.0
+    c1: 5.0
 
 dihedrals:
   # Martini 3 PEO CBT dihedrals (Type 11)

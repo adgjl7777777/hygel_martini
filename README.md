@@ -5,17 +5,31 @@
 QM/OPLS 기반 파라미터 준비, post-build relaxation, topology audit,
 물성 추출까지 하나의 재현 가능한 workflow로 연결합니다.
 
-이 문서는 `0.1.1` release 기준입니다. Series-01 논문의 이전 소프트웨어
+이 문서는 `0.1.2` release 기준입니다. Series-01 논문의 이전 소프트웨어
 스냅샷은 `0.1.0` (`2472810c9430`)이며, 아래 개선은 그 이후 버전에 해당합니다.
+
+`0.1.2`는 곁사슬(monomer) 경로의 결함 두 가지와 bonded patch 파일 누락 처리를 고치고, 선택형 Packmol PBC를 추가했습니다.
+곁사슬이 없는 설정(`MONOMERS: []`, 예: PEGDA·Pluronic)의 출력은 `0.1.1`과 바이트 단위로 같습니다.
+
+- linker stub에는 곁사슬을 붙이지 않습니다. stub의 `backbone_type`은 crosslink 상대를 고르는
+  데만 씁니다. `0.1.1`은 일치하는 monomer가 있으면 stub에도 곁사슬을 한 번 더 붙였습니다.
+- 곁사슬 자리를 찾지 못하면 경고 대신 `RuntimeError`로 멈춥니다. `0.1.1`은 그 위치를
+  건너뛰고, 곁사슬이 빠진 구조를 그대로 썼습니다. 자유 고분자 경로에서는 새로 붙인 곁사슬끼리도
+  충돌 검사를 합니다.
+- `bonded_topology_patch_file`을 지정했는데 파일이 없으면 `FileNotFoundError`로 멈춥니다. `0.1.1`은
+  안내 메시지만 찍고 건너뛰어, 일반 각도 항이 그대로 남고 backbone torsion이 빠졌습니다. 지정하지 않은
+  기본 경로(`config/backbone.yaml`)는 예전처럼 없어도 됩니다. 휴대용 PEGDA 예제는 PEO–BCK–PEO 각도
+  규칙을 명시합니다(출력은 같음).
+- `simulation_parameters.packmol_pbc: true`를 주면 Packmol 입력에 직교 `pbc`를 넣습니다
+  (Packmol ≥ 20.15). 고정 base 좌표가 상자 `[0, L]` 밖에 있으면 멈춥니다. 기본값은 `false`이며,
+  이때는 상자 경계 너머의 겹침을 뒤따르는 minimization이 풉니다.
 
 - [작은 PEGDA 설치·재현 예제](example/07_portable_pegda/README.md): 배포 wheel을
   설치해 구조 생성, 저장된 결합 검사, GROMACS 전처리까지 확인합니다.
 - [계획 기반 연결의 필수 설정과 파일 검증](docs/EXPLICIT_PLAN_RELIABILITY.md):
   계획 정보의 완전 소실과 저장된 결합의 손상을 다음 준비 단계 전에 차단합니다.
 - CI는 소스 밖의 새 환경에서 설치된 wheel을 시험합니다.
-- [누적 Builder 개선 내역](docs/BUILDER_IMPROVEMENTS_20260930_KO.md): 연결·설정 검사,
-  출력이 동일한 연산 개선, 직렬 Numba 난수 초기화와 실제 CLI 재현성 검증을 설명합니다.
-  `0.1.1`은 JCC 방법론 논문에 대응하는 첫 공개 release입니다(Zenodo DOI는 release 후 추가).
+- `0.1.1`은 JCC 방법론 논문에 대응하는 첫 공개 release입니다(Zenodo DOI 10.5281/zenodo.23208480).
 
 **Authors:** Daehong Kim ([ORCID 0009-0007-1647-9270](https://orcid.org/0009-0007-1647-9270)),
 Nayeon Jung, Bomin Kim, Won Bo Lee
@@ -49,7 +63,7 @@ xTB, ORCA, Bartender 및 Martini force-field 파일은 라이선스와 설치
 
 ## 빠른 시작
 
-Python 3.9 이상이 필요합니다.
+Python 3.10 이상이 필요합니다(CI는 3.11과 3.12에서 시험합니다).
 
 ```bash
 git clone --recurse-submodules https://github.com/adgjl7777777/hygel_martini.git

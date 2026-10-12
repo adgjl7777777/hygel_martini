@@ -826,6 +826,10 @@ class Hydrogel():
             if progress and (processed_keys % report_interval == 0 or processed_keys == total_keys):
                 progress.stage_tick(processed_keys / float(total_keys), "construct_chemical_detail")
             backbone_atom = World.Atoms[_id][0]
+            # Linker stubs carry backbone_type (the backbone they bond to) for
+            # crosslink matching; they are not backbone repeats and take no monomer.
+            if getattr(backbone_atom, 'chain_type', None) == 'linker':
+                continue
             if not hasattr(backbone_atom, 'backbone_type'):
                 continue # Backbone 원자가 아니면 건너뜁니다.
             
@@ -950,7 +954,12 @@ class Hydrogel():
                 for bead_idx, params in chosen_template.backbone_bonds:
                     Attributes.Bond(backbone_atom.atom_id, new_atom_ids[bead_idx], **params)
             else:
-                print(f"경고: 원자 ID {backbone_atom.atom_id}에 곁사슬({chosen_template.id})을 배치할 유효한 공간을 찾지 못했습니다. 건너뜁니다.")
+                # Skipping would write a structure with a missing side chain.
+                raise RuntimeError(
+                    f"No clash-free placement for side chain {chosen_template.id} on backbone "
+                    f"atom {backbone_atom.atom_id} after {NUM_CANDIDATE_VECTORS} trial frames; "
+                    "construction stopped before initial_hydrogel.gro/.itp were written"
+                )
 
         print("곁사슬 생성 완료:")
         for name, count in monomer_counts.items():
