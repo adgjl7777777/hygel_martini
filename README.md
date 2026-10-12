@@ -1,69 +1,30 @@
 # hygel_martini
 
-`hygel_martini`는 coarse-grained Martini hydrogel을 구성하고 분석하기
-위한 연구용 Python 패키지입니다. Graph-first network construction부터
-QM/OPLS 기반 파라미터 준비, post-build relaxation, topology audit,
-물성 추출까지 하나의 재현 가능한 workflow로 연결합니다.
+[한국어 README](README_KO.md)
 
-이 문서는 `0.1.2` release 기준입니다. Series-01 논문의 이전 소프트웨어
-스냅샷은 `0.1.0` (`2472810c9430`)이며, 아래 개선은 그 이후 버전에 해당합니다.
+`hygel_martini` is a research Python package for building and analyzing coarse-grained Martini hydrogels. It covers graph-first network construction, parameter preparation from QM and OPLS data, post-build relaxation, topology audits, and property extraction.
 
-`0.1.2`는 곁사슬(monomer) 경로의 결함 두 가지와 bonded patch 파일 누락 처리를 고치고, 선택형 Packmol PBC를 추가했습니다.
-곁사슬이 없는 설정(`MONOMERS: []`, 예: PEGDA·Pluronic)의 출력은 `0.1.1`과 바이트 단위로 같습니다.
-
-- linker stub에는 곁사슬을 붙이지 않습니다. stub의 `backbone_type`은 crosslink 상대를 고르는
-  데만 씁니다. `0.1.1`은 일치하는 monomer가 있으면 stub에도 곁사슬을 한 번 더 붙였습니다.
-- 곁사슬 자리를 찾지 못하면 경고 대신 `RuntimeError`로 멈춥니다. `0.1.1`은 그 위치를
-  건너뛰고, 곁사슬이 빠진 구조를 그대로 썼습니다. 자유 고분자 경로에서는 새로 붙인 곁사슬끼리도
-  충돌 검사를 합니다.
-- `bonded_topology_patch_file`을 지정했는데 파일이 없으면 `FileNotFoundError`로 멈춥니다. `0.1.1`은
-  안내 메시지만 찍고 건너뛰어, 일반 각도 항이 그대로 남고 backbone torsion이 빠졌습니다. 지정하지 않은
-  기본 경로(`config/backbone.yaml`)는 예전처럼 없어도 됩니다. 휴대용 PEGDA 예제는 PEO–BCK–PEO 각도
-  규칙을 명시합니다(출력은 같음).
-- `simulation_parameters.packmol_pbc: true`를 주면 Packmol 입력에 직교 `pbc`를 넣습니다
-  (Packmol ≥ 20.15). 고정 base 좌표가 상자 `[0, L]` 밖에 있으면 멈춥니다. 기본값은 `false`이며,
-  이때는 상자 경계 너머의 겹침을 뒤따르는 minimization이 풉니다.
-
-- [작은 PEGDA 설치·재현 예제](example/07_portable_pegda/README.md): 배포 wheel을
-  설치해 구조 생성, 저장된 결합 검사, GROMACS 전처리까지 확인합니다.
-- [계획 기반 연결의 필수 설정과 파일 검증](docs/EXPLICIT_PLAN_RELIABILITY.md):
-  계획 정보의 완전 소실과 저장된 결합의 손상을 다음 준비 단계 전에 차단합니다.
-- CI는 소스 밖의 새 환경에서 설치된 wheel을 시험합니다.
-- `0.1.1`은 JCC 방법론 논문에 대응하는 첫 공개 release입니다(Zenodo DOI 10.5281/zenodo.23208480).
-
-**Authors:** Daehong Kim ([ORCID 0009-0007-1647-9270](https://orcid.org/0009-0007-1647-9270)),
-Nayeon Jung, Bomin Kim, Won Bo Lee
+**Authors:** Daehong Kim ([ORCID 0009-0007-1647-9270](https://orcid.org/0009-0007-1647-9270)), Nayeon Jung, Bomin Kim, Won Bo Lee
 
 **Affiliations:** Department of Chemical and Biological Engineering, Institute of Chemical Processes, Seoul National University, 1 Gwanak-ro, Gwanak-gu, Seoul 08826, Republic of Korea (all authors); School of Transdisciplinary Innovations, Seoul National University, 1 Gwanak-ro, Gwanak-gu, Seoul 08826, Republic of Korea (W. B. Lee)
 
-- `param_opt`: QM, OPLS, xTB 입력과 Martini 파라미터 준비
-- `hydrogel_builder`: hydrogel network 생성과 post-build relaxation
-- `property_extract`: state, structure, transport, finite-rate mechanics 분석
-- `tools`: trajectory 변환과 bonded-topology audit
+The package has four parts:
 
-이 저장소는 workflow와 Python 코드를 제공합니다. GROMACS, Packmol,
-xTB, ORCA, Bartender 및 Martini force-field 파일은 라이선스와 설치
-환경이 서로 다르므로 `pip` 패키지에 포함하거나 자동 설치하지 않습니다.
+- `param_opt`: QM, OPLS, and xTB inputs and Martini parameter preparation
+- `hydrogel_builder`: hydrogel network construction and post-build relaxation
+- `property_extract`: state, structure, transport, and finite-rate mechanics analyses
+- `tools`: trajectory conversion and bonded-topology audits
 
-## 주요 디렉터리 구조
+The repository provides the workflows and Python code. GROMACS, Packmol, xTB, ORCA, Bartender, and the Martini force-field files have their own licenses and installation requirements, so the `pip` package neither bundles nor installs them.
 
-- `hygel_martini/`
-  - `core/`: 프로젝트 전역에서 사용하는 물리 상수, 유틸리티, 설정 로더 (`physics.py`, `utils.py`, `config.py`)
-  - `tools/`: 범용 실행 도구 모음 (`xtb_traj_to_pdb.py` 등)
-  - `bash_settings/`: 모든 워크플로의 Bash 실행 스크립트 통합 관리
-    - `common/`: 공통 환경 설정 및 Slurm 제출 템플릿
-    - `param_opt/`: Stage 02/03 관련 실행 스크립트
-    - `hydrogel_builder/`: Stage 04 관련 실행 스크립트
-    - `relaxation/`: Stage 05 관련 실행 스크립트
-  - `param_opt/`: 파라미터 최적화 Python 패키지
-    - `opls_to_martini/`: 02 단계 워크플로
-    - `qm_to_martini/`: 03 단계 워크플로 (내부 `workflow_logic`, `analysis` 분리)
-  - `hydrogel_builder/`: graph-first builder 및 relaxation
-  - `property_extract/`: manifest 기반 물성 분석과 비교 gate
+Start with these two documents:
 
-## 빠른 시작
+- [Small PEGDA installation and replay example](example/07_portable_pegda/README.md): installs the released wheel, builds a structure, checks the saved bonds, and runs GROMACS preprocessing.
+- [Required settings and file checks for plan-based crosslinking](docs/EXPLICIT_PLAN_RELIABILITY.md): how the builder stops a run when plan records are missing or the saved bonds differ from the plan.
 
-Python 3.10 이상이 필요합니다(CI는 3.11과 3.12에서 시험합니다).
+## Installation
+
+Python 3.10 or later is required. Continuous integration tests Python 3.11 and 3.12 and installs the built wheel in a fresh environment outside the source tree.
 
 ```bash
 git clone --recurse-submodules https://github.com/adgjl7777777/hygel_martini.git
@@ -77,20 +38,18 @@ For an existing clone, register the external PoreBlazer source with:
 git submodule update --init --recursive
 ```
 
-PoreBlazer remains an independently maintained external program and is not
-included in the `hygel-martini` Python wheel. Its own source and usage terms
-apply separately.
+PoreBlazer is an independently maintained program and is not part of the `hygel-martini` wheel. Its own source and usage terms apply.
 
-개발 및 packaging test 도구까지 설치하려면 다음을 사용합니다.
+To install the development and packaging test tools:
 
 ```bash
 python -m pip install -e ".[dev]"
 pytest
 ```
 
-설치 후 제공되는 주요 명령은 다음과 같습니다.
+## Command-line tools
 
-| 명령 | 역할 | 동일한 module 실행 |
+| Command | Purpose | Equivalent module call |
 |---|---|---|
 | `hygel-builder` | hydrogel construction | `python -m hygel_martini.hydrogel_builder` |
 | `hygel-relax` | post-build relaxation | `python -m hygel_martini.hydrogel_builder.relax` |
@@ -98,18 +57,17 @@ pytest
 | `hygel-qm-to-opls` | Stage 01 | `python -m hygel_martini.param_opt.qm_to_opls` |
 | `hygel-opls-to-martini` | Stage 02 | `python -m hygel_martini.param_opt.opls_to_martini` |
 | `hygel-qm-to-martini` | Stage 03 | `python -m hygel_martini.param_opt.qm_to_martini` |
-| `hygel-parameter-protocol` | E0--E6 bonded-parameter decision protocol | `python -m hygel_martini.param_opt.qm_to_martini.protocol` |
-| `hygel-qm-reference-audit` | xTB/고수준 참조 적합성 gate | `python -m hygel_martini.param_opt.qm_to_martini.analysis.reference_qualification` |
-| `hygel-audit-topology` | bonded graph audit | `python -m hygel_martini.tools.audit_hydrogel_topology` |
+| `hygel-parameter-protocol` | E0 to E6 bonded-parameter decision protocol | `python -m hygel_martini.param_opt.qm_to_martini.protocol` |
+| `hygel-qm-reference-audit` | check of xTB ensembles against higher-level references | `python -m hygel_martini.param_opt.qm_to_martini.analysis.reference_qualification` |
+| `hygel-audit-topology` | bonded-graph audit | `python -m hygel_martini.tools.audit_hydrogel_topology` |
 
-각 명령의 현재 옵션은 `COMMAND --help`로 확인할 수 있습니다. Example
-launcher들은 이 패키지가 현재 Python 환경에 설치되어 있다고
-가정하며, 공용 Bash launcher는 `hygel_martini/bash_settings/`에
-모여 있습니다.
+`COMMAND --help` lists the current options of each command. The example launchers assume that the package is installed in the active Python environment. Shared Bash launchers are in `hygel_martini/bash_settings/`.
 
-### 02. Existing OPLS/GROMACS -> Martini
+## Workflow examples
 
-02는 이미 존재하는 OPLS/GROMACS production trajectory를 Bartender fitting에 재사용합니다. 저장소에는 실제 trajectory가 포함되지 않으므로 `example/02_opls_to_martini/project/config/opls_existing_data.yaml`의 `data/...` 경로를 사용자 데이터로 바꿔서 씁니다.
+### 02. Existing OPLS/GROMACS to Martini
+
+Stage 02 reuses an existing OPLS/GROMACS production trajectory for Bartender fitting. The repository does not ship trajectories; replace the `data/...` paths in `example/02_opls_to_martini/project/config/opls_existing_data.yaml` with your own data.
 
 ```bash
 cd /path/to/hygel_martini/example/02_opls_to_martini/project
@@ -118,21 +76,16 @@ MODE=md bash run_existing_opls.sh
 MODE=md_notrim bash run_existing_opls.sh
 ```
 
-`MODE` 하나가 trim 여부, Bartender job 생성 여부, 실제 실행 여부를 함께 정합니다. 자세한 mode 표는 `example/02_opls_to_martini/project/README.md`를 봅니다.
+`MODE` sets whether the trajectory is trimmed, whether Bartender jobs are generated, and whether they run. The full mode table is in `example/02_opls_to_martini/project/README.md`.
 
-### 03. QM -> Martini
+### 03. QM to Martini
 
 ```bash
 cd /path/to/hygel_martini/example/03_qm_to_martini/project
 bash run_qm_to_martini.sh config_common/common.yaml
 ```
 
-**신규 기능:**
-- **Auto-Trimming**: Trajectory 기반 모드(`xtb`, `existing`)에서 통계적 수렴 지점을 자동으로 감지하여 불안정 구간을 잘라냅니다.
-- **xTB Restart**: 시뮬레이션 중단 시 `xtbrestart`를 감지하여 자동으로 이어서 실행하고 Trajectory를 병합합니다.
-- **Existing xTB -> Bartender**: 이미 있는 `xtb_traj.pdb`/trimmed trajectory를 `run_compare.sh`로 Bartender에 다시 넣고, `postprocess.sh`로 screened force field를 만듭니다.
-
-이미 있는 xTB trajectory를 Bartender에 적용하는 최소 예시는 아래입니다.
+In the trajectory-based modes (`xtb`, `existing`), the workflow detects the statistically converged part of a trajectory and trims the unstable start. If an xTB run stops, the workflow finds `xtbrestart`, continues the run, and merges the trajectories. An existing `xtb_traj.pdb` or trimmed trajectory can be fed to Bartender again with `run_compare.sh`, and `postprocess.sh` writes the screened force field. A minimal example:
 
 ```bash
 LABEL=S \
@@ -152,14 +105,11 @@ OUTPUT_ROOT=postprocessing_result \
 bash postprocess.sh
 ```
 
-C/D/S 반복 실행은 `example/03_qm_to_martini/project/run_cds_iteration.sh`를 봅니다.
+For repeated C/D/S runs, see `example/03_qm_to_martini/project/run_cds_iteration.sh`.
 
-#### 후보에서 tested-domain parameter까지
+#### From candidate terms to tested-domain parameters
 
-`hygel-parameter-protocol`은 후보 생성을 최종 파라미터 확정과 분리합니다.
-mapping, bead/nonbonded parent, 후보 함수, 데이터 역할, 독립 grouping,
-목적함수와 threshold를 먼저 checksum 동결한 뒤 다음 누적 증거단계를
-순서대로 판정합니다.
+`hygel-parameter-protocol` keeps candidate generation separate from the final choice of parameters. The mapping, bead and nonbonded parents, candidate functions, data roles, independent groupings, objective, and thresholds are frozen with checksums first. The protocol then evaluates the cumulative evidence stages in order:
 
 ```text
 E0 provenance -> E1 analytic eligibility -> E2 grouped selection
@@ -167,37 +117,24 @@ E0 provenance -> E1 analytic eligibility -> E2 grouped selection
 -> E5 unopened one-shot confirmation -> E6 transfer qualification
 ```
 
-한 criterion이라도 통과하지 못하면 그 iteration의 뒤 단계는 열리지
-않습니다. E5까지 통과한 값만 sealed tested-domain release가 되며, E6의
-length/single-chain/dilute-solution/hydrogel 결과를 같은 version의 계수
-튜닝으로 되돌려 보내지 않습니다.
+If one criterion fails, the later stages of that iteration stay closed. Only values that pass E5 become a sealed tested-domain release. Do not use E6 results (length, single chain, dilute solution, hydrogel) to retune the coefficients of the same version.
 
-완전한 합성 예제는 다음 한 줄로 재생할 수 있습니다.
+The complete synthetic example runs with one command:
 
 ```bash
 bash example/03_qm_to_martini/protocol_project/run_demo.sh
 ```
 
-실제 연구에 적용할 때는 예제의 숫자가 아니라 schema와 순서를
-재사용해야 합니다. 상세 설명은
-[`docs/PARAMETERIZATION_PROTOCOL.md`](docs/PARAMETERIZATION_PROTOCOL.md)에
-있습니다.
+For real studies, reuse the schema and the order of the stages, not the numbers in the example. The details are in [`docs/PARAMETERIZATION_PROTOCOL.md`](docs/PARAMETERIZATION_PROTOCOL.md).
 
-#### xTB ensemble의 고수준 참조 적합성 검사
+#### Checking xTB ensembles against higher-level references
 
-`hygel-qm-reference-audit`는 계산 실행기가 아니라 후처리 gate입니다.
-서로 다른 증거를 한 점수로 섞지 않고 다음 네 항목을 독립적으로
-판정합니다.
+`hygel-qm-reference-audit` post-processes existing calculations and reports four kinds of evidence separately, with no combined score:
 
-- `energy`: xTB와 DFT 등 고수준 참조의 상대에너지 최소점, 쌍별 순서,
-  MAE/RMSE/최대 오차
-- `gradient`: 고수준 단일점 gradient의 RMS/최대 성분과 stationarity
-- `endpoint`: 독립 최적화 endpoint의 구조 무결성, RMSD, 상대에너지에
-  따른 `SINGLE_DFT_ENDPOINT_FAMILY` 또는 `MULTIPLE_DFT_ENDPOINTS`
-- `overlap`: `E_reference - E_xTB` 중요도 가중치의 effective sample size와
-  최대 단일 가중치
-
-예시는 다음과 같습니다.
+- `energy`: relative-energy minimum, pairwise ordering, and MAE, RMSE, and maximum error of xTB against DFT or another higher-level reference
+- `gradient`: RMS and maximum component of single-point gradients at the higher level, and stationarity
+- `endpoint`: structural integrity and RMSD of independently optimized endpoints, classified as `SINGLE_DFT_ENDPOINT_FAMILY` or `MULTIPLE_DFT_ENDPOINTS` by relative energy
+- `overlap`: effective sample size and largest single weight of the `E_reference - E_xTB` importance weights
 
 ```bash
 hygel-qm-reference-audit energy reference_energies.csv \
@@ -209,33 +146,29 @@ hygel-qm-reference-audit overlap delta_energies.csv \
   --output overlap_audit.json
 ```
 
-입력 CSV schema와 판정의 의미는
-`hygel_martini/param_opt/qm_to_martini/analysis/README.md`에 있습니다.
-이 gate의 통과는 sparse refinement를 시작할 수 있다는 뜻이지, xTB가
-DFT ground truth가 되었다거나 최종 Martini 파라미터가 확정됐다는
-뜻은 아닙니다.
+The input CSV schemas and the meaning of each result are in `hygel_martini/param_opt/qm_to_martini/analysis/README.md`. Passing this check means that sparse refinement can start. It does not make xTB a DFT ground truth or finalize the Martini parameters.
 
-### 04. Full Builder
+### 04. Full builder
 
 ```bash
 cd /path/to/hygel_martini/example/04_full_builder/project
 bash run_full_builder.sh maker.yaml
 ```
 
-anisotropy smoke:
+Anisotropy smoke test:
 
 ```bash
 bash run_full_builder.sh maker_anisotropy_x.yaml
 ```
 
-### 04_1. Example System
+### 04_1. Example system
 
 ```bash
 cd /path/to/hygel_martini/example/04_1_example_system/project
 bash run_example_system.sh maker.yaml
 ```
 
-### 05. Hydrogel Relaxation
+### 05. Hydrogel relaxation
 
 ```bash
 cd /path/to/hygel_martini/example/05_hydrogel_relaxation/project
@@ -243,7 +176,7 @@ bash run_hydrogel_relaxation.sh maker_soft_em.yaml
 bash run_hydrogel_relaxation.sh maker_soft_md.yaml
 ```
 
-### 06. Physical Property
+### 06. Physical properties
 
 ```bash
 cd /path/to/hygel_martini/example/06_physical_property
@@ -257,110 +190,207 @@ hygel-property analyze \
   --manifest validation_manifest.yaml
 ```
 
-이 단계는 계산 성공, 분석 가능성, 직접 실험 비교 가능성을 서로 다른
-gate로 취급합니다. 자세한 설정 형식은
-`hygel_martini/property_extract/README.md`를 봅니다.
+This stage keeps three verdicts separate: calculation success, analyzability, and direct comparability with experiment. The configuration format is described in `hygel_martini/property_extract/README.md`.
 
-패키지에는 논문 workflow에서 사용한 reduced-network topology audit,
-PBC-safe geometry/diffusion, periodic clearance, static structure factor,
-voxel/field correlation, contact aggregation, paired finite-rate mechanics와
-realization-level 통계 primitive가 포함되어 있습니다.
+The package includes the analysis routines used in the paper workflow: reduced-network topology audits, PBC-safe geometry and diffusion, periodic clearance, static structure factors, voxel and field correlations, contact aggregation, paired finite-rate mechanics, and realization-level statistics.
 
-이 기능들이 어떤 validation 실패와 교정을 거쳐 채택되었는지는
-`docs/VALIDATION_HISTORY_AND_DESIGN_RATIONALE.md`에 정리되어 있습니다.
-특히 fixed-water/free-swelling, pore/clearance, finite-rate/equilibrium
-mechanics의 경계를 먼저 확인하는 것을 권장합니다.
+`docs/VALIDATION_HISTORY_AND_DESIGN_RATIONALE.md` (in Korean) records the validation failures and corrections behind these routines. Read its sections on fixed-water versus free-swelling states, pores versus clearance, and finite-rate versus equilibrium mechanics before interpreting results.
 
-## 인용, 연구비, 라이선스
+## Builder details
 
-소프트웨어 인용 정보는 [`CITATION.cff`](CITATION.cff)에 있습니다. 관련
-방법론 논문의 최종 서지정보가 확정되면 software release와 논문을 함께
-인용하도록 갱신합니다.
+### Running the builder and relaxation
 
-This work was supported by the National Research Foundation of Korea (NRF) grant funded by the Korea government (MSIT) (RS-2025-25424498).
+```bash
+hygel-builder path/to/maker.yaml
+hygel-builder --config path/to/maker.yaml
+hygel-relax path/to/maker_soft_em.yaml
+```
 
-이 소프트웨어를 사용한 결과에는 워크플로에서 실제로 쓴 제3자 도구도 함께 인용해 주십시오:
-GROMACS (Abraham et al., 2015), Martini 3 (Souza et al., 2021) 또는 Martini 2 (Marrink et al., 2007),
-Packmol (Martínez et al., 2009), MDAnalysis (Michaud-Agrawal et al., 2011; Gowers et al., 2016),
-NumPy (Harris et al., 2020), SciPy (Virtanen et al., 2020), pandas (McKinney, 2010),
-Numba (Lam et al., 2015), Matplotlib (Hunter, 2007), ASE (Hjorth Larsen et al., 2017),
-CoolProp (Bell et al., 2014), pymbar/MBAR (Shirts and Chodera, 2008),
-PoreBlazer (Sarkisov et al., 2020). DOI 목록은 `CITATION.cff`의 `references`에 있습니다.
+A builder run passes through:
 
-Parts of the code, tests, and documentation were drafted or revised with the assistance of AI coding assistants (OpenAI Codex and Anthropic Claude). All changes were reviewed by the authors, who take responsibility for the software.
+1. `run_example_system.sh` or `run_full_builder.sh` in the `04_*` examples
+2. `hygel-builder` or `python -m hygel_martini.hydrogel_builder`
+3. `hygel_martini.hydrogel_builder.generator.run_hydrogel_builder`
+4. `hygel_martini.hydrogel_builder.config_params.generator.run_hydrogel_example`
+5. `hygel_martini.hydrogel_builder.config_params.read_json.execute_mode`
 
-소스 코드는 MIT License로 배포합니다([`LICENSE`](LICENSE)). Martini
-force-field 파일과 제3자 의존성의 라이선스는 [`LICENSING.md`](LICENSING.md)를
-참고하십시오.
+Post-build relaxation passes through:
 
-## 공용 서버에서의 주의사항
+1. `05_hydrogel_relaxation/project/run_hydrogel_relaxation.sh`
+2. `hygel-relax` or `python -m hygel_martini.hydrogel_builder.relax`
+3. `hygel_martini.hydrogel_builder.relax.generator.run_relax_workflow`
+4. `hygel_martini.hydrogel_builder.relax.soft_em` or `hygel_martini.hydrogel_builder.relax.soft_md`
 
-### GPU 제어
+### BCK dynamic crosslinks
 
-GROMACS 2026의 `gmx_mpi mdrun`는 `-nb cpu` 없으면 GPU를 자동으로 잡습니다.
-다른 사용자의 GPU 작업과 충돌을 방지하려면 `config/simulation.yaml`에서 명시적으로 지정하세요.
+With `dynamic_crosslink_targets_per_stub: 2`, each BCK stub bonds to two nearby backbone ends. A linker with two BCK beads therefore makes four BCK-backbone bonds and two polymer junctions:
+
+```text
+BCK1: polymer A -- polymer B
+BCK2: polymer C -- polymer D
+```
+
+The internal BCK1-BCK2 bond exists only if the linker template or topology defines it. In `connectivity_aware` mode, the exact endpoint-edge plan made by the layout planner is carried into the linker stub metadata, and the runtime crosslinker writes those edges as planned. The builder uses distance only to decide which planned edge goes to which physical BCK stub; the nearest-neighbor search does not reroute a planned endpoint to another chain. Layouts without plan metadata use geometry-only endpoint assignment with a global check that each endpoint is used once.
+
+In `connectivity_aware` mode, the layout planner places BCK junctions by local matching before any bond is written. At each local vertex, the four positions `(000), (011), (101), (110)` have three perfect matchings, labeled x, y, and z:
+
+```text
+x: (000-011), (101-110)
+y: (000-101), (011-110)
+z: (000-110), (011-101)
+```
+
+The planner balances the x, y, and z choices across all vertices and makes the graph of backbone segments and BCK junction edges a single closed circuit where it can. The planner is a pure graph routine in `hygel_martini/hydrogel_builder/core_utils/layout/local_matching.py`. Small lattices are searched exhaustively over assignments whose x, y, and z counts differ by at most one. Large lattices use balanced Kotzig-style two-vertex swaps, Metropolis annealing, and sampled greedy refinement.
 
 ```yaml
 simulation_parameters:
-  # null → CPU 전용 (기본값, 공용 서버 권장)
-  # 0    → GPU 0번 전용 (CUDA_VISIBLE_DEVICES=0)
-  # 1    → GPU 1번 전용 (CUDA_VISIBLE_DEVICES=1)
+  # Turns on the layout graph planner, which chooses the x/y/z transitions.
+  linker_orientation_strategy: connectivity_aware
+
+  # Number of backbone ends each placed BCK stub bonds to.
+  # 2 means one two-BCK linker = two polymer junctions = four BCK-backbone bonds.
+  dynamic_crosslink_targets_per_stub: 2
+
+  # Candidate width of the runtime endpoint search when no plan metadata exist.
+  # It does not limit loops or components.
+  dynamic_crosslink_candidate_limit: 64
+
+# Safety check on the bonded graph of initial_hydrogel.gro/itp after the build.
+# It does not control the x/y/z optimization or the number of loops.
+hydrogel_topology_connectivity_audit:
+  enabled: true
+  min_largest_component_fraction: 0.95
+  max_components: 1
+  fail_on_violation: true
+```
+
+`connectivity_guard` is the old name of `hydrogel_topology_connectivity_audit`. New YAML files should use the new name; the old one is still read for compatibility.
+
+## Configuration files
+
+Builder examples usually include several YAML files from `maker.yaml`:
+
+```yaml
+includes:
+  - config/simulation.yaml   # run environment, GPU, threads, GROMACS path
+  - config/hydrogel.yaml     # backbone and linker types and ratios
+  - config/mdp.yaml          # EM MDP overrides
+  - config/add_series.yaml   # water and ion addition
+  - config/backbone.yaml     # backbone bonded parameters
+```
+
+Two placeholders are common:
+
+- `${CONFIG_DIR}`: the directory of the current maker file
+- `${REPO_ROOT}`: the repository root
+
+```yaml
+simulation_parameters:
+  output_dir: ${CONFIG_DIR}/output
+  gromacs_include_path: ${REPO_ROOT}/martini_v300
+```
+
+### Main `simulation.yaml` parameters
+
+| Parameter | Type | Default | Meaning |
+|---|---|---|---|
+| `gromacs_executable_path` | str | `gmx_mpi` | GROMACS executable |
+| `gpu_id` | int or null | `null` | null runs on CPU only; N pins GPU N |
+| `omp_threads` | int or null | `null` | mdrun threads for builder EM; null lets GROMACS decide |
+| `segment_length` | int | none | CG beads per backbone |
+| `number_of_cells` | int | 1 | repeats of the large cell |
+| `mean_sep` | float | none | mean bead spacing (nm), also used for water packing |
+| `anisotropy` | false or str | `false` | false for isotropic; x, y, or z for anisotropy along that axis |
+| `gel_weight_fraction_mode` | str | `legacy` | how the water count is made an integer and whether ions count: `legacy` rounds down; `exclude_ions` and `include_ions` both round up |
+| `grompp_maxwarn` | int | 1 | grompp warnings allowed in builder EM steps (ion addition uses a fixed 2) |
+| `random_seed` | int | none | random seed for reproducible builds |
+| `debug_mode` | bool | false | true writes a detailed log to output/debug.txt |
+| `neutral_em_coulombtype` | str or null | `Cut-off` | Coulomb type for the neutral EM step |
+| `packmol_pbc` | bool | false | adds an orthorhombic `pbc` line to Packmol input (Packmol 20.15 or later) |
+
+## Running on shared servers
+
+### GPU use
+
+GROMACS 2026 `gmx_mpi mdrun` takes a GPU automatically unless it is given `-nb cpu`. To avoid colliding with other users' GPU jobs, set the device in `config/simulation.yaml`:
+
+```yaml
+simulation_parameters:
+  # null -> CPU only (default; recommended on shared servers)
+  # 0    -> GPU 0 only (CUDA_VISIBLE_DEVICES=0)
+  # 1    -> GPU 1 only (CUDA_VISIBLE_DEVICES=1)
   gpu_id: null
 ```
 
-`05` soft_em / soft_md의 GPU 제어는 `config/common.yaml`의 `runtime.gpu_id`를 사용합니다.
+For `05` soft_em and soft_md, use `runtime.gpu_id` in `config/common.yaml`.
 
-### CPU 스레드 수 제어
+### CPU threads
 
-빌드 EM 단계(`backbone_stage`, `initial_hydrogel` 등)의 mdrun 스레드 수:
+mdrun threads for the builder EM steps (`backbone_stage`, `initial_hydrogel`, and others):
 
 ```yaml
 simulation_parameters:
-  # null → GROMACS 자동 감지 (전체 코어를 잡을 수 있어 공용 서버에서 주의)
-  # N    → mdrun -ntomp N 으로 실행
+  # null -> GROMACS chooses (it may take every core; be careful on shared servers)
+  # N    -> mdrun -ntomp N
   omp_threads: 4
 ```
 
-`05` soft_em / soft_md의 스레드 제어는 `config/common.yaml`의 `runtime.omp_threads` 또는 각 섹션의 `ntomp`를 사용합니다.
+For `05` soft_em and soft_md, use `runtime.omp_threads` in `config/common.yaml` or `ntomp` in each section. Under SLURM, `SLURM_CPUS_PER_TASK` (or `SLURM_NTASKS`) is used when `omp_threads` is null.
 
-SLURM 환경이라면 `SLURM_CPUS_PER_TASK`가 `omp_threads: null`일 때 자동으로 사용됩니다.
+## Environment variables
 
-## 어떤 폴더를 봐야 하나
+- `ADDITIONAL_BASH_PROFILE`: an extra bash profile to source, if needed
+- `ENV_NAME`: a conda environment to activate, if needed
+- `ENVIRONMENT_FILE`: the project-local shell settings each example launcher sources first
+- `GMXRC_PATH`: the GMXRC used to set up GROMACS
+- `GMX_CMD`: the GROMACS command as a shell-level override; `gromacs_executable_path` in YAML takes precedence
+- `SLURM_CPUS_PER_TASK`, `SLURM_NTASKS`: used as mdrun `-ntomp` under SLURM when `omp_threads` is null
+- `OPENMPI_HOME`, `ORCA_HOME`: ORCA paths
 
-- `example/`
-  fresh clone에서도 바로 쓸 수 있는 tracked example project (파라미터 주석 포함한 레퍼런스 yaml)
-- `example_myrun/`
-  `.gitignore`에 포함된 local-only 실행 공간이며 fresh clone에는 없음
-- `hygel_martini/param_opt/`
-  00, 01, 02, 03 쪽 Python 본체
-- `hygel_martini/hydrogel_builder/`
-  04, 04_1, 05 쪽 Python 본체
-- `hygel_martini/property_extract/`
-  06 물성 분석 Python 본체
-- `martini_v300/`
-  사용자가 별도로 준비하는 local force-field 리소스이며 Git 배포 대상이 아님
+`OMP_NUM_THREADS` and `GMX_OPENMP_MAX_THREADS` do not need to be set. Builder EM threads come from `omp_threads` in YAML, and relaxation threads from `runtime.omp_threads`.
 
-헷갈리면 `example/` 아래 각 `project/` 디렉터리만 보면 됩니다.
+For `02_opls_to_martini`, set the GROMACS and Bartender paths in `config/opls_existing_data.yaml` or `project/environment.sh`. For `03_qm_to_martini`, edit the xTB, ORCA, and Bartender paths in `config_common/common.yaml` rather than in shell variables. In either case, set environment variables or YAML values instead of editing the scripts.
 
-## 패키지 구조
+## Output files and debugging
 
-### `hygel_martini.param_opt`
+### `hydrogel_builder`
 
-`hygel_martini.param_opt`는 workflow별 패키지로 나뉘어 있습니다.
+Common outputs:
 
-- `hygel_martini.param_opt.bead_generator`
-  00 단계 예정 위치
-- `hygel_martini.param_opt.qm_to_opls`
-  01 단계
-- `hygel_martini.param_opt.opls_to_martini`
-  02 단계
-- `hygel_martini.param_opt.qm_to_martini`
-  03 단계
-- `hygel_martini.param_opt.polymer_maker`
-  공용 polymer xyz 생성기
+- `output/debug.txt`
+- `output/dynamic_bonding_debug.log`
+- `output/system.top`
+- `output/final_system.gro`
+- `output/final_optimized_system.gro`
+- `output/*_geo_opt/grompp.log`
+- `output/*_geo_opt/mdrun.log`
+- `output/*_geo_opt/mdout.mdp` (the final parameter summary written by grompp)
 
-루트 `hygel_martini.param_opt`를 직접 실행하지 말고, workflow 모듈을
-직접 실행합니다.
+If a build fails, check these in order: `debug.txt`, the failing step's `grompp.log` and `mdrun.log`, `dynamic_bonding_debug.log`, and `system.top`.
+
+### `param_opt`
+
+- `03`: `runs/.../summary.json`
+- `02`: `opls_bartender_runs/.../summary.json`
+
+### `hydrogel_builder.relax`
+
+- `05`: `relax_output/soft_em/final.gro` and `relax_output/soft_md/soft_md.gro`
+
+## Repository layout
+
+- `hygel_martini/`
+  - `core/`: physical constants, utilities, and the configuration loader (`physics.py`, `utils.py`, `config.py`)
+  - `tools/`: general utilities such as `xtb_traj_to_pdb.py`
+  - `bash_settings/`: Bash launchers for all workflows (`common/` for shared environment and Slurm templates; `param_opt/` for stages 02 and 03; `hydrogel_builder/` for stage 04; `relaxation/` for stage 05)
+  - `param_opt/`: parameter preparation, stages 00 to 03 (`bead_generator` is planned for stage 00; `qm_to_opls` 01; `opls_to_martini` 02; `qm_to_martini` 03 with separate `workflow_logic` and `analysis`; `polymer_maker` is the shared polymer xyz generator)
+  - `hydrogel_builder/`: the graph-first builder and relaxation, stages 04, 04_1, and 05
+  - `property_extract/`: manifest-driven property analyses and comparison checks, stage 06
+- `example/`: example projects included in a fresh clone (02 needs your own trajectories), with commented reference YAML files. If in doubt, look only at the `project/` directories under `example/`.
+- `example_myrun/`: a local run directory listed in `.gitignore`; it is not in a fresh clone.
+- `martini_v300/`: local Martini force-field files that you provide; they are not distributed.
+
+Run the `param_opt` workflow modules directly, not the `hygel_martini.param_opt` root:
 
 ```bash
 python -m hygel_martini.param_opt.bead_generator --help
@@ -370,200 +400,43 @@ python -m hygel_martini.param_opt.qm_to_martini --config ...
 python -m hygel_martini.param_opt.qm_to_martini.analysis.reference_qualification --help
 ```
 
-### `hydrogel_builder`
+## Further documentation
 
-`hydrogel_builder`는 builder와 post-build relaxation을 나눠서 제공합니다.
+Several of these documents are in Korean.
 
-```bash
-hygel-builder path/to/maker.yaml
-hygel-builder --config path/to/maker.yaml
-hygel-relax path/to/maker_soft_em.yaml
-```
+- `docs/VALIDATION_HISTORY_AND_DESIGN_RATIONALE.md`: validation failures, corrections, exclusion criteria, and how the current design follows from them
+- `example/README_ko.md`: layout of the example projects (Korean)
+- `hygel_martini/param_opt/README.md`: stages 00 to 03
+- `hygel_martini/hydrogel_builder/README.md`: stages 04, 04_1, and 05
+- `hygel_martini/property_extract/README.md`: stage 06 analysis jobs, validation manifests, and requirement checks
 
-실행 흐름은 아래처럼 이어집니다.
+## Citation, funding, and license
 
-1. `04_*` 예제의 `run_example_system.sh` / `run_full_builder.sh`
-2. `hygel-builder` 또는 `python -m hygel_martini.hydrogel_builder`
-3. `hygel_martini.hydrogel_builder.generator.run_hydrogel_builder`
-4. `hygel_martini.hydrogel_builder.config_params.generator.run_hydrogel_example`
-5. `hygel_martini.hydrogel_builder.config_params.read_json.execute_mode`
+Citation information is in [`CITATION.cff`](CITATION.cff). It will list the methodology paper next to the software release once the paper is published.
 
-후처리 relaxation은 아래 흐름입니다.
+This work was supported by the National Research Foundation of Korea (NRF) grant funded by the Korea government (MSIT) (RS-2025-25424498).
 
-1. `05_hydrogel_relaxation/project/run_hydrogel_relaxation.sh`
-2. `hygel-relax` 또는 `python -m hygel_martini.hydrogel_builder.relax`
-3. `hygel_martini.hydrogel_builder.relax.generator.run_relax_workflow`
-4. `hygel_martini.hydrogel_builder.relax.soft_em` 또는
-   `hygel_martini.hydrogel_builder.relax.soft_md`
+When you publish results obtained with this software, please also cite the third-party tools your workflow used: GROMACS (Abraham et al., 2015), Martini 3 (Souza et al., 2021) or Martini 2 (Marrink et al., 2007), Packmol (Martínez et al., 2009), MDAnalysis (Michaud-Agrawal et al., 2011; Gowers et al., 2016), NumPy (Harris et al., 2020), SciPy (Virtanen et al., 2020), pandas (McKinney, 2010), Numba (Lam et al., 2015), Matplotlib (Hunter, 2007), ASE (Hjorth Larsen et al., 2017), CoolProp (Bell et al., 2014), pymbar/MBAR (Shirts and Chodera, 2008), and PoreBlazer (Sarkisov et al., 2020). The DOIs are listed under `references` in `CITATION.cff`.
 
-### BCK dynamic crosslink 의미
+Parts of the code, tests, and documentation were drafted or revised with AI coding assistants (Google Gemini, OpenAI Codex, and Anthropic Claude). The authors reviewed all changes and take responsibility for the software.
 
-`dynamic_crosslink_targets_per_stub: 2`는 한 BCK stub이 가까운 backbone end 두 개에 결합한다는 뜻입니다. 따라서 BCK 두 개를 가진 linker 하나는 총 네 개의 BCK-backbone bond를 만들고, polymer junction 두 개를 만듭니다.
+The source code is released under the MIT License ([`LICENSE`](LICENSE)). For the licenses of the Martini force-field files and third-party dependencies, see [`LICENSING.md`](LICENSING.md).
 
-```text
-BCK1: polymer A -- polymer B
-BCK2: polymer C -- polymer D
-```
+## Release notes
 
-내부 BCK1-BCK2 bond는 linker template/topology가 명시할 때만 존재합니다. `connectivity_aware`
-모드에서 layout planner가 만든 exact endpoint-edge plan은 linker stub metadata로
-이어지고, runtime dynamic-crosslink는 그 edge를 그대로 materialize합니다.
-두 planned edge 중 어느 것을 어느 physical BCK stub에 연결할지만 거리로
-결정하며, nearest search로 planner endpoint를 다른 chain으로 재배선하지
-않습니다. Planned metadata가 없는 layout에서만 geometry-only
-endpoint assignment와 global endpoint uniqueness validation을 사용합니다.
+### 0.1.3
 
-Connectivity-aware BCK 배치는 runtime endpoint repair가 아니라 layout local-matching 문제입니다. 한 local vertex의 네 위치 `(000), (011), (101), (110)`에서는 x/y/z 선택이 아래 세 perfect matching 중 하나를 고릅니다.
+Documentation only. The README is now in English, with the Korean version in `README_KO.md`, and the list of AI coding assistants includes Google Gemini. The code is unchanged from 0.1.2 apart from the version number.
 
-```text
-x: (000-011), (101-110)
-y: (000-101), (011-110)
-z: (000-110), (011-101)
-```
+### 0.1.2
 
-목표는 각 vertex의 x/y/z 선택을 골고루 배치하면서, backbone segment edge와 BCK junction edge를 합친 graph가 가능한 한 하나의 self-returning cycle이 되게 하는 것입니다. 이 기준 알고리즘은 `hygel_martini/hydrogel_builder/core_utils/layout/local_matching.py`에 순수 graph planner로 분리되어 있습니다. 작은 lattice는 x/y/z count 차이가 1 이하인 transition assignment를 exact enumeration으로 평가하고, 큰 lattice는 balanced Kotzig-style two-vertex swap, Metropolis annealing, sampled greedy refinement를 사용합니다.
+Fixes two side-chain (monomer) placement defects and the handling of a missing bonded-patch file, and adds optional Packmol PBC. Configurations without side chains (`MONOMERS: []`, such as PEGDA and Pluronic) write output byte-identical to 0.1.1.
 
-설정상 역할은 아래처럼 분리합니다.
+- Linker stubs receive no side chains. A stub's `backbone_type` is used only to choose crosslink partners. Version 0.1.1 attached a second side chain to a stub when a matching monomer existed.
+- If the builder finds no clash-free position for a side chain, the build stops with `RuntimeError` instead of warning. Version 0.1.1 skipped the site and wrote a structure without that side chain. In the free-polymer route, each new side chain is also checked against those already placed.
+- If `bonded_topology_patch_file` is set but the file is missing, the build stops with `FileNotFoundError`. Version 0.1.1 printed a notice and skipped the file, which left the generic angle terms in place and wrote no backbone torsions. The default path (`config/backbone.yaml`) is still optional when the key is not set. The portable PEGDA example now registers the PEO-BCK-PEO angle rule explicitly; its output is unchanged.
+- `simulation_parameters.packmol_pbc: true` adds an orthorhombic `pbc` line to the Packmol input (Packmol 20.15 or later) and stops if the fixed base lies outside the box `[0, L]`. The default is `false`, in which case the following minimization removes contacts across the box boundary.
 
-```yaml
-simulation_parameters:
-  # Layout graph planner를 켭니다. x/y/z transition 선택은 여기서 결정됩니다.
-  linker_orientation_strategy: connectivity_aware
+### 0.1.1
 
-  # 이미 배치된 각 BCK stub이 몇 개의 backbone end에 결합할지 지정합니다.
-  # 2이면 one two-BCK linker = two polymer junctions = four BCK-backbone bonds.
-  dynamic_crosslink_targets_per_stub: 2
-
-  # Explicit planner metadata가 없는 runtime endpoint search의 후보 폭입니다.
-  # Loop/component 제한값이 아닙니다.
-  dynamic_crosslink_candidate_limit: 64
-
-# 빌드 후 initial_hydrogel.gro/itp bonded graph를 검사하는 안전장치입니다.
-# x/y/z transition 최적화나 loop 수를 직접 제어하지 않습니다.
-hydrogel_topology_connectivity_audit:
-  enabled: true
-  min_largest_component_fraction: 0.95
-  max_components: 1
-  fail_on_violation: true
-```
-
-`connectivity_guard`는 과거 이름입니다. 새 YAML에서는 더 명확한 `hydrogel_topology_connectivity_audit`를 사용하고, 기존 파일 호환을 위해서만 legacy alias로 읽습니다.
-
-## 설정 파일 규칙
-
-builder 예제는 보통 `maker.yaml`에서 여러 YAML을 include합니다.
-
-```yaml
-includes:
-  - config/simulation.yaml   # 실행 환경, GPU, 스레드, GROMACS 경로
-  - config/hydrogel.yaml     # backbone/linker 종류 및 비율
-  - config/mdp.yaml          # EM MDP 파라미터 override
-  - config/add_series.yaml   # 물/이온 추가 설정
-  - config/backbone.yaml     # backbone 상세 결합 파라미터
-```
-
-자주 쓰는 placeholder는 두 개입니다.
-
-- `${CONFIG_DIR}`
-  현재 maker 파일이 있는 디렉터리
-- `${REPO_ROOT}`
-  저장소 루트
-
-예시:
-
-```yaml
-simulation_parameters:
-  output_dir: ${CONFIG_DIR}/output
-  gromacs_include_path: ${REPO_ROOT}/martini_v300
-```
-
-### 주요 simulation.yaml 파라미터 빠른 참조
-
-| 파라미터 | 타입 | 기본값 | 설명 |
-|---|---|---|---|
-| `gromacs_executable_path` | str | `gmx_mpi` | GROMACS 실행 파일 |
-| `gpu_id` | int\|null | `null` | null=CPU 전용, N=GPU N번 고정 |
-| `omp_threads` | int\|null | `null` | EM mdrun 스레드 수. null=자동감지 |
-| `segment_length` | int | — | backbone당 CG bead 수 |
-| `number_of_cells` | int | 1 | 큰 셀 반복 횟수 |
-| `mean_sep` | float | — | bead 간 평균 간격 (nm), water packing 기준 |
-| `anisotropy` | false\|str | `false` | false=isotropic, x/y/z=해당 축 anisotropy |
-| `gel_weight_fraction_mode` | str | — | `exclude_ions` 또는 `include_ions` |
-| `grompp_maxwarn` | int | — | grompp 허용 경고 수 |
-| `random_seed` | int | — | 재현성을 위한 난수 시드 |
-| `debug_mode` | bool | false | true=output/debug.txt에 상세 로그 |
-| `neutral_em_coulombtype` | str\|null | `Cut-off` | 중성 EM 단계 Coulomb 타입 |
-
-## 자주 쓰는 환경 변수
-
-- `ADDITIONAL_BASH_PROFILE`
-  필요할 때만 추가로 source할 bash profile 경로
-- `ENV_NAME`
-  필요할 때만 activate할 conda 환경 이름
-- `ENVIRONMENT_FILE`
-  각 example launcher가 먼저 source하는 project-local shell 설정 파일
-- `GMXRC_PATH`
-  GROMACS 환경을 source할 GMXRC 경로
-- `GMX_CMD`
-  GROMACS 실행 명령 (shell 레벨 override; yaml의 `gromacs_executable_path`가 우선)
-- `SLURM_CPUS_PER_TASK`, `SLURM_NTASKS`
-  SLURM 환경에서 자동으로 mdrun `-ntomp` 값으로 사용됨 (yaml `omp_threads: null`일 때만)
-- `OPENMPI_HOME`, `ORCA_HOME`
-  ORCA 쪽 실행 경로
-
-> **참고**: `OMP_NUM_THREADS` / `GMX_OPENMP_MAX_THREADS`는 직접 설정하지 않아도 됩니다.
-> 빌드 단계 EM은 yaml의 `omp_threads`로, relaxation 단계는 `runtime.omp_threads`로 제어됩니다.
-
-`02_opls_to_martini`의 GROMACS/Bartender 경로는 `config/opls_existing_data.yaml` 또는 `project/environment.sh`에서 맞춥니다.
-`03_qm_to_martini`의 xTB / ORCA / Bartender 경로는 shell 환경 변수보다 `config_common/common.yaml` 쪽을 수정하는 것을 기준으로 합니다.
-
-가능하면 스크립트를 직접 수정하지 말고 먼저 환경 변수로 맞추는 편이 낫습니다.
-
-## 출력물과 디버깅
-
-### `hydrogel_builder`
-
-자주 보는 출력은 아래와 같습니다.
-
-- `output/debug.txt`
-- `output/dynamic_bonding_debug.log`
-- `output/system.top`
-- `output/final_system.gro`
-- `output/final_optimized_system.gro`
-- `output/*_geo_opt/grompp.log`
-- `output/*_geo_opt/mdrun.log`
-- `output/*_geo_opt/mdout.mdp`  ← grompp가 기록하는 최종 파라미터 요약
-
-builder 쪽에서 막히면 보통 이 순서로 확인하면 됩니다.
-
-1. `debug.txt`
-2. 해당 단계의 `grompp.log`
-3. 해당 단계의 `mdrun.log`
-4. `dynamic_bonding_debug.log`
-5. `system.top`
-
-### `param_opt`
-
-- `03`
-  `runs/.../summary.json`
-- `02`
-  `opls_bartender_runs/.../summary.json`
-
-### `hydrogel_builder.relax`
-
-- `05`
-  `relax_output/soft_em/final.gro`
-  `relax_output/soft_md/soft_md.gro`
-
-## 추가 문서
-
-- `docs/VALIDATION_HISTORY_AND_DESIGN_RATIONALE.md`
-  A/B validation의 실패, 교정, 폐기 기준과 현재 코드의 설계 추적성
-- `example/README_ko.md`
-  tracked example 구성 설명
-- `hygel_martini/param_opt/README.md`
-  00, 01, 02, 03 구조 설명
-- `hygel_martini/hydrogel_builder/README.md`
-  04, 04_1, 05 구조 설명
-- `hygel_martini/property_extract/README.md`
-  06 분석 job, validation manifest, requirement gate 설명
+First public release for the JCC methodology paper (Zenodo DOI 10.5281/zenodo.23208480). The software snapshot used for the earlier Series-01 work is `0.1.0` (`2472810c9430`).
